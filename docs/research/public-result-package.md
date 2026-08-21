@@ -54,15 +54,16 @@ step and must fail if the private evidence is incomplete or inconsistent.
   and local/remote wall-time summaries;
 - a path, SHA-256, media type, privacy classification, and derivation statement
   for every public file;
-- Secret/PII audit result, clean-room run URL/commit, and package verification
-  status;
+- Secret/PII audit result, the frozen execution-source clean-room run and
+  commit, and package content-verification status;
 - `scientific_protocol_deviations: []` and a separate list of operational
   incidents; an empty incident list is not permitted when retained failures
   exist.
 
 The manifest must hash every package file except itself, then carry a canonical
-digest over its own payload excluding its digest field. The release README must
-print the same root digest.
+digest over its own payload excluding its digest field. To avoid a hash cycle,
+the release README prints the private Outcome digest and points readers to the
+Manifest; it does not embed the Manifest digest.
 
 ## Allowed derived content
 
@@ -97,6 +98,21 @@ replaced by package-local aliases rather than published as guessable hashes.
 
 ## Derivation and verification
 
+After the terminal private Outcome exists, run:
+
+```sh
+uv run python scripts/build_public_r2_package.py \
+  --config configs/formal_experiment_r2_a4.yaml \
+  --freeze runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json \
+  --output artifacts/research/banking_r2/release
+```
+
+The command writes a STARTED and terminal package Attempt. Before the core
+finishes it must exit 4 with `PublicPackageBlocked` and create no release
+directory. After completion it deep-verifies private evidence, derives only the
+allow list, scans every payload, and either creates an immutable package or
+verifies byte-identical existing output. It never overwrites conflicting bytes.
+
 1. Verify the existing private Outcome through the formal orchestrator without
    executing new model calls.
 2. Verify complete Attempt and model-call lifecycles, batch/cost reconciliation,
@@ -109,7 +125,10 @@ replaced by package-local aliases rather than published as guessable hashes.
    canonical digest.
 6. Run the Secret/direct-PII audit over the exact intended Git-public tree.
 7. Build/install/test from a clean checkout containing the package, then record
-   the private remote CI run and its compute-cost status.
+   the private remote CI run and its compute-cost status as an external GitHub
+   attestation and in the release-readiness record. The run ID cannot be written
+   back into the content-addressed package commit without creating a commit/CI
+   cycle.
 8. Have the Owner review the package and report. This authorizes neither public
    visibility nor a Release; those require a separate explicit instruction.
 

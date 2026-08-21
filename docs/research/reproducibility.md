@@ -186,3 +186,15 @@ Finally rerun `./scripts/verify_p0.sh` and
 `uv run python scripts/audit_public_tree.py` after building the sanitized
 package. Record every failed check and skipped stage as well as the eventual
 successful rerun.
+
+The sanctioned package command is:
+
+```sh
+uv run python scripts/build_public_r2_package.py \
+  --config configs/formal_experiment_r2_a4.yaml \
+  --freeze runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json \
+  --output artifacts/research/banking_r2/release
+```
+
+Before `outcome.json` exists, exit code 4 plus no output directory is the
+expected fail-closed result—not a partial public package.
