@@ -113,6 +113,15 @@ directory. After completion it deep-verifies private evidence, derives only the
 allow list, scans every payload, and either creates an immutable package or
 verifies byte-identical existing output. It never overwrites conflicting bytes.
 
+Anyone with the sanitized directory—but without private Trace—can independently
+verify its complete file set, Manifest and artifact digests, cross-artifact
+Decision/statistics bindings, cost-status invariants, and Secret/PII scan:
+
+```sh
+uv run python scripts/verify_public_r2_package.py \
+  --package artifacts/research/banking_r2/release
+```
+
 1. Verify the existing private Outcome through the formal orchestrator without
    executing new model calls.
 2. Verify complete Attempt and model-call lifecycles, batch/cost reconciliation,

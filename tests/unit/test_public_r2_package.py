@@ -11,9 +11,9 @@ from agentloopgate.contracts import canonical_digest
 from agentloopgate.experiment.ledger import ExperimentAttemptEvent
 
 
-def _module():
-    path = Path(__file__).parents[2] / "scripts/build_public_r2_package.py"
-    spec = importlib.util.spec_from_file_location("build_public_r2_package", path)
+def _module(name: str):
+    path = Path(__file__).parents[2] / f"scripts/{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -21,7 +21,8 @@ def _module():
     return module
 
 
-builder = _module()
+builder = _module("build_public_r2_package")
+verifier = _module("verify_public_r2_package")
 
 
 def _metadata() -> dict[str, object]:
@@ -149,3 +150,139 @@ def test_missing_outcome_records_failed_attempt_without_creating_package(
     assert events[-1].cost_status.value == "not_applicable"
     assert events[-1].known_cost_usd == 0
     assert events[-1].exit_code == 4
+
+
+def _artifact(payload: dict[str, object], digest_field: str) -> dict[str, object]:
+    return {**payload, digest_field: canonical_digest(payload)}
+
+
+def test_independent_public_verifier_accepts_and_detects_tampering(
+    tmp_path: Path,
+) -> None:
+    roles = _artifact(
+        {"schema_version": "1.0", "role_alias": False},
+        "role_assignment_digest",
+    )
+    statistics = _artifact(
+        {
+            "schema_version": "1.0",
+            "comparisons": [{"comparison_id": str(index)} for index in range(6)],
+        },
+        "statistics_digest",
+    )
+    ablations = {
+        name: _artifact(
+            {"schema_version": "1.0", "ablation_id": name}, "artifact_digest"
+        )
+        for name in (
+            "selector",
+            "diagnosis_direction",
+            "integrity_gate",
+            "plugin_coexistence_overhead",
+        )
+    }
+    decisions = {
+        selector: _artifact(
+            {
+                "schema_version": "1.0",
+                "selector": selector,
+                "outcome": {"record": {"decision": "HOLD"}},
+            },
+            "decision_digest",
+        )
+        for selector in ("native", "agentloopgate")
+    }
+    outcome = _artifact(
+        {
+            "schema_version": "1.1",
+            "experiment_id": "EXP_BANKING_R2",
+            "baseline_snapshot_id": "R2_A4",
+            "native_decision": "HOLD",
+            "final_decision": "HOLD",
+            "logical_core_trial_count": 560,
+            "unique_executed_core_trial_count": 560,
+            "reused_role_trial_count": 0,
+            "lineage_digest": "sha256:" + "1" * 64,
+            "role_assignment_digest": roles["role_assignment_digest"],
+            "statistics_digest": statistics["statistics_digest"],
+            "selector_ablation_digest": ablations["selector"]["artifact_digest"],
+            "diagnosis_ablation_digest": ablations["diagnosis_direction"][
+                "artifact_digest"
+            ],
+            "report_digest": "sha256:" + "2" * 64,
+        },
+        "outcome_digest",
+    )
+    payloads: dict[str, bytes] = {
+        "README.md": (
+            f"# Fixture\n\nOutcome: `{outcome['outcome_digest']}`\n"
+        ).encode(),
+        "outcome.json": builder.canonical_json_bytes(outcome) + b"\n",
+        "role_assignment.json": builder.canonical_json_bytes(roles) + b"\n",
+        "statistics.json": builder.canonical_json_bytes(statistics) + b"\n",
+        "lineage_summary.json": json.dumps(
+            {"private_lineage_digest": outcome["lineage_digest"]}
+        ).encode(),
+        "failure_accounting.json": json.dumps(
+            {
+                "unresolved_attempt_count": 0,
+                "model_usage": {"unresolved_call_count": 0},
+            }
+        ).encode(),
+        "cost_summary.json": json.dumps(
+            {
+                "all_batches_exact": True,
+                "exact_total_usd": "1.00",
+                "local_compute_monetary_cost_status": "unmetered_unknown",
+                "github_actions_compute_monetary_cost_status": (
+                    "unavailable_unknown"
+                ),
+            }
+        ).encode(),
+        "reproduction.json": b"{}\n",
+    }
+    for selector, decision in decisions.items():
+        payloads[f"decisions/{selector}.json"] = (
+            builder.canonical_json_bytes(decision) + b"\n"
+        )
+    for name, artifact in ablations.items():
+        payloads[f"ablations/{name}.json"] = (
+            builder.canonical_json_bytes(artifact) + b"\n"
+        )
+    for report in (
+        "decision.json",
+        "decision.md",
+        "01_candidate_curve.svg",
+        "02_failure_funnel.svg",
+        "03_pool_comparison.svg",
+        "04_gate_waterfall.svg",
+    ):
+        payloads[f"reports/{report}"] = f"fixture {report}\n".encode()
+    derivations = {path: "unit fixture" for path in payloads}
+    metadata = {
+        **_metadata(),
+        "private_outcome_digest": outcome["outcome_digest"],
+        "baseline_snapshot_id": outcome["baseline_snapshot_id"],
+        "native_decision": outcome["native_decision"],
+        "final_decision": outcome["final_decision"],
+        "logical_core_trial_count": outcome["logical_core_trial_count"],
+        "unique_executed_core_trial_count": outcome[
+            "unique_executed_core_trial_count"
+        ],
+        "reused_role_trial_count": outcome["reused_role_trial_count"],
+        "lineage_digest": outcome["lineage_digest"],
+        "statistics_digest": outcome["statistics_digest"],
+        "report_digest": outcome["report_digest"],
+    }
+    output = tmp_path / "release"
+    builder._seal_payloads(
+        output, payloads=payloads, derivations=derivations, metadata=metadata
+    )
+
+    result = verifier.verify_public_release(output)
+    assert result["status"] == "verified"
+    assert result["file_count"] == 21
+
+    (output / "reports/decision.md").write_text("tampered\n")
+    with pytest.raises(verifier.PublicPackageVerificationError, match="hash mismatch"):
+        verifier.verify_public_release(output)
