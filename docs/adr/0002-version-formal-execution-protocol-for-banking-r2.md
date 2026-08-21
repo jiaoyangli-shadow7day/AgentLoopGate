@@ -67,5 +67,7 @@ remains `A0`; paid R2 core execution must use the A1 identity.
 After that freeze and still before paid work, release-artifact clean-room found
 that the Python sdist omitted the configured local build backend. ADR 0003
 preserves A1 as incident evidence and supersedes its execution identity with
-R2_A2. The protocol and study decisions in this ADR remain unchanged; paid R2
-core execution must use the latest A2 identity.
+R2_A2. ADR 0004 later preserves A2/A3 failures and selects R2_A4 after clean
+checkout Linux verification. The protocol and study decisions in this ADR
+remain unchanged; paid R2 core execution must use the latest accepted A4
+identity.

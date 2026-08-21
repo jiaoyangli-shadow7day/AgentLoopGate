@@ -1,6 +1,6 @@
 # ADR 0003: Require release-artifact clean-room before paid Banking R2
 
-- Status: accepted
+- Status: superseded for baseline identity by ADR 0004; clean-room rule retained
 - Date: 2026-08-21
 - Supersedes for paid R2 execution: `R2_A1`
 - Does not replace: R2_A0/R2_A1 snapshots, freeze manifests, incidents, or
@@ -38,10 +38,12 @@ cost boundary are retained in
 
 ## Consequences
 
-The paid Banking R2 workflow must use `configs/formal_experiment_r2_a2.yaml`
-and evaluation-only baseline `R2_A2`. Deployment remains on `A0`. A source-tree
-test pass alone is no longer sufficient for open-source readiness; both Python
-release artifacts and the DeepSeek Harness package must pass their isolated
-installation/conformance paths. Known model spend for these no-model checks is
-USD 0, while unmetered local compute cost remains unknown and is not represented
-as zero.
+This decision originally selected `configs/formal_experiment_r2_a2.yaml` and
+evaluation-only baseline `R2_A2`. ADR 0004 preserves that history and
+supersedes only the current baseline identity with `R2_A4`; the release-artifact
+clean-room requirement remains active. Deployment remains on `A0`. A
+source-tree test pass alone is not sufficient for open-source readiness; both
+Python release artifacts and the DeepSeek Harness package must pass their
+isolated installation/conformance paths. Known model spend for these no-model
+checks is USD 0, while unmetered local compute cost remains unknown and is not
+represented as zero.

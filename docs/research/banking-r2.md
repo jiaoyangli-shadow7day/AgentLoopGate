@@ -13,21 +13,26 @@ claim to invent a universally better self-evolution algorithm.
 - Study plan: `configs/banking_r2_study_v2.yaml`
 - Objective: `configs/objective_contract.yaml`
 - Split: `configs/splits.yaml`
-- Formal configuration: `configs/formal_experiment_r2_a2.yaml`
-- Evaluation baseline: `snapshots/R2_A2/manifest.json`
+- Formal configuration: `configs/formal_experiment_r2_a4.yaml`
+- Evaluation baseline: `snapshots/R2_A4/manifest.json`
 - Combined freeze manifest:
-  `runs/experiments/EXP_BANKING_R2/freeze_manifest_a2.json`
+  `runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json`
 
 The protocol and study-plan digests are verified before paid execution. Every
 R2 batch identity includes the protocol digest. Any change creates a new
 protocol, study, experiment, and baseline identity; it never edits R2 in place.
 The current source revision is
-`tree:sha256:3919fd01a5ca66941fd688f72c88d30f82d1a082cdb7c4f373bb8d92dd03c5bf`.
-`R2_A2` is an evaluation-only snapshot; deployment activation remains on `A0`.
+`tree:sha256:38d6fcdac60739fee6ff196afe59be0aa2301256c84a3ba8acd7a46c361e0afe`.
+`R2_A4` is an evaluation-only snapshot; deployment activation remains on `A0`.
 `R2_A0` was superseded before paid execution when clean-room conformance exposed
 a stale v1 test contract. `R2_A1` was then superseded when release-artifact
 clean-room exposed that its source distribution omitted the configured local
-build backend. Their bytes and failure incidents remain immutable.
+build backend. `R2_A2` was superseded when the first clean Git checkout exposed
+that unanchored artifact ignore rules had omitted two imported core packages
+from both the commit and source identity. `R2_A3` was superseded after Linux CI
+exposed an unhandled asynchronous Bridge `EPIPE`. Their bytes, failed remote
+runs, and failure incidents remain immutable. A4 passed both the complete local
+clean-room and the private Linux GitHub Actions workflow before this freeze.
 
 ## Core matrix
 
@@ -96,12 +101,23 @@ incomplete batch. Pure local steps record zero model calls and
 
 ## Current execution state
 
-Protocol v2, Study v2, the plugin profile, `R2_A2`, the superseding freeze
-manifest, successful source-tree and release-artifact clean-room verification, and the
-two fixture/artifact-replay ablations are complete. Credentialed R2 core work
-has not started. The no-credential preflight exits 4 only for the current-process
-credential boundary. No final R2 selector result, bootstrap interval, Gate
-decision, or diagnosis-direction result exists until that core matrix runs.
+Protocol v2, Study v2, the A4 plugin profile, `R2_A4`, the superseding freeze
+manifest, successful local and Linux source/release-artifact clean-room
+verification, and the two A4 fixture/artifact-replay ablations are complete.
+The combined freeze has semantic digest
+`sha256:587cd2f1373273a40e9725b7eaeb50fafadec9650bbb8ccc295b147d685eea58`
+and was verified by `ATT_D3BC2948CA9D4E2F8D66C64AD54D77B9` against 29
+file bindings. Credentialed R2 core work has not started. The no-credential
+preflight exits 4 only for the three current-process credential boundaries. No
+final R2 selector result, bootstrap interval, Gate decision, or
+diagnosis-direction result exists until that core matrix runs.
+
+The two failed private CI runs consumed 16 and 47 seconds of job wall time;
+the successful A4 job consumed 56 seconds. GitHub Actions monetary cost was not
+available to the experiment process and is therefore `unavailable_unknown`,
+not zero. All A4 preparation and ablation steps made zero model calls and have
+known model spend USD 0; local CPU/filesystem/dependency monetary cost was not
+metered and remains `unmetered_unknown`.
 
 Results may be positive, negative, or HOLD. Thresholds, pools, and analysis
 choices cannot be changed after observing R2 outcomes.

@@ -19,12 +19,13 @@ Adapter、τ³ Adapter、不可变 Snapshot/Batch、可恢复的 A0→Decision �
 以及 A0 Release-ID；A0 Release-ID 因 4/60 Infra Invalid 被诚实封存为 HOLD，尚无最终 Candidate
 Decision。该实验同时暴露出 τ³ 默认重试次数与冻结 Spec 不一致，因此保留为不可变 Incident/
 工程证据，不作为发布级主结论。修正后的 `EXP_BANKING_R2` 已冻结 v2 执行协议、560 个逻辑
-Trial 矩阵、源码身份与非部署评测基线 `R2_A2`；Integrity Gate 和 DeepSeek Harness 插件共存
-两项无模型消融已经完成。凭证相关的对称核心矩阵尚未启动，不能宣称已有 R2 最终结果。
-冻结身份与文件哈希见
-`runs/experiments/EXP_BANKING_R2/freeze_manifest_a2.json`。先前的 `R2_A0` 和 `R2_A1` 分别在
-付费核心开始前被 DSH clean-room conformance 失败和 Python sdist 构建失败所取代；原 Snapshot、
-freeze manifest 和 Incident 均保留，冻结 Objective、Split、Gate、Protocol 与 Study 未改变。
+Trial 矩阵、源码身份与非部署评测基线 `R2_A4`；Integrity Gate 和 DeepSeek Harness 插件共存
+两项无模型消融已经完成，本地 macOS 与私有 GitHub Linux clean-room 均通过。凭证相关的对称
+核心矩阵尚未启动，不能宣称已有 R2 最终结果。冻结身份与文件哈希见
+`runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json`。先前的 `R2_A0` 至 `R2_A3` 分别因
+DSH clean-room conformance、Python sdist、本地存在但未进入 Git 的核心源码，以及 Linux 上的
+Bridge 异步 `EPIPE` 而在付费核心开始前被取代；原 Snapshot、freeze manifest、失败 CI 和
+Incident 均保留，冻结 Objective、Split、Gate、Protocol 与 Study 未改变。
 逐项开源/论文验收状态及尚缺证据见
 [docs/release-readiness.md](docs/release-readiness.md)。
 
@@ -172,7 +173,7 @@ uv run agentloopgate experiment protocol-verify \
 uv run agentloopgate experiment study-verify \
   --config configs/banking_r2_study_v2.yaml --json
 uv run agentloopgate experiment preflight \
-  --config configs/formal_experiment_r2_a2.yaml --json
+  --config configs/formal_experiment_r2_a4.yaml --json
 ```
 
 它逐项核对真实 Pilot Join、冻结 Split、Objective 状态、源码树版本、DSH/τ³/AHE pin、隔离
@@ -184,7 +185,7 @@ Snapshot：
 
 ```sh
 uv run agentloopgate experiment baseline-freeze \
-  --config configs/formal_experiment_r2_a2.yaml --json
+  --config configs/formal_experiment_r2_a4.yaml --json
 ```
 
 全部通过后，一条命令运行或恢复 A0→诊断→AHE 候选→Update-Check→Selection→双 RC→
@@ -192,7 +193,7 @@ Release-ID/OOD→Replay→Gate→报告：
 
 ```sh
 uv run agentloopgate experiment run \
-  --config configs/formal_experiment_r2_a2.yaml --json
+  --config configs/formal_experiment_r2_a4.yaml --json
 ```
 
 每个付费批次都有输入 Hash、保留的原始 τ³ 结果、双侧 Trace/Receipt/RunRecord/Join 与聚合摘要。
