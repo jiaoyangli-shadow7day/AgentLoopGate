@@ -115,8 +115,7 @@ export class BridgeClient {
     if (this.startPromise !== undefined) return await this.startPromise
     this.startPromise = this.spawn()
     try {
-      this.handle = await this.startPromise
-      return this.handle
+      return await this.startPromise
     } finally {
       this.startPromise = undefined
     }
@@ -146,15 +145,22 @@ export class BridgeClient {
       handle.terminate()
       throw new BridgeUnavailableError('bridge stdout is unavailable')
     }
-    this.readStdout(handle.stdout)
+    this.handle = handle
+    this.readStdout(handle, handle.stdout)
+    handle.stdin?.on('error', error => {
+      this.childStopped(handle, `bridge stdin failed: ${errorMessage(error)}`)
+    })
     void handle.done.then(
-      outcome => this.childStopped(`bridge exited with code ${String(outcome.exitCode)}`),
-      error => this.childStopped(`bridge failed to start: ${errorMessage(error)}`),
+      outcome => this.childStopped(
+        handle,
+        `bridge exited with code ${String(outcome.exitCode)}`,
+      ),
+      error => this.childStopped(handle, `bridge failed to start: ${errorMessage(error)}`),
     )
     return handle
   }
 
-  private readStdout(stdout: Readable): void {
+  private readStdout(handle: SubprocessHandle, stdout: Readable): void {
     stdout.setEncoding('utf8')
     stdout.on('data', (chunk: string) => {
       this.stdoutBuffer += chunk
@@ -163,24 +169,24 @@ export class BridgeClient {
         if (newline < 0) break
         const line = this.stdoutBuffer.slice(0, newline)
         this.stdoutBuffer = this.stdoutBuffer.slice(newline + 1)
-        this.acceptLine(line)
+        this.acceptLine(handle, line)
       }
       if (Buffer.byteLength(this.stdoutBuffer) > MAX_REQUEST_BYTES) {
-        this.childStopped('bridge emitted an oversized response')
-        this.handle?.terminate()
+        this.childStopped(handle, 'bridge emitted an oversized response')
+        handle.terminate()
       }
     })
   }
 
-  private acceptLine(line: string): void {
+  private acceptLine(handle: SubprocessHandle, line: string): void {
     let response: BridgeResponse
     try {
       const parsed: unknown = JSON.parse(line)
       if (!isBridgeResponse(parsed)) throw new Error('invalid response fields')
       response = parsed
     } catch (error: unknown) {
-      this.childStopped(`bridge emitted invalid JSONL: ${errorMessage(error)}`)
-      this.handle?.terminate()
+      this.childStopped(handle, `bridge emitted invalid JSONL: ${errorMessage(error)}`)
+      handle.terminate()
       return
     }
     const pending = this.pending.get(response.request_id)
@@ -189,7 +195,8 @@ export class BridgeClient {
     pending.resolve(response)
   }
 
-  private childStopped(message: string): void {
+  private childStopped(handle: SubprocessHandle, message: string): void {
+    if (this.handle !== handle) return
     this.handle = undefined
     this.stdoutBuffer = ''
     this.failAll(new BridgeUnavailableError(message))
