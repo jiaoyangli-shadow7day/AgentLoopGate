@@ -28,6 +28,8 @@ Bridge 异步 `EPIPE` 而在付费核心开始前被取代；原 Snapshot、free
 Incident 均保留，冻结 Objective、Split、Gate、Protocol 与 Study 未改变。
 逐项开源/论文验收状态及尚缺证据见
 [docs/release-readiness.md](docs/release-readiness.md)。
+精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
+[docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 
 ## 无 Key Quickstart
 

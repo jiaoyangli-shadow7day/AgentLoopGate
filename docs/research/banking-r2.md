@@ -121,3 +121,17 @@ metered and remains `unmetered_unknown`.
 
 Results may be positive, negative, or HOLD. Thresholds, pools, and analysis
 choices cannot be changed after observing R2 outcomes.
+
+Result-independent publication material is prepared in:
+
+- [reproducibility.md](reproducibility.md) for exact execution, recovery, and
+  verification commands;
+- [evidence-recording.md](evidence-recording.md) for Attempt, timing, retry,
+  token, cost, and failure-accounting requirements;
+- [public-result-package.md](public-result-package.md) for the privacy and
+  provenance contract of the future sanitized package; and
+- [technical-report-outline.md](technical-report-outline.md) for claims,
+  registered result tables, figures, and limitations.
+
+These documents contain no placeholder scores presented as results. Their
+outcome-dependent fields remain unavailable until the frozen core completes.
