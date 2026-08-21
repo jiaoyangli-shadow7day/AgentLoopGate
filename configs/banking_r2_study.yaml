@@ -1,0 +1,89 @@
+schema_version: "1.0"
+study_id: BANKING_R2_STUDY_1
+experiment_id: EXP_BANKING_R2
+protocol_digest: sha256:34d4d4479c660adf81ddab5d3b933f2eb87e4cda9ee3edad05f7f9bd0be1d35b
+status: frozen
+frozen_at: "2026-08-21T11:36:06Z"
+claim_scope: governance_selection_and_evidence_integrity
+variant_roles:
+  - baseline
+  - updater_native
+  - agentloopgate
+matrix:
+  - stage: update_source
+    task_count: 25
+    trials: 1
+    variant_count: 1
+    target_trials: 25
+  - stage: update_check
+    task_count: 10
+    trials: 1
+    variant_count: 4
+    target_trials: 40
+  - stage: selection
+    task_count: 15
+    trials: 1
+    variant_count: 3
+    target_trials: 45
+  - stage: release_id
+    task_count: 20
+    trials: 3
+    variant_count: 3
+    target_trials: 180
+  - stage: release_ood
+    task_count: 20
+    trials: 3
+    variant_count: 3
+    target_trials: 180
+  - stage: replay
+    task_count: 10
+    trials: 3
+    variant_count: 3
+    target_trials: 90
+core_target_trial_count: 560
+ablations:
+  - ablation_id: selector
+    question: Does independent governance selection outperform the updater-native ranking on frozen release evidence?
+    evidence_mode: core_matrix
+    additional_model_calls: false
+    measurements:
+      - stable_success_task_count
+      - pass_1
+      - mean_cost
+      - p50_latency_ms
+  - ablation_id: integrity_gate
+    question: Would removing evidence-integrity fail-closed behavior permit an unsupported promotion?
+    evidence_mode: artifact_replay
+    additional_model_calls: false
+    measurements:
+      - counterfactual_decision
+      - infra_invalid_count
+      - false_promotion_prevented
+  - ablation_id: diagnosis_direction
+    question: Do diagnosis-targeted asset families generalize differently across Update-Check and Selection?
+    evidence_mode: core_matrix
+    additional_model_calls: false
+    measurements:
+      - success_by_asset_family
+      - failure_type_transition
+      - selection_rank
+  - ablation_id: plugin_coexistence_overhead
+    question: Does the plugin preserve native trace/persistence/OTel behavior with bounded overhead?
+    evidence_mode: headless_fixture
+    additional_model_calls: false
+    measurements:
+      - session_event_hash_equivalence
+      - persistence_survival
+      - otel_coexistence
+      - p50_overhead_ms
+      - p95_overhead_ms
+statistics:
+  statistical_unit: task
+  primary_endpoint: stable_success_task_count
+  paired_comparison: true
+  interval_method: paired_task_bootstrap
+  confidence_level: "0.95"
+  bootstrap_resamples: 10000
+  bootstrap_seed: 20260821
+  invalid_run_policy: report_separately_and_hold_incomplete_batches
+study_digest: sha256:747e886790babfc5a600eead1ef8bdc627285d87120e8411514060d75172679a

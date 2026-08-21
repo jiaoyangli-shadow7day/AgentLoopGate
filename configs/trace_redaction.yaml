@@ -1,0 +1,12 @@
+schema_version: "1.0"
+replacement: "[REDACTED]"
+sensitive_keys:
+  - api_key
+  - authorization
+  - credential
+  - credentials
+  - secret
+  - access_token
+  - refresh_token
+  - session_id
+max_text_bytes: 8192

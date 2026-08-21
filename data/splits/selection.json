@@ -1,0 +1,112 @@
+{
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "pool": "selection",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "document_count": 7,
+      "high_risk": false,
+      "task_id": "task_085",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 7,
+      "high_risk": false,
+      "task_id": "task_051",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 9,
+      "high_risk": false,
+      "task_id": "task_056",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 9,
+      "high_risk": false,
+      "task_id": "task_054",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 11,
+      "high_risk": false,
+      "task_id": "task_028",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 23,
+      "high_risk": false,
+      "task_id": "task_096",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_090",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 4,
+      "high_risk": false,
+      "task_id": "task_017",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 16,
+      "high_risk": false,
+      "task_id": "task_070",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 24,
+      "high_risk": false,
+      "task_id": "task_076",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 5,
+      "high_risk": false,
+      "task_id": "task_057",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_061",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 16,
+      "high_risk": false,
+      "task_id": "task_062",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 25,
+      "high_risk": false,
+      "task_id": "task_097",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 15,
+      "high_risk": false,
+      "task_id": "task_095",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    }
+  ]
+}

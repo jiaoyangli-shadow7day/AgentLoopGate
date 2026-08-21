@@ -1,0 +1,18 @@
+schema_version: "1.0"
+runtime: deepseek-harness
+dsh_version: 0.1.0-rc.8
+dsh_commit: 141eb6fef83422698aef7a981029e843e8161534
+node_range: ^22.19.0 || >=24.0.0
+pnpm_version: 11.7.0
+profile: headless
+plugin_package: "@agentloopgate/dsh-plugin"
+plugin_version: 0.1.0
+bridge_protocol_version: "1.0"
+trace:
+  source: deepseek_session
+  ingest_mode: reference
+  live: true
+  backfill_on_start: true
+  max_batch_events: 100
+  max_buffer_events: 1000
+  redact_policy: configs/trace_redaction.yaml

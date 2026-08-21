@@ -1,0 +1,56 @@
+{
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "pool": "pilot",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_077",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 6,
+      "high_risk": true,
+      "task_id": "task_024",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 5,
+      "high_risk": true,
+      "task_id": "task_023",
+      "tool_complexity": 2,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 16,
+      "high_risk": true,
+      "task_id": "task_064",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_036",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 2,
+      "high_risk": false,
+      "task_id": "task_046",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 5,
+      "high_risk": false,
+      "task_id": "task_015",
+      "tool_complexity": 2,
+      "workflow_family": "knowledge_only"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+schema_version: "1.0"
+max_recovery_attempts: 1
+read_after_write: true
+stop_on_evidence_conflict: true
+isolate_trial_state: true

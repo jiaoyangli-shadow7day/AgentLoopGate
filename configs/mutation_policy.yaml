@@ -1,0 +1,36 @@
+schema_version: "1.0"
+max_files: 4
+max_changed_lines: 160
+auto_executable_risks: ["L", "M"]
+hold_risks: ["H"]
+protected_paths:
+  - "SPEC.md"
+  - "configs/objective_contract.yaml"
+  - "configs/splits.yaml"
+  - "configs/harness_assets.yaml"
+  - "configs/mutation_policy.yaml"
+  - "data/splits/**"
+  - "agentloopgate/gates/**"
+  - "agentloopgate/splits/**"
+  - "agentloopgate/contracts/**"
+  - "agentloopgate/schemas/**"
+  - "agentloopgate/adapters/tau3.py"
+  - "tests/evaluators/**"
+trust_kernel_paths:
+  - "SPEC.md"
+  - "configs/objective_contract.yaml"
+  - "configs/splits.yaml"
+  - "configs/harness_assets.yaml"
+  - "configs/mutation_policy.yaml"
+  - "data/splits/**"
+  - "agentloopgate/contracts/**"
+  - "agentloopgate/schemas/**"
+  - "agentloopgate/splits/**"
+forbidden_content_patterns:
+  - "(?i)required_documents"
+  - "(?i)expected[_ -]?action"
+  - "(?i)gold(en)?[_ -]?(document|action|state|answer)?"
+  - "(?i)release[_ -]?(id|ood)"
+  - "(?i)evaluation_criteria"
+  - "sk-[A-Za-z0-9]{20,}"
+  - "(?i)(api[_-]?key|authorization|credential|secret)\\s*[:=]\\s*[^${][^\\s]{8,}"

@@ -1,0 +1,6 @@
+schema_version: "1.0"
+strategy: "bm25"
+top_k: 6
+query_expansion: true
+require_evidence_before_action: true
+stop_when_all_conditions_covered: true

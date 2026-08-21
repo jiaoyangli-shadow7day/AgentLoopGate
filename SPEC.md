@@ -1,0 +1,1746 @@
+# AgentLoopGate v1.0：Vibe Coding 执行规格
+
+> 文档类型：产品目标 + 工程合同 + 实验协议 + 开发任务单  
+> 版本：v1.0 Execution Core r23  
+> 日期：2026-08-20  
+> 周期：8 周，单人项目  
+> 默认实验载体：τ³-bench `banking_knowledge`  
+> 首个社区宿主：DeepSeek Harness 原生 Cordis 插件  
+> 状态：本文件是 v1 P0 的唯一范围与验收事实源
+
+---
+
+## 0. Coding Agent 必须先读
+
+### 0.1 本文件怎么用
+
+本文件不是愿景文档，而是可以直接拆给 Coding Agent 的执行合同。
+
+- `必须`：P0 验收项，不得自行删除或降级。
+- `应当`：默认实现；只有真实兼容性或成本证据成立时才能调整。
+- `可以`：实现选择，不影响 P0 验收。
+- `禁止`：违反信任边界或实验有效性的行为。
+
+每次开发只领取第 12 节的一张任务卡。Coding Agent 必须：
+
+1. 先读本节、任务卡及其引用章节；
+2. 检查当前仓库和被 pin 的上游源码，不得凭空假设 API、CLI 参数或字段；
+3. 先写或更新测试，再完成最小实现；
+4. 只修改任务卡允许的目录；
+5. 运行任务卡列出的验收命令；
+6. 报告改动文件、测试结果、未解决风险，不得把未运行写成已完成；
+7. 未经产品 Owner 明确批准，不得修改本 SPEC 的目标、Gate、数据池或信任边界。
+
+每张任务卡的“修改范围”隐含允许新增或修改直接覆盖该任务的 `tests/unit/`、
+`tests/integration/`、`tests/e2e/` 与 `tests/fixtures/`；测试不得改写信任核、冻结数据或
+掩盖真实上游失败。
+
+### 0.2 一次任务的完成格式
+
+Coding Agent 完成任务后必须输出：
+
+```text
+Task: Txx
+Status: done | blocked
+Changed: [files]
+Acceptance: [command -> result]
+Artifacts: [paths]
+Risks: [remaining risks]
+Next: [next unblocked task]
+```
+
+### 0.3 开发总原则
+
+- 先跑通无 Key Fixture，再接真实模型和真实 Benchmark。
+- Python Core 是治理事实源；DeepSeek Harness 插件是接入层，不复制治理逻辑。
+- 宿主原生 Trace 是“实际发生了什么”的运行事实源：τ³ 使用其 Raw Result，DeepSeek Harness 使用其 append-only Session Log。
+- AgentLoopGate Evidence Receipt 与 Normalized Records 是治理事实源；它们必须回链宿主 Trace，外部 Telemetry/Observability 不直接参与判分。
+- 候选生成器只能提出修改，不能修改目标、评测、数据划分或发布门。
+- 任何正式结论都必须能回链到任务、Run、Trace、Snapshot、Candidate 和 Decision。
+- 结果不理想不是 Bug；隐藏失败、移动任务、放宽 Gate 才是 Bug。
+
+---
+
+## 1. 产品目标与核心理念
+
+### 1.1 一句话定义
+
+AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治理层：它冻结“什么叫用户价值”，从失败轨迹生成受控的 Harness 修改，再用独立评测、安全、回归和成本门决定该版本应当 Ship、Hold 还是 Rollback。
+
+### 1.2 目标用户
+
+- 负责知识密集型行动 Agent 的 AI PM；
+- Agent/Harness 工程师；
+- 评测、质量与发布负责人；
+- 希望在 DeepSeek Harness 中使用可审计优化与发布治理能力的社区开发者。
+
+### 1.3 项目要证明的唯一主张
+
+> 只按开发集分数选择 Harness 修改，可能带来过拟合、遗忘、违规或成本失控；由产品目标函数驱动、具备独立验证与发布门的闭环，能够拒绝“看似提升、实际不应发布”的修改，并选择更接近稳定用户价值的版本。
+
+项目成功不要求必须产生一个可发布的新版本。若全部候选都不满足 Gate，真实的 `HOLD` 结论也是有效结果。
+
+### 1.4 五个不可删的核心支柱
+
+1. **目标函数先于优化**：先冻结 Objective Contract，再看候选结果。
+2. **失败证据驱动改进**：先定位检索、推理、工具、顺序、验证或恢复问题，再让外部 Updater 修改对应 Harness 资产。
+3. **广义但受控的 Harness 进化**：修改面不限于 Prompt，但所有资产、路径、风险和权限必须登记。
+4. **独立验证决定发布**：Update、Selection、ID、OOD、Replay 角色分离；开发分数不能直接决定发布。
+5. **社区可用的 DeepSeek Harness 插件**：通过官方 Cordis/Bundle 扩展点把 AgentLoopGate 接入 DeepSeek Harness，保留原生 Session/Persistence/Telemetry，并保留不可被插件替换的 Python 治理内核。
+
+### 1.5 北极星指标
+
+`Reliable Policy-Compliant Resolution（RPCR）`：Agent 在独立任务上经过重复运行，持续把外部系统推进到正确目标状态，且没有关键政策违规。
+
+用户价值代理由以下部分共同构成：
+
+- 任务是否严格完成；
+- 是否稳定完成；
+- 是否遵守政策与权限；
+- 是否保留旧能力并能迁移；
+- 成本和延迟是否可接受。
+
+### 1.6 证据边界
+
+本项目证明的是公开受控环境中的目标函数、优化选择和发布治理能力，不证明真实用户采用、留存、分发或商业收益。Benchmark 提升禁止包装成线上银行业务价值。
+
+---
+
+## 2. v1 P0 范围
+
+### 2.1 P0-A：治理内核
+
+| ID | 能力 | P0 验收结果 |
+|---|---|---|
+| P0-01 | Objective Contract | YAML 可校验、可冻结、带 Hash；缺字段阻止运行 |
+| P0-02 | Trace 证据链 | 宿主 Trace 保持原生；AgentLoopGate 保存 SourceTraceRef、Evidence Receipt 和可重建 Normalized Record |
+| P0-03 | 数据池 ACL | 越池读取直接拒绝并记录；Updater 看不到 Selection/Release |
+| P0-04 | Snapshot | Harness、模型、合同、数据 Hash 和代码版本组成可复现 Snapshot |
+| P0-05 | Promotion Gate | 输出逐门证据与 `SHIP_RECOMMENDED/HOLD/REJECT` |
+| P0-06 | 回滚 | 可恢复父 Snapshot；发布动作必须由人类 CLI 触发 |
+| P0-07 | 决策报告 | 自动生成 Markdown/JSON 决策卡和四张核心图 |
+
+### 2.2 P0-B：失败诊断与持续优化
+
+| ID | 能力 | P0 验收结果 |
+|---|---|---|
+| P0-08 | 失败漏斗 | 至少区分检索、政策推理、工具发现、参数、顺序、验证、恢复 |
+| P0-09 | FailureBundle | 将失败证据、价值损失、目标资产和约束结构化交给 Updater |
+| P0-10 | Harness Asset Manifest | 可变资产、路径、风险、操作与回滚单元机器可读 |
+| P0-11 | Mutation Policy | 未登记路径、越权、泄漏、超预算或修改信任核时直接拒绝 |
+| P0-12 | 外部 Updater Adapter | AHE 为默认；命中冻结 Tripwire 时允许 ACE 降级；至少一个真实外部 Updater 跑通 |
+| P0-13 | Candidate Ladder | 至少 3 个真实候选；每个有单一假设、Diff、来源、预测、风险和结果 |
+| P0-14 | 双选择器对照 | 在同一 Snapshot 梯子上比较 Updater-native 与 AgentLoopGate Selector |
+
+### 2.3 P0-C：评测完整性与独立发布验证
+
+| ID | 能力 | P0 验收结果 |
+|---|---|---|
+| P0-15 | Benchmark Adapter | 统一 Adapter 接口；τ³ 是参考实现；JSONL Outcome Adapter 支持社区自有确定性评测 |
+| P0-16 | Trial Reset | 每次 Trial 从相同初始状态开始并生成 `initial_state_digest` |
+| P0-17 | Infra Invalid | 基础设施失败不计 Agent 成败；保留原记录并有限重试 |
+| P0-18 | Outcome-first | 合法替代路径只要结果正确且不违规，不因非必要路径差异判失败 |
+| P0-19 | 多池评测 | Pilot、Update-Source、Update-Check、Selection、Release-ID、Release-OOD 物理互斥 |
+| P0-20 | 可靠性与回归 | Release 使用 `Pass^k`；Replay 检测遗忘；灾难性回退触发 HOLD |
+
+### 2.4 P0-D：DeepSeek Harness 社区插件
+
+| ID | 能力 | P0 验收结果 |
+|---|---|---|
+| P0-21 | 原生 Bundle | `@agentloopgate/dsh-plugin` 通过官方 Bundle/Profile 机制加载，不 Patch Harness Core |
+| P0-22 | AgentLoopGate Service | 在 Cordis Context 中提供版本化 AgentLoopGate 服务定义与 Provider |
+| P0-23 | Python Bridge | 插件通过本地 `stdio JSONL` 调用 Python Core；Schema 和错误码稳定 |
+| P0-24 | Trace Adapter/Observer | 旁路订阅 DeepSeek Session 事件并规范化；不替换 JSONL/SQLite Persistence 或 OTel Telemetry |
+| P0-25 | 社区工具面 | 默认暴露状态、合同校验、候选校验、决策解释；Propose 需显式启用 |
+| P0-26 | 权限边界 | 模型永远不能打开 Final、改 Gate、改 Split、Promote 或扩大插件权限 |
+| P0-27 | 生命周期 | 在 pin 的 `headless` Profile 中可加载、调用、卸载；卸载无残留 Effect |
+| P0-28 | Core Independence | 未安装或关闭插件时，Python CLI、Gate、报告和 Fixture Demo 仍完整可用 |
+| P0-29 | 社区 Bootstrap | `agentloopgate init --runtime deepseek-harness` 生成最小配置并报告 observe/check/govern 三档 Readiness |
+
+### 2.5 P0-E：可复现开源交付
+
+| ID | 能力 | P0 验收结果 |
+|---|---|---|
+| P0-30 | No-key Demo | 一条命令运行 Fixture 的基线、候选、Gate、报告和插件 Conformance |
+| P0-31 | Public Release | 公开仓库、明确许可证、锁文件、第三方声明、Quickstart 和 Release Artifact |
+| P0-32 | 真实实验包 | 保存脱敏配置、聚合结果、候选 Diff、决策卡和失败案例 |
+| P0-33 | Banking 纵向验证 | 3—7 个 Pilot 由 DeepSeek Harness 承载模型会话、τ³ 执行工具并判 Outcome，AgentLoopGate 关联双侧证据并完成诊断与 Gate |
+
+### 2.6 P0 最终交付物
+
+v1 只要求以下八类交付，不再为同一证据生成多份文档：
+
+1. 可复现的公开仓库与 README；
+2. 可独立运行的 `agentloopgate` Python CLI；
+3. `Objective Contract`、数据池 Manifest、Asset Manifest 与冻结 Hash；
+4. A0 基线、至少 3 个候选、同一 Snapshot 梯子与双选择器对照；
+5. ID/OOD/Replay/安全/成本结果、至少一个真实拒绝案例，以及 DeepSeek 插件 × Banking Pilot 纵向验证；
+6. 最终 Decision Record 与可回滚 Snapshot；
+7. 可安装、可卸载、兼容原生 Trace 的 DeepSeek Harness 插件包及一份集成说明；
+8. No-key Demo、四张核心图和 2—3 分钟演示。
+
+### 2.7 明确退出 P0 的内容
+
+以下内容不是被否定，而是移入 `LATER.md`，不得阻塞 v1：
+
+- 97 个任务的完整 Agent Capability Map；
+- Evaluation-to-Data 训练数据配方和样例包；
+- 2 模型 × 2 Harness 联合实验；
+- Langfuse 或第二套外部 Trace UI；
+- Web 控制台；
+- 多 Runtime Host；
+- AHE/ACE 之外的优化器排行榜；
+- 自动执行 Risk-H 代码修改；
+- 全量人工 Task Audit、双人盲标 κ、LLM Grader 校准平台；
+- 16 张图表、英文论文、原创证明包和多份重复设计文档。
+
+### 2.8 非目标
+
+- 不训练或修改基础模型权重；
+- 不自建 Benchmark、银行系统或通用 Observability 平台；
+- 不允许 Updater 修改任务、Gold、评测器、Objective、Gate 或数据划分；
+- 不做真实生产流量、自动灰度或无人审批发布；
+- 不把 DeepSeek Harness 插件写成第二份 Python Core；
+- 不以“首次提出”或工件数量作为项目价值。
+
+---
+
+## 3. 系统架构与信任边界
+
+### 3.1 组件关系
+
+```text
+τ³ Runner ----------> τ³ Raw Result ----------------------+
+                                                           |
+DeepSeek Agent -----> append-only Session Log ------------+---> SourceTraceRef
+                       |                                   |          |
+                       +--> JSONL / SQLite Persistence     |          v
+                       +--> OTel（可选，继续工作）          |   Evidence Receipt
+                       +--> AgentLoopGate Observer ------------+          |
+                                                                      v
+                                                               Normalized Records
+                                                                      |
+                               +----------------------+---------------+-----------+
+                               |                      |                           |
+                               v                      v                           v
+                          Diagnosis              Evaluation                 Cost Ledger
+                               |                      |                           |
+                               v                      +------------+--------------+
+                        FailureBundle                            |
+                               |                                 v
+                               v                          Promotion Gate
+                        AHE / ACE Adapter                        |
+                               |                                 v
+                               v                     Decision + Snapshot + Report
+                          Candidate Patch
+```
+
+DeepSeek Harness 插件和 τ³ Adapter 是两个输入 Surface。通用接入时二者可以独立使用；Banking
+Reference Validation 中，DSH 承载同一个 Target Agent 的模型会话，τ³ 承载真实工具执行、环境
+状态与独立 Outcome。它们共享 SourceTraceRef、RunRecord、Candidate、Gate 和 Report，不各自
+实现一套规则，也不能把两次互不相干的运行伪装成一次纵向验证。
+
+### 3.2 Trace 证据层级
+
+AgentLoopGate 对所有 Runtime 使用同一套三层证据模型：
+
+| 层 | 作用 | τ³ 来源 | DeepSeek Harness 来源 |
+|---|---|---|---|
+| H0 Host Trace | 宿主运行事实，“实际发生了什么” | τ³ Raw Result/Trace | append-only Session Log |
+| L0 Evidence Receipt/Mirror | 保存来源指针、序号范围、Hash、采集状态和必要脱敏副本 | τ³ Artifact Ref | `session.id + event.seq`、Digest、可选镜像 |
+| L1 Normalized Record | 统一诊断、评测和 Gate 字段 | RunRecord | RunRecord |
+
+规则：
+
+- H0 不被 AgentLoopGate 修改；
+- L1 必须回链 L0，L0 必须回链 H0；
+- Gate 读取 L1，但正式决策前必须通过 Evidence Verify；
+- 若 H0 可能被宿主清理，`trace_ingest_mode=mirror` 必须保存经过脱敏的必要事件副本；
+- 正式 Run 只有在 H0 保留期覆盖复现期且 Revision 可验证时才可使用 `reference`；否则必须使用 `mirror`；
+- DeepSeek OTel 是可选的外部观测出口，不是 Gate 事实源，因为它可以关闭、采用 best-effort 交付或应用不同的 Redaction；
+- AgentLoopGate 插件不得注册一个与现有 `ctx.sessionTelemetry` 冲突的 Backend。
+
+### 3.3 Governance Trust Kernel
+
+以下内容属于不可变信任核：
+
+- Objective Contract 及其 Hash；
+- 数据池 Manifest、ACL 和 Final 访问规则；
+- τ³ 任务、初始状态、Gold、Evaluator 与 Grader；
+- Leakage Scanner、Mutation Policy 和 Promotion Gate；
+- SourceTraceRef、Evidence Receipt/Hash、Snapshot Manifest、Decision Record；
+- Promote/Rollback 的人类授权边界。
+
+Updater、DeepSeek Harness 插件、模型工具和外部 Trace 平台都不能替换、覆盖或绕过信任核。
+
+### 3.4 可变 Harness
+
+`configs/harness_assets.yaml` 必须登记以下资产族：
+
+| 资产族 | 示例 | P0 自动能力 | 默认风险 |
+|---|---|---|---|
+| Prompt/Instruction | system prompt、完成检查表 | 允许生成、检查、评测 | L |
+| Context/Memory/Skill | playbook、经验库、恢复指南 | 允许生成、检查、评测 | L/M |
+| Retrieval/Search Policy | query 拆解、top-k、rerank、停止条件 | 允许生成、检查、评测 | M |
+| Tool Contract/Routing | 描述、Schema、参数校验、路由 | 允许生成、检查、评测 | M |
+| Orchestration/State | 顺序、重试、验证、恢复配置 | 仅登记配置型资产并评测 | M |
+| Middleware/Runtime Code | Hook、权限、依赖、可执行代码 | 可登记和生成提案；P0 禁止自动执行 | H |
+
+“广义 Harness”是长期资产模型；P0 的安全执行面聚焦 L/M。Risk-H 候选可以被记录，但必须自动 `HOLD_RISK_H`，不能进入正式 RC。
+
+### 3.5 依赖方向
+
+```text
+schemas <- core services <- CLI
+schemas <- bridge protocol <- DeepSeek Harness plugin
+adapters -> core services
+updaters -> candidate registry -> evaluation -> gate
+reporting -> normalized records + decisions
+```
+
+禁止 Python Core 依赖 DeepSeek Harness。插件可以依赖生成的 JSON Schema/TypeScript 类型，但不得手写另一套不一致的业务规则。
+
+### 3.6 RuntimeTraceAdapter 接口
+
+Core 只依赖宿主无关的 Trace 接口，τ³ 与 DeepSeek Harness 分别实现 Adapter：
+
+```python
+class RuntimeTraceAdapter(Protocol):
+    def attach(self, source: RuntimeSource) -> SourceTraceRef: ...
+    def sync(self, ref: SourceTraceRef) -> EvidenceReceipt: ...
+    def verify(self, ref: SourceTraceRef) -> EvidenceStatus: ...
+    def normalize(self, receipt: EvidenceReceipt) -> list[RunRecord]: ...
+```
+
+新 Runtime 只需提供这四个动作和确定性 Outcome Adapter，无需修改诊断、Updater、Gate、Snapshot 或报告模块。Adapter 必须使用宿主公开 API；若宿主只提供导出文件，则该文件必须有稳定身份、Digest 和可校验的事件顺序。
+
+---
+
+## 4. Objective Contract 与 Promotion Gate
+
+### 4.1 合同最小 Schema
+
+`configs/objective_contract.yaml`：
+
+```yaml
+contract_version: "1.0"
+project: "AgentLoopGate"
+primary_metric: "reliable_policy_compliant_resolution"
+benchmark:
+  name: "tau3-bench"
+  suite: "banking_knowledge"
+  commit: "PIN_BEFORE_PILOT"
+reliability:
+  trials: 3
+  stable_success_required: 3
+gates:
+  leakage_hits_max: 0
+  critical_violations_max: 0
+  id_stable_task_net_min: 0
+  ood_stable_task_net_min: -1
+  replay_stable_task_net_min: -1
+  catastrophic_regressions_max: 0
+  mean_cost_ratio_max: 1.20
+  p50_latency_ratio_max: 1.25
+decision_order:
+  - evaluation_integrity
+  - leakage
+  - critical_violation
+  - id_effect
+  - ood_noninferiority
+  - replay
+  - reliability
+  - cost
+  - latency
+frozen_at: null
+contract_digest: null
+```
+
+Pilot 后、任何正式候选结果产生前，填入真实 commit、阈值、冻结时间和规范化 SHA256。冻结后变更必须创建新合同版本，不得覆盖旧文件。
+
+### 4.2 指标
+
+**结果：**
+
+- `Pass^1`：单次严格成功；
+- `Pass^k`：同一任务 k 次全部成功；
+- `stable_success_task_count`：满足 Pass^k 的任务数；
+- `terminal_state_correct`：最终状态正确。
+
+**诊断：**
+
+- Gold Document Recall/Full Coverage；
+- 正确工具发现、选择、参数和顺序；
+- Search-to-Action Conversion；
+- 恢复成功率。
+
+Gold 只用于离线诊断，禁止进入 FailureBundle 的可见文本或 Candidate Patch。
+
+**安全：**
+
+- Critical Violation Count；
+- Policy Violation Rate；
+- Unsupported Action Rate；
+- User-claim Overtrust。
+
+**效率：**
+
+- Token、模型调用、检索调用、工具调用；
+- 延迟、单任务成本；
+- 每新增一个稳定成功任务的边际成本。
+
+### 4.3 不使用单一加权总分
+
+Gate 使用字典序：先评估完整性和安全硬门，再看 ID/OOD/Replay，再看可靠性、成本和延迟。任何综合分只可用于画 Pareto 图，不能覆盖硬门失败。
+
+### 4.4 Gate 决策算法
+
+```python
+def decide(candidate, baseline, contract):
+    if not evaluation_integrity_complete(candidate, baseline):
+        return HOLD("evaluation_integrity")
+    if candidate.mutates_trust_kernel or candidate.leakage_hits > 0:
+        return REJECT("trust_boundary_or_leakage")
+    if candidate.risk_tier == "H":
+        return HOLD("risk_h_not_executable_in_v1")
+    if candidate.release_critical_violations > 0:
+        return HOLD("critical_violation")
+    if candidate.id_stable_tasks - baseline.id_stable_tasks < contract.id_min:
+        return HOLD("id_effect")
+    if candidate.ood_stable_tasks - baseline.ood_stable_tasks < contract.ood_min:
+        return HOLD("ood_noninferiority")
+    if candidate.replay_stable_tasks - baseline.replay_stable_tasks < contract.replay_min:
+        return HOLD("replay_regression")
+    if candidate.catastrophic_regressions > 0:
+        return HOLD("catastrophic_regression")
+    if candidate.mean_cost / baseline.mean_cost > contract.cost_ratio_max:
+        return HOLD("cost")
+    if candidate.p50_latency / baseline.p50_latency > contract.latency_ratio_max:
+        return HOLD("latency")
+    return SHIP_RECOMMENDED
+```
+
+`SHIP_RECOMMENDED` 不是自动发布。只有人类执行 `agentloopgate snapshot promote` 后，Snapshot 才进入 `SHIPPED`。
+
+### 4.5 灾难性回退
+
+若 A0 在某任务为 `k/k`，候选为 `0/k`，记为灾难性回退。高风险状态修改任务发生一次即 HOLD。
+
+---
+
+## 5. 数据划分、实验与评估完整性
+
+### 5.1 97 个任务的冻结划分
+
+| Pool | 数量 | 用途 | Updater 可见性 |
+|---|---:|---|---|
+| Pilot | 7 | 接入、成本、字段和规则校验 | 可见；永久排除正式结果 |
+| Update-Source | 25 | 产生失败证据和候选 | 可见 |
+| Update-Check | 10 | 迭代快速筛选 | 仅聚合结果，Trace 不回传 |
+| Selection | 15 | 在冻结候选中选择 RC | 不可见 |
+| Release-ID | 20 | 独立同分布确认 | 终点前不可见 |
+| Release-OOD | 20 | 按完整工作流族预留的迁移确认 | 终点前不可见 |
+
+Replay 从 Update-Source 预注册 10 个代表性任务，不新增数据池。
+
+每个池保存独立 JSON Manifest 和 SHA256。正式候选生成前运行 `split freeze`；冻结后禁止移动任务。
+
+### 5.2 OOD 构造
+
+在看候选结果前，按业务工作流、产品类别、高风险状态修改、文档数和工具调用复杂度聚类，预留 2—3 个完整工作流族作为 Release-OOD。禁止从随机切分中事后挑选“不利任务”包装成 OOD。
+
+### 5.3 Outcome-first
+
+- 主判据是最终状态与必要政策，不是是否复现唯一 Expected Action 路径；
+- Action 顺序只有在改变业务语义或安全性时才是硬门；
+- Outcome 与路径 Grader 冲突时创建 Eval Incident，不得默认归因于 Agent；
+- v1 不使用软性 LLM Grader 参与 Ship/Hold。
+
+τ³ 参考实现固定使用 `tau2-bench v1.0.1`、commit
+`fc0055dc4e0a316c3f83133267fbd6faaa770992`。运行时通过
+`uv run --with socksio==1.0.0` 注入精确依赖，使宿主使用 SOCKS 代理时仍保持可复现；不得
+修改上游源码来隐式修补运行环境。Adapter 必须清除父 `uv run` 的解释器标记、强制 τ³
+子进程使用 UTC，并将该固定版本产生的无时区时间解释为 UTC。Adapter 以官方
+`reward_info.reward` 在官方容差内等于 `1` 作为严格成功；`action_checks` 默认只进入离线诊断，
+只有 `reward_basis` 明确包含 `ACTION` 时才参与上游 Outcome。仅官方
+`termination_reason=infrastructure_error` 直接映射为 τ³ Infra Invalid；AgentLoopGate 自身发现的
+Reset、Evidence 或 Evaluator 完整性错误仍按第 5.5 节映射。有效运行的成本取 `agent_cost`，Token
+从 Agent 消息的 `usage` 汇总，延迟取 `duration`。有效运行缺少正式 Gate 所需的成本或评测证据时
+必须标记评测不完整，不得静默补零。对于没有形成可计费 τ³ 结果的 Infra Invalid，`agent_cost`
+可以保持未知（`null`），不得推断为零；它不进入业务成功率或有效运行成本 Gate，但必须保留
+Infra Invalid 状态、执行时间、失败类型、重试拓扑以及可验证的 DeepSeek Harness Trace/Token
+事实。失败尝试的 Trace 推导成本只能作为恢复成本旁证，不得回填为 τ³ `agent_cost`。
+
+社区 JSONL Outcome 必须声明独立 Evaluator 身份、被评系统身份、Pool、Snapshot，并引用可校验
+Digest 的 Evaluator Evidence Artifact。Evaluator 与被评系统相同、Evidence 缺失或上下文不匹配时
+拒绝导入；JSONL 中的自报分数不是治理证据。
+
+### 5.4 Trial Reset
+
+每个 Trial 必须：
+
+1. 恢复数据库、Fixture、Harness Snapshot 和缓存到冻结初始状态；
+2. 以 `run_id/attempt_id` 隔离工作目录和 Session；
+3. 禁止读取其他 Trial 的 Trace、候选结果和残留会话；
+4. 记录 `initial_state_digest`、`terminal_state_digest` 和环境健康状态；
+5. A0 与候选使用相同模型、资源、超时和工具面。
+
+### 5.5 Infra Invalid
+
+以下情况标记 `infra_invalid`，不进入成功/失败分母：Reset Hash 不符、依赖服务不可用、Evaluator 崩溃、Trace 缺失、共享资源故障或 Provider 系统错误。
+
+- 每个任务最多自动重试 1 次；
+- 原失败记录必须保留；
+- 超过上限则该批次 HOLD；
+- 修复 Grader 或环境 Bug 后，必须对 A0 与全部受影响候选对称重跑。
+
+即使批次因 Infra Invalid 或缺失有效 Trial 而 HOLD，也必须封存原始结果、Trace、RunRecord、
+Evidence Join、完整性问题和 HOLD 原因，不能让“封存失败”遮蔽“评测失败”。纯证据表示层修复
+（不改变原始 Outcome、任务执行、成功判据或有效运行成本）可以在 Eval Incident/ADR 授权后，
+对同一份不可变原始字节重新摄取并生成 HOLD Artifact，无需再次调用模型；该快速裁决不能把
+HOLD 改写为通过，也不能替代后续获得决策级证据所需的对称重跑。
+
+任何新的付费正式实验还必须引用冻结、可验 Digest 的 `ExecutionProtocol`，至少固定并校验
+重试次数/间隔、Turn 超时、并发、Resume、时区、成本缺失策略和延迟证据口径；其 Digest 必须
+进入 `FormalBatchSpec` 和 Batch ID。旧实验若未绑定 Protocol，只允许 existing-only 验真，不能
+继续产生新的正式运行。Banking R2 显式使用 concurrency=1、max_retries=1、retry_delay=1s、
+DSH turn timeout=180s；变更这些值必须新建 Protocol、Experiment 和 Baseline 身份。
+
+### 5.6 最小评估审计
+
+P0 不建设大型评估审计平台，但必须完成：
+
+- 97 个任务的 Manifest、Task、Grader 与初始状态 Hash 自动审计；
+- 7 个 Pilot 的 Reference/Reset/合法替代路径 Fixture；
+- 正式运行中所有 Critical Violation、灾难性回退、Outcome 冲突和 Infra Invalid 的人工复核；
+- 所有未解决 Eval Incident 阻止最终 Ship。
+
+### 5.7 候选实验流程
+
+1. 在 Update-Source 运行 A0；
+2. 输出失败漏斗和 Top FailureBundle；
+3. AHE 生成 Candidate；若满足第 7.6 节 Tripwire，冻结 ADR 后改用 ACE；
+4. Candidate Check 检查路径、信任核、泄漏、风险和 Diff 预算；
+5. 在 Update-Check 筛查，最多保留 6 个候选；
+6. 同一轮候选必须从同一个冻结 A0 形成兄弟 Snapshot，避免把前序候选的影响混入后序候选；
+   本轮 Gate 选出的版本才可成为下一轮父 Snapshot，跨轮形成 `A0 → A1 → ... → An`；
+7. 冻结后在 Selection 比较候选；
+8. 在同一梯子上生成 `RC_native` 与 `RC_agentloopgate`；
+9. 对两者和 A0 运行 Release-ID/OOD，不能隐藏任一选择器的失败；
+10. 运行 Replay、Gate，输出最终决策；
+11. 若 Ship，执行回滚演练；若 Hold，保留失败证据。
+
+### 5.8 最小候选要求
+
+- 最少 3 个、最多 6 个真实候选；
+- 每个候选只有一个可证伪主假设；
+- 至少覆盖 2 个 Harness 资产族；
+- 至少 1 个候选被真实 Gate 拒绝；
+- 不强制必须有通过 Gate 的候选。
+
+---
+
+## 6. 失败诊断与候选修改
+
+### 6.1 失败分类
+
+```text
+retrieval_miss
+document_selection_error
+cross_document_reasoning_error
+policy_application_error
+tool_discovery_error
+tool_selection_error
+tool_parameter_error
+action_order_error
+state_verification_error
+recovery_error
+user_claim_overtrust
+spec_or_evaluator_issue
+infra_failure
+unknown
+```
+
+失败优先级：
+
+```text
+priority = affected_task_count × user_value_loss × risk_weight × fixability
+```
+
+该值用于排序 FailureBundle，不进入发布 Gate。
+
+### 6.2 FailureBundle 最小字段
+
+```json
+{
+  "failure_bundle_id": "FB_001",
+  "snapshot_id": "A0",
+  "source_pool": "update_source",
+  "failure_type": "policy_application_error",
+  "affected_run_ids": ["R_001"],
+  "evidence_refs": ["runs/normalized/R_001.json"],
+  "redacted_summary": "Agent 找到主规则但遗漏例外条件",
+  "target_asset_families": ["context_memory_skill", "retrieval_search_policy"],
+  "expected_behavior_change": "执行前核对例外与必要前置条件",
+  "must_not_change": ["objective", "grader", "split", "final_access"],
+  "budget": {"max_files": 4, "max_changed_lines": 160}
+}
+```
+
+FailureBundle 禁止包含 Release 任务、Gold 文档清单、Expected Action 或目标状态答案。
+
+### 6.3 Candidate 最小要求
+
+Candidate 必须保存：
+
+- `candidate_id`、`parent_snapshot_id`；
+- `updater` 和精确版本/commit；
+- 单一主假设；
+- 目标资产族、Risk Tier；
+- Patch/Diff 路径和 Hash；
+- 来源 FailureBundle Hash；
+- 修改前预测；
+- Candidate Check 结果；
+- Update-Check/Selection/Release 结果；
+- 最终状态与拒绝理由。
+
+### 6.4 修改预算
+
+默认单候选：
+
+- 最多 4 个文件；
+- 最多 160 行净变更；
+- 必须有明确回滚单元；
+- 多资产修改必须说明为何属于同一原子变化；
+- 超预算自动 `REJECT_CHANGE_BUDGET`，不得静默拆分后沿用同一 ID。
+
+---
+
+## 7. Updater Adapter
+
+### 7.1 统一接口
+
+```python
+class UpdaterAdapter(Protocol):
+    name: str
+    version: str
+
+    def doctor(self) -> UpdaterHealth: ...
+
+    def propose(
+        self,
+        parent_snapshot: SnapshotManifest,
+        failure_bundle: FailureBundle,
+        asset_manifest: HarnessAssetManifest,
+        mutation_policy: MutationPolicy,
+        count: int,
+    ) -> list[CandidateRecord]: ...
+```
+
+Adapter 只负责把项目证据交给外部方法并接回 Patch。Candidate Check、评测和发布决策必须由 AgentLoopGate Core 完成。
+
+### 7.2 P0 Updater 决策
+
+- 默认：AHE；
+- 降级：ACE；
+- 禁止：同时跑多种方法后选择结果最好者；
+- P0 完成条件：AHE 或 ACE 至少一个真实外部方法生成可登记 Candidate；纯手写 Candidate 只能用于 Fixture，不能满足真实实验验收。
+
+P0 的 AHE pin 为 `agentic-harness-engineering 0.1.0`、commit
+`8b2a55d97590363fe50c3cc6b5e833b020a4bb4c`，其 NexAU 依赖由上游锁定到 `v0.3.9`。
+AHE 必须在与 Core 隔离的 Python 3.13+ 环境运行；只把 FailureBundle 命中的父 Snapshot 白名单资产
+复制进临时 Workspace，并通过 OS Sandbox 将写权限限制在该 Workspace。AHE 原始 Trace、版本、
+输入 Hash、Token/成本与文件 Diff 回收后仍须经过 Core Candidate Check。API Key 只从进程环境继承，
+不得写入 AHE 配置快照。未触发第 7.6 节 Tripwire 时，ACE 保持禁用。
+
+### 7.3 AHE 可见范围
+
+AHE 进程只能读取：
+
+- 父 Snapshot 的可变 Harness 资产；
+- Update-Source 的脱敏 FailureBundle；
+- Harness Asset Manifest；
+- Mutation Policy；
+- 候选工作目录。
+
+AHE 禁止读取 Selection、Release、Gold、Evaluator 源码、Objective/Gate 写权限和历史私有决策。
+
+### 7.4 AHE 输出适配
+
+Adapter 必须将外部输出规范化成 CandidateRecord，并保存：
+
+- 原方法输出的不可变副本；
+- 方法版本、输入 Hash、Token/成本；
+- 实际文件 Diff；
+- 无法映射字段的明确 `unsupported_fields`；
+- 失败时的退出码和 stderr 摘要。
+
+### 7.5 Updater-native 与 AgentLoopGate Selector
+
+两种选择器读取完全相同的 Candidate Ladder：
+
+- `RC_native`：按外部 Updater 原生更新/选择信号得到；
+- `RC_agentloopgate`：按冻结 Objective、Selection、Replay、安全与成本得到。
+
+若被 pin 的 Updater 不暴露结构化 score/selector（AHE `0.1.0` 的单次
+`run_evolve_agent` 即如此），Adapter 必须把这一字段记为 `unsupported`，并以该方法明确的
+continuation/emission 顺序作为 `RC_native`，同时保存信号来源。禁止从 AgentLoopGate 的
+Update-Check 分数反向伪造“Updater-native score”。
+
+比较目标是证明“治理选择层是否改变发布判断”，不是宣称 AgentLoopGate 发明了更好的自进化算法。
+
+### 7.6 AHE → ACE Tripwire
+
+只有以下任一条件在最多 3 个工作日的真实 Spike 中成立，才允许提交 ADR 并降级 ACE：
+
+1. AHE 无法在被 pin 环境启动或产生文件级候选；
+2. AHE 不能限制写入 Asset Manifest 白名单；
+3. AHE 必须读取 Final、Gold 或修改信任核才能工作；
+4. AHE 输出无法回链输入证据、版本与 Diff；
+5. AHE 的依赖/许可证阻止项目公开发布。
+
+“AHE 结果不好看”不是降级理由。ACE 最多再投入 2 个工作日；仍失败则 P0 标记为阻塞，不用自研优化器冒充外部方法。
+
+---
+
+## 8. DeepSeek Harness P0 插件
+
+### 8.1 产品定位
+
+插件是 AgentLoopGate 面向 DeepSeek Harness 社区的原生接入与分发入口。社区开发者安装后，可以：
+
+1. 继续使用 DeepSeek Harness 原生 Session Log、JSONL/SQLite Persistence 和 OTel Telemetry；
+2. 将 DeepSeek Harness 的 Agent/Session/Tool 事实旁路映射为 AgentLoopGate Evidence Receipt 与 Normalized Record；
+3. 查询当前合同、Core 健康和 Snapshot；
+4. 校验候选是否越权、泄漏或超预算；
+5. 查看某个候选为什么被 Ship/Hold/Reject；
+6. 在显式授权后，从 Update-Source FailureBundle 请求外部 Updater 提案；
+7. 通过 JSONL Outcome Adapter 导入自己的确定性评测结果；
+8. 继续通过人类 CLI 运行正式评测和 Promote/Rollback。
+
+插件不是新的 Trace UI，也不是新的 Persistence Backend。它在 DeepSeek 原生 Trace 之上增加治理语义。
+
+### 8.2 官方宿主约束
+
+DeepSeek Harness 当前是 Developer Preview。P0 兼容基线冻结为：
+
+- npm 版本：`@deepseek-ai/dsh` 及相关宿主包 `0.1.0-rc.8`；
+- 官方源码 commit：`141eb6fef83422698aef7a981029e843e8161534`；
+- Node：`^22.19.0 || >=24.0.0`；pnpm：`11.7.0`；
+- Runtime Profile：官方 `headless`；
+- Bundle：manifest 的 `dsh.bundle.patch` + `dsh plugin --profile <name> add/remove`；
+- Cordis：`Service`、`ctx.on(...)`、`ctx.effect(...)`；
+- Trace：公开的 `session/created`、`session/event`、`session/flush`、`session/disposed`；
+- Tool：`ctx.tools.register(defineTool(...))`；子进程：`ctx.subprocess.spawn(...)`。
+
+P0 只声明对上述精确基线兼容。升级宿主版本前必须重新运行 build、类型检查、Bundle、
+JSONL/SQLite/OTel 共存和生命周期 Conformance，不得仅放宽 semver 范围。
+
+禁止根据本 SPEC 猜测未确认的官方函数签名。`docs/deepseek-harness.md` 必须记录被验证的源码路径、命令和兼容性结论。
+
+### 8.3 插件包结构
+
+目标结构；实际入口名以 pin 后官方规范为准：
+
+```text
+integrations/deepseek-harness/
+├── package.json
+├── pnpm-lock.yaml
+├── tsconfig.json
+├── cordis.patch.yml
+├── src/
+│   ├── service.ts       # ctx.agentLoopGate 契约
+│   ├── provider.ts      # Python Bridge Provider
+│   ├── observer.ts      # Session/Agent/Tool -> Evidence Receipt
+│   ├── tools.ts         # 模型可见的受限工具
+│   ├── commands.ts      # 人类直接命令；如官方 seam 可用
+│   ├── policy.ts        # 工具权限与数据池限制
+│   ├── bridge.ts        # stdio JSONL client
+│   └── index.ts
+└── test/
+    ├── conformance.test.ts
+    ├── permissions.test.ts
+    ├── lifecycle.test.ts
+    └── observer.test.ts
+```
+
+`package.json` 必须使用官方 `dsh.bundle`/Bundle 声明方式，把插件作为 out-of-tree Bundle 装入 Profile；禁止修改 DeepSeek Harness Core 或写入 `node_modules`。
+
+### 8.4 Cordis Service
+
+插件应声明一个版本化 `ctx.agentLoopGate` Service，最小方法：
+
+```ts
+interface AgentLoopGateService {
+  health(): Promise<HealthResponse>
+  validateContract(request: ContractValidateRequest): Promise<ContractValidateResponse>
+  checkCandidate(request: CandidateCheckRequest): Promise<CandidateCheckResponse>
+  explainDecision(request: DecisionExplainRequest): Promise<DecisionExplainResponse>
+  ingestEvents(request: EventBatchRequest): Promise<EventBatchResponse>
+  syncTrace(request: TraceSyncRequest): Promise<TraceSyncResponse>
+  propose?(request: ProposeRequest): Promise<ProposeResponse>
+}
+```
+
+Service Definition、Provider 和模型 Tool Consumer 必须可独立测试。卸载 Provider 后，所有注册的 Effect、事件监听和工具必须解除。
+
+### 8.5 Python Bridge
+
+默认 Bridge 是本地持久子进程：
+
+```text
+uv run agentloopgate bridge serve --project <project-root>
+```
+
+传输使用一行一个 JSON Envelope 的 stdin/stdout：
+
+```json
+{
+  "protocol_version": "1.0",
+  "request_id": "REQ_001",
+  "method": "candidate.check",
+  "payload": {},
+  "actor": {"type": "dsh_plugin", "session_id_hash": "sha256:..."}
+}
+```
+
+响应：
+
+```json
+{
+  "protocol_version": "1.0",
+  "request_id": "REQ_001",
+  "ok": true,
+  "result": {},
+  "error": null
+}
+```
+
+规则：
+
+- JSON Schema 由 Python Pydantic 模型生成；TypeScript 类型从同一 Schema 生成；
+- stdout 只输出协议 JSON；日志写 stderr；
+- 最大请求体默认 1 MiB，事件批次默认 100 条；
+- 重复 `request_id` 必须幂等返回，不重复执行修改；
+- Bridge 不接受模型提供的任意 Shell 命令；
+- Provider/Bridge 不可用时，读取返回明确 unavailable，修改请求 fail closed；
+- 插件不得把 Secret、完整环境变量或 Final 内容发给 Bridge 日志。
+
+### 8.6 原生 Trace 共存与 Observer
+
+#### 8.6.1 共存合同
+
+DeepSeek Harness 的 append-only Session Log 是 DSH Runtime 的 H0 事实源。AgentLoopGate Observer 必须是旁路消费者：
+
+- 通过公开的 `ctx.sessions`、`session/event`、`session/flush` 和生命周期事件接入；
+- 不注册或替换 `ctx.sessionTelemetry` Backend；
+- 不关闭、不改写、不改变用户现有 JSONL/SQLite Persistence；
+- 不关闭、不改写用户现有 OTel 的 `FULL/FEEDBACK_ONLY/DISABLED` 配置；
+- 不直接解析某个持久化文件格式作为唯一实现路径，以兼容 JSONL 和 SQLite Provider；
+- 不向 DeepSeek Session 反写 AgentLoopGate 判分、Gold、Gate 或 Final；
+- 插件卸载后，原生 Session、Persistence 和 Telemetry 行为必须与安装前一致。
+
+#### 8.6.2 采集模式
+
+```yaml
+trace:
+  source: deepseek_session
+  ingest_mode: reference   # reference | mirror
+  live: true
+  backfill_on_start: true
+  max_batch_events: 100
+  max_buffer_events: 1000
+  redact_policy: configs/trace_redaction.yaml
+```
+
+- `reference`：默认。保存 SourceTraceRef、事件身份、Hash 和治理所需字段，不复制完整内容；
+- `mirror`：当宿主 Trace 保留期不能覆盖实验复现期时启用，保存必要且脱敏的事件副本；
+- 两种模式都不得依赖 OTel 是否启用；
+- 使用 `(runtime_host, session.id, event.seq)` 去重，保存连续 Cursor；
+- Live firehose 只承担低延迟采集；每次 Session flush 必须以公开 `session.events` 权威快照做有界对账，补录构造、Resume 或瞬时缓冲压力下未被 live 观察到的事件；
+- Hot Reload/Resume 允许幂等重放，Core 按 Session Hash、Event Seq 与 Batch Hash 去重；flush 对账后仍有序号缺口才标记 `evidence_incomplete`，阻止相关 Run 进入最终 Gate；
+- Backfill 从公开 Session API 读取规范化事件，不读取私有数据库表或压缩帧。
+
+#### 8.6.3 事件映射
+
+Observer 根据 pin 后官方事件图映射：
+
+- Turn/Step 开始结束；
+- user/assistant message 的允许字段；
+- tool call/result；
+- usage、latency、status；
+- Session/Snapshot/Plugin Composition 标识；
+- `session.id`、事件 `seq`、事件时间和父子/来源关系。
+
+Observer 只负责事实采集，不推断任务是否成功。Outcome 由 Benchmark/Evaluator Adapter 或人类批准的确定性结果导入。
+
+社区自有任务通过 `agentloopgate run ingest --file <results.jsonl>` 导入 Outcome。该入口只接受第 9 节 Schema，不执行用户提供的代码或 Shell；任务 ID、Pool、Snapshot 和 Evidence Ref 必须能校验。这样插件可以服务 τ³ 之外的 DeepSeek Harness 项目，同时不让宿主或模型自行给自己打分。
+
+Observer 故障必须 fail open：不得中断 Agent Turn。Live 失败进入有限缓冲并记录 dropped/error count；不得无限占用内存。Flush 对账以不超过 `max_batch_events` 的批次顺序补录，不把完整 Trace 复制进第二个无界队列。Run 若存在未修复丢失，不得用于正式 Decision。
+
+#### 8.6.4 原生 Telemetry 的角色
+
+开发者可以继续使用 DeepSeek OTel 把 Trace 发往自己的 Collector。AgentLoopGate 不读取或修改其 Exporter 配置，也不把 OTel Delivery 当作 Gate 证据完整性的依据。AgentLoopGate 自己的 Redaction 只作用于 Evidence Receipt/Mirror，不改写原生 Session Log 或原生 Telemetry 的策略。
+
+### 8.7 模型可见工具
+
+默认启用：
+
+| Tool | 作用 | 是否写状态 |
+|---|---|---:|
+| `agentloopgate_status` | 查看 Core、合同、Snapshot 和 Observer 状态 | 否 |
+| `agentloopgate_contract_validate` | 校验合同或配置 | 否 |
+| `agentloopgate_candidate_check` | 检查已登记候选 | 只写审计记录 |
+| `agentloopgate_decision_explain` | 读取脱敏 Decision 摘要 | 否 |
+
+默认禁用、需插件配置与项目 Policy 同时允许：
+
+| Tool | 约束 |
+|---|---|
+| `agentloopgate_propose` | 只读 Update-Source FailureBundle；只写候选目录；有候选数、成本和路径预算 |
+
+永不向模型注册：
+
+- Selection/Release/Final 读取；
+- Objective、Gate、Split、Evaluator 修改；
+- `snapshot_promote`、`snapshot_rollback`；
+- 插件权限修改；
+- 任意 Shell、任意文件路径或任意 Bridge 方法。
+
+### 8.8 社区安装与使用路径
+
+P0 README 必须给出经过 Clean-room 验证的流程：
+
+1. 安装 AgentLoopGate Python Core；
+2. 获取或构建 `@agentloopgate/dsh-plugin` Bundle；
+3. 在一个全新的 DeepSeek Harness `headless` Profile 中按官方方式安装/挂载；
+4. 运行 `agentloopgate init --runtime deepseek-harness --project .` 生成最小配置；
+5. 设置项目根目录，不复制 API Key 到插件配置；
+6. 运行 `agentloopgate doctor --runtime deepseek-harness` 查看 Readiness；
+7. 运行 No-key Conformance Fixture；
+8. 运行一个 Headless Agent Fixture，确认原生 Session 仍持久化且 AgentLoopGate 生成 SourceTraceRef；
+9. 调用四个默认工具；
+10. 卸载插件并确认没有残留工具、监听器或子进程，原生 Trace 仍工作。
+
+No-key Conformance 必须使用 DeepSeek Harness 的测试支持或 Fixture Provider，不得发起真实模型请求，也不得要求 `DEEPSEEK_API_KEY`。
+
+具体安装命令必须来自被 pin 版本的官方实现验证，未验证前不得在 README 伪造 `dsh plugin install` 等命令。
+
+### 8.9 插件 P0 验收
+
+必须全部通过：
+
+- package build、typecheck、unit test；
+- Bundle 可被 pin 的 `headless` Profile 加载；
+- `ctx.agentLoopGate` Service 可用；
+- 四个默认 Tool 可调用且 Schema 正确；
+- `agentloopgate_propose` 默认不存在或返回 disabled；
+- 读取 Final、Promote、改 Gate 的请求被拒绝并有审计记录；
+- Session/Tool Fixture 能生成 SourceTraceRef、Evidence Receipt 和 Normalized Record；
+- 已启用的 JSONL/SQLite Persistence 在安装前后保存同一逻辑 SessionEvent；
+- 已启用的 OTel Backend 不被替换，Telemetry Mode 与 Exporter 配置不被修改；
+- 插件没有注册竞争性的 `ctx.sessionTelemetry` Backend；
+- Live + Backfill 去重通过，重复 `(session.id, event.seq)` 不产生重复 Evidence；
+- Session 构造/Resume 时未发布到 live firehose 的事件会在 flush 通过公开 `session.events` 补齐；
+- Trace 序号缺口会标记 `evidence_incomplete` 并阻止正式 Gate；
+- Bridge 崩溃不影响普通 Headless Agent 完成；
+- 插件卸载后无工具、事件监听和子进程残留；
+- 插件卸载后原生 Session Persistence/Telemetry 继续工作；
+- 不安装插件时 Python No-key Demo 仍通过。
+
+P0 不要求 Web UI，也不要求把 AgentLoopGate 页面嵌入 DeepSeek Harness Web。
+
+### 8.10 Banking Pilot 纵向验证
+
+插件不能只在人工 Fixture 中展示四个只读工具。P0 必须完成一个真实纵向切片：
+
+1. 选择 3—7 个 τ³ `banking_knowledge` Pilot 任务；
+2. τ³ 自定义 `HalfDuplexAgent` 把每个 User/Tool Result Turn 送入同一个 pin 后的 DeepSeek
+   Harness `headless` Session；DSH 负责模型调用、会话恢复和原生 Persistence；
+   首轮同时加载当前 Snapshot 中登记的 Harness 资产；资产必须按固定白名单和顺序读取、限制总
+   字节数，其内容 Hash 必须进入 DSH `composition_digest`，否则候选评测无效；
+3. DSH Session Log 记录模型输入、模型 JSON 回复与 Usage；τ³ Raw Result 记录由 τ³ 实际执行的
+   Tool Call、环境状态与成本。禁止声称 τ³ 工具是 DSH 原生 Tool Event；
+4. AgentLoopGate Observer 为 DSH Session 生成 SourceTraceRef；τ³ Adapter 为 Raw Result 生成
+   独立 SourceTraceRef；两侧分别生成 Evidence Receipt 与 RunRecord；
+5. τ³ Evaluator 是最终状态、必要 Action 和政策结果的唯一 Outcome 权威，DSH 或插件不得自评；
+6. `PilotEvidenceJoin` 以 Task、Trial、DSH Session Hash、两侧 Run/Trace/Receipt 将同一次运行关联；
+7. AgentLoopGate 输出失败分类和 Candidate Check 所需输入，并证明双侧证据可被正式 Gate 消费；
+   Pilot 本身不产生 Release 结论，`gate_decision` 必须为 `null`，Gate Decision 只来自随后冻结的
+   Selection/Release-ID/OOD/Replay；
+8. 关闭插件后，用相同 Profile 验证 DeepSeek 原生 Trace 仍可记录。
+
+该纵向切片证明插件与治理链真实可用，不进入正式 Release-ID/OOD 主结论，也不要求在 3—7 个任务上宣称统计提升。
+
+银行场景是 Reference Validation Pack，不是 Core 中的业务硬编码。所有银行任务、政策、Gold 和 τ³ 专用映射必须位于 Adapter/Example 层；删除该 Example 后，Core Schema、DeepSeek 插件、JSONL Outcome Adapter、Updater、Gate 和 Snapshot 仍应正常工作。
+
+### 8.11 即插即用的三档 Readiness
+
+`agentloopgate doctor --runtime deepseek-harness --json` 必须输出：
+
+| Readiness | 安装后能力 | 必要条件 |
+|---|---|---|
+| `observe_ready` | Trace 关联、状态、成本/工具事实、Evidence Verify | Bundle、Bridge、Session Event 接入正常 |
+| `check_ready` | Contract Validate、Candidate Check、Decision Explain | Objective 模板和 Asset Manifest 有效 |
+| `govern_ready` | Diagnose、Updater、ID/OOD/Replay、Gate、Rollback | 确定性 Evaluator、数据池、冻结合同和至少一个候选 |
+
+产品承诺是“即插即观察、即插即体检、配置后治理”，禁止宣传成不提供业务目标和 Evaluator 也能自动发布。
+
+### 8.12 社区开发者可复用能力合同
+
+银行验证通过后，DeepSeek Harness 开发者可以直接复用：
+
+- Session Trace Adapter、SourceTraceRef、Evidence Verify 和成本/工具事实；
+- Objective Contract 模板与 Readiness Doctor；
+- JSONL Outcome 导入与自定义 BenchmarkAdapter 接口；
+- 失败漏斗、FailureBundle 和修改路由；
+- AHE/ACE Updater Adapter、Candidate Registry、Diff/Leakage/Risk Check；
+- 自定义 ID/OOD/Replay、Pass^k、安全/成本 Gate；
+- Decision Explain、Snapshot、人工 Promote 与 Rollback。
+
+开发者必须提供自己的领域目标、确定性 Evaluator、数据池划分和可修改资产；AgentLoopGate 不复用银行 Gold 或政策替其他领域判分。
+
+---
+
+## 9. 数据合同
+
+### 9.1 通用规则
+
+- Python 使用 Pydantic v2；所有正式模型 `extra="forbid"`；
+- 时间为 UTC ISO-8601；
+- 金额使用 decimal string，不使用二进制浮点保存账单；
+- Hash 使用 `sha256:<hex>`；
+- 枚举禁止自由文本；
+- Evidence Receipt 只追加，Normalized Record 可重建；
+- Schema 变更必须提升 `schema_version` 并提供迁移测试。
+
+### 9.1.1 SourceTraceRef 与 EvidenceReceipt
+
+```json
+{
+  "schema_version": "1.0",
+  "source_trace_id": "STR_001",
+  "runtime_host": "deepseek_harness",
+  "source_locator": "binding:TB_001",
+  "session_id_hash": "sha256:...",
+  "event_seq_start": 0,
+  "event_seq_end": 42,
+  "event_count": 43,
+  "source_revision": "provider_revision_or_digest",
+  "persistence_kind": "jsonl",
+  "ingest_mode": "reference",
+  "mirror_path": null,
+  "mirror_digest": null,
+  "cursor_complete": true,
+  "evidence_status": "verified",
+  "created_at": "2026-08-20T00:00:00Z"
+}
+```
+
+`source_locator` 是项目相对的 Artifact URI 或本地 Trace Binding ID，不得包含明文 Session ID、Credential、URL Secret 或越出项目根目录的文件路径。DeepSeek Session 使用本地 Binding 将 Hash 身份解析为公开 Session API 句柄；τ³/Fixture 可以指向项目内 Artifact。`persistence_kind` 允许 `tau_raw/jsonl/sqlite/memory/unknown`；AgentLoopGate 通过公开 Session API 采集，不能因值为 SQLite 就直接查询其私有表。`evidence_status` 允许 `pending/verified/incomplete/unavailable`。正式 Gate 只接受 `verified`。
+
+EvidenceReceipt 至少记录：`receipt_id`、`source_trace_id`、`run_id`、已映射事件范围、Redaction Policy Digest、Normalized Record Digest、采集时间和错误计数。
+
+### 9.2 RunRecord
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "R_001",
+  "attempt_id": "A_001",
+  "task_id": "banking_xxx",
+  "pool": "update_source",
+  "snapshot_id": "S_A0",
+  "candidate_id": null,
+  "source": "tau3",
+  "runtime_host": "python_cli",
+  "runtime_version": "git:...",
+  "model_id": "exact_model_id",
+  "benchmark_commit": "sha",
+  "objective_digest": "sha256:...",
+  "split_digest": "sha256:...",
+  "initial_state_digest": "sha256:...",
+  "terminal_state_digest": "sha256:...",
+  "trial_index": 1,
+  "run_validity": "valid",
+  "success": false,
+  "critical_violations": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "latency_ms": 0,
+  "cost": "0.000000",
+  "source_trace_ref": "STR_001",
+  "evidence_receipt_ref": "ER_001",
+  "created_at": "2026-08-20T00:00:00Z"
+}
+```
+
+`source=dsh` 时必须记录 `runtime_profile` 和 `composition_digest`，Session 身份只通过 SourceTraceRef 保存 Hash；不得保存明文 Credential。`source=tau3` 时 SourceTraceRef 指向 τ³ Raw Result/Trace Artifact。
+DSH `latency_ms` 只累计带 `agentloopgate_protocol=dsh-tau3/1.0` 来源标记的实际模型生成耗时；
+τ³ 在自定义 Agent 首轮前注入的零成本静态 greeting 不属于 DSH 模型调用，必须排除。除这一个
+`turn_idx=0` 静态 greeting 外，缺少 DSH 来源标记或生成耗时的 assistant 消息一律使证据导入失败。
+
+DSH→τ³ Reply Adapter 只能做无可执行语义的有界规范化：移除单层 JSON fence、接纳 JSON
+字符串内的未转义控制字符、把非空且非 JSON-like 的纯文本包装为 `content`，或把唯一键
+为当前 allow-list Tool 名且值为参数对象的显式简写展开成 `name/arguments`。不得从自然语言
+猜测 Tool Call；损坏的 JSON、未知 Tool、混合 `content/tool_calls` 一律失败关闭并保留原生 Trace。
+
+### 9.2.1 PilotEvidenceJoin
+
+Banking Reference Validation 的一次 Task/Trial 必须产生一个严格 Join：
+
+```json
+{
+  "schema_version": "1.0",
+  "join_id": "PEJ_001",
+  "task_id": "banking_xxx",
+  "trial_index": 1,
+  "dsh_run_id": "DSH_001",
+  "tau_run_id": "TAU_001",
+  "dsh_source_trace_ref": "DSH_TRACE_001",
+  "dsh_evidence_receipt_ref": "ER_DSH_001",
+  "tau_source_trace_ref": "TAU_TRACE_001",
+  "tau_evidence_receipt_ref": "ER_TAU_001",
+  "session_id_hash": "sha256:...",
+  "outcome_success": true,
+  "evidence_digest": "sha256:...",
+  "created_at": "2026-08-20T00:00:00Z"
+}
+```
+
+Join 只引用两侧已验证、不可变 Artifact，不复制明文 Session ID。`outcome_success` 必须来自
+τ³ Outcome；DSH RunRecord 可以复用该 Outcome，但不得生成第二个评分。缺任一侧 Trace、Receipt、
+Task/Trial/Seed 对不上或 DSH Cursor 不完整时，不得建立 Join，也不得进入 Banking Pilot Gate。
+
+### 9.2.2 FormalBatchArtifact
+
+每个付费评测批次必须保存完整 `FormalBatchSpec`、`spec_digest`、保留的 τ³ Raw Result 路径、
+τ³/DSH Run ID、Evidence Join ID、`EvaluationSummary` 和 `batch_digest`。批次 ID 由 Spec Hash
+确定；重复命令只能验真并恢复。Raw Result、Trace、Receipt、RunRecord、Join 或 Summary 任一漂移
+必须退出码 `5`，禁止静默重跑付费批次。`code_revision` 不包含可变 `harness/`；Harness 由
+Snapshot 的逐文件 Hash 与 DSH `composition_digest` 单独锁定，避免重复计数和 Promote 后误报源码漂移。
+
+### 9.3 SnapshotManifest
+
+```yaml
+schema_version: "1.0"
+snapshot_id: "S_A1"
+parent_snapshot_id: "S_A0"
+candidate_id: "C_001"
+model_id: "exact_model_id"
+objective_digest: "sha256:..."
+split_digest: "sha256:..."
+asset_manifest_digest: "sha256:..."
+code_revision: "git_or_source_digest"
+harness_files:
+  harness/system_prompt.md: "sha256:..."
+runtime:
+  host: "python_cli"
+  version: "exact"
+created_at: "2026-08-20T00:00:00Z"
+```
+
+### 9.4 CandidateRecord
+
+```json
+{
+  "schema_version": "1.0",
+  "candidate_id": "C_001",
+  "parent_snapshot_id": "S_A0",
+  "failure_bundle_digest": "sha256:...",
+  "updater": {"name": "ahe", "version": "commit_sha"},
+  "hypothesis": "加入例外核对步骤可减少政策遗漏且不增加成本超过20%",
+  "asset_families": ["context_memory_skill"],
+  "risk_tier": "L",
+  "patch_path": "candidates/C_001.patch",
+  "patch_digest": "sha256:...",
+  "changed_files": ["harness/skills/policy_check.md"],
+  "predicted_effect": {"metric": "stable_success_task_count", "direction": "increase"},
+  "status": "registered",
+  "created_at": "2026-08-20T00:00:00Z"
+}
+```
+
+### 9.5 DecisionRecord
+
+```json
+{
+  "schema_version": "1.0",
+  "decision_id": "D_001",
+  "candidate_id": "C_001",
+  "baseline_snapshot_id": "S_A0",
+  "decision": "HOLD",
+  "gates": [
+    {"name": "leakage", "status": "pass", "evidence_ref": "artifacts/..."},
+    {"name": "ood_noninferiority", "status": "fail", "evidence_ref": "artifacts/..."}
+  ],
+  "summary": "ID 改善但 OOD 稳定成功任务净损失 2 个，超过允许值 1",
+  "human_approval": null,
+  "created_at": "2026-08-20T00:00:00Z"
+}
+```
+
+### 9.6 Candidate 状态机
+
+```text
+DRAFT
+  -> REGISTERED
+  -> CHECKED
+  -> UPDATE_EVALUATED
+  -> SELECTION_EVALUATED
+  -> RELEASE_EVALUATED
+  -> SHIP_RECOMMENDED | HELD | REJECTED
+  -> SHIPPED
+  -> ROLLED_BACK
+```
+
+任何状态跳转必须保存时间、操作者和证据引用。
+
+### 9.7 Lineage 与人类 Approval
+
+正式 `lineage.json` 必须列出 3—7 个 Pilot Task 对应的 `PilotEvidenceJoin`、所有 Formal Batch、
+Candidate 和 Snapshot；Gate 的 Evaluation Integrity Evidence 必须指向该 Lineage，使最终 Decision
+可回链 DSH Session Event 与 τ³ Outcome。
+
+Promote/Rollback 的 Approval JSON 最小合同：
+
+```json
+{
+  "schema_version": "1.0",
+  "approval_id": "APPROVAL_001",
+  "action": "promote",
+  "target_snapshot_id": "S_A1",
+  "actor": "human-owner",
+  "confirmation": "I understand this changes the active harness snapshot.",
+  "approved_at": "2026-08-20T00:00:00Z"
+}
+```
+
+`action` 只能是 `promote/rollback`，目标与 CLI 动作必须精确一致。相同 Approval 的重试幂等；
+不同证据不得覆盖既有 Activation。
+
+---
+
+## 10. CLI 合同
+
+### 10.1 必须实现的命令
+
+```bash
+# 环境、合同、数据
+agentloopgate doctor
+agentloopgate init --runtime deepseek-harness --project .
+agentloopgate doctor --runtime deepseek-harness
+agentloopgate contract validate configs/objective_contract.yaml
+agentloopgate contract freeze configs/objective_contract.yaml --confirm "FREEZE OBJECTIVE"
+agentloopgate split freeze --config configs/splits.yaml
+agentloopgate split verify
+agentloopgate eval reset-check --fixture tests/fixtures/reset
+agentloopgate pilot run --pricing-config configs/pilot_pricing.yaml
+
+# 正式实验：主入口覆盖 A0 → Decision，stage 只用于验真恢复单批
+agentloopgate experiment protocol-verify --config configs/experiment_protocol_banking_r2.yaml --json
+agentloopgate experiment study-verify --config configs/banking_r2_study.yaml --json
+agentloopgate experiment preflight --config configs/formal_experiment_r2.yaml --json
+agentloopgate experiment run --config configs/formal_experiment_r2.yaml --json
+agentloopgate experiment stage --stage release_id --snapshot SNAPSHOT_ID --json
+agentloopgate snapshot promote SNAPSHOT_ID --decision DECISION.json --approval APPROVAL.json
+agentloopgate snapshot rollback PARENT_SNAPSHOT_ID --approval APPROVAL.json
+
+# 报告与集成
+agentloopgate bridge serve --project .
+agentloopgate demo --fixture tests/fixtures/public_demo
+```
+
+Baseline、Diagnose、Propose、Candidate Check、Evaluate、Select、Replay、Decide 与 Report Build
+是 `experiment run` 内部的可恢复阶段和 Python API，不再为每个内部动作强制一条独立 CLI。
+这样缩小 P0 表面积，同时保留 §5—§7 的完整证据与信任边界。Promote/Rollback 是必须携带
+人类 Approval Artifact 的独立运维命令，不包含在自动实验命令中，也不能由 DeepSeek 插件或
+模型触发。
+
+### 10.2 通用 CLI 行为
+
+- 成功退出码 `0`；输入/Schema 错误 `2`；Policy 拒绝 `3`；外部依赖不可用 `4`；评测不完整 `5`；
+- stdout 输出人类摘要；`--json` 输出单个稳定 JSON 对象；
+- 错误必须含 `code`、`message`、`remediation`；
+- 命令重复执行必须幂等，或明确拒绝并指出已有 Artifact；
+- 默认不联网安装依赖，不打印 Secret，不自动 Promote。
+
+`agentloopgate init` 只能创建不存在的模板或使用 `--force` 覆盖未冻结模板；不得改写已冻结 Objective、Split、Asset Manifest 或用户的 DeepSeek Profile。`doctor --runtime deepseek-harness` 必须输出第 8.11 节三档 Readiness 和具体补救步骤。
+
+### 10.3 No-key Demo 期望输出
+
+Fixture 必须构造：
+
+- A0；
+- 一个开发集提升但 OOD 回退的候选；
+- 一个成本超限候选；
+- Gate 分别输出 HOLD 原因；
+- 一份 Decision JSON/Markdown；
+- 四张核心图；
+- 一次 Bridge 和 DeepSeek 插件 Conformance；
+- 一个原生 Session Persistence 仍工作的 Host Trace；
+- 一个可验证的 SourceTraceRef/Evidence Receipt；
+- `doctor` 至少报告 `observe_ready`。
+
+Fixture 只验证软件行为，不能冒充真实实验结果。
+
+---
+
+## 11. 仓库结构
+
+```text
+AgentLoopGate/
+├── README.md
+├── SPEC.md
+├── LATER.md
+├── LICENSE
+├── THIRD_PARTY_NOTICES.md
+├── pyproject.toml
+├── uv.lock
+├── configs/
+│   ├── objective_contract.yaml
+│   ├── splits.yaml
+│   ├── harness_assets.yaml
+│   ├── mutation_policy.yaml
+│   ├── evaluator.yaml
+│   ├── formal_experiment.yaml
+│   ├── pilot_pricing.yaml
+│   ├── runtime_dsh.yaml
+│   └── trace_redaction.yaml
+├── data/
+│   ├── splits/
+│   └── manifests/
+├── examples/
+│   └── tau3-banking/     # Reference Validation Pack，不进入 Core 业务规则
+├── harness/
+│   ├── system_prompt.md
+│   ├── context/
+│   ├── skills/
+│   ├── retrieval/
+│   ├── tools/
+│   └── orchestration/
+├── agentloopgate/
+│   ├── cli.py
+│   ├── schemas/
+│   ├── contracts/
+│   ├── adapters/
+│   │   ├── base.py
+│   │   ├── dsh_tau3.py
+│   │   ├── fixture.py
+│   │   ├── jsonl.py
+│   │   └── tau3.py
+│   ├── traces/
+│   ├── splits/
+│   ├── diagnosis/
+│   ├── updaters/
+│   │   ├── base.py
+│   │   ├── ahe.py
+│   │   └── ace.py
+│   ├── mutation/
+│   ├── candidates/
+│   ├── evaluation/
+│   ├── experiment/
+│   │   ├── batch.py
+│   │   ├── diagnostics.py
+│   │   ├── orchestrator.py
+│   │   └── service.py
+│   ├── gates/
+│   ├── snapshots/
+│   ├── runtime/
+│   ├── bridge/
+│   └── reporting/
+├── integrations/
+│   └── deepseek-harness/
+├── candidates/
+├── snapshots/
+├── runs/                 # Evidence Receipt/Mirror/Normalized，默认 gitignore
+├── artifacts/
+│   └── public_demo/      # 可提交的脱敏 Fixture 结果
+├── reports/
+├── docs/
+│   └── deepseek-harness.md
+├── scripts/
+│   └── verify_p0.sh
+└── tests/
+    ├── fixtures/
+    ├── unit/
+    ├── integration/
+    └── e2e/
+```
+
+除 README、SPEC、LATER、第三方声明和一份 DeepSeek 集成说明外，不新增独立叙事文档。设计事实优先进入 Schema、测试和代码注释。
+
+---
+
+## 12. Vibe Coding 任务卡
+
+### T00：仓库骨架与无 Key 入口
+
+**依赖：** 无。  
+**修改范围：** 根目录、`agentloopgate/__init__.py`、`agentloopgate/cli.py`、`tests/fixtures/`、`tests/unit/test_cli.py`。  
+**实现：** 建立 Python 3.12 + uv + Typer + Pydantic + pytest + Ruff；实现 `doctor` 和空 Fixture `demo`。  
+**验收：**
+
+```bash
+uv sync
+uv run ruff check .
+uv run pytest -q
+uv run agentloopgate doctor --json
+```
+
+### T01：核心 Schema 与 Hash
+
+**依赖：** T00。  
+**修改范围：** `agentloopgate/schemas/`、`agentloopgate/contracts/`、`configs/`。  
+**实现：** ObjectiveContract、SourceTraceRef、EvidenceReceipt、RunRecord、FailureBundle、CandidateRecord、SnapshotManifest、DecisionRecord；规范化 JSON/YAML 与 SHA256。  
+**验收：** 合法 Fixture 全通过；缺字段、额外字段、错误枚举、Hash 漂移均失败。
+
+### T02：Trace 证据链与 Fixture Adapter
+
+**依赖：** T01。  
+**修改范围：** `agentloopgate/traces/`、`agentloopgate/adapters/fixture.py`。  
+**实现：** 定义第 3.6 节 RuntimeTraceAdapter；实现 H0 SourceTraceRef、L0 Evidence Receipt/Mirror、L1 Normalized rebuild、成本字段和 Fixture Run。  
+**验收：** 删除 Normalized 后可从可用 H0 或 Evidence Mirror 重建；篡改来源或 Mirror 后 Hash 校验失败；缺口状态阻止正式 Gate。
+
+### T03：数据池 ACL、Freeze 与 Trial Reset
+
+**依赖：** T01。  
+**修改范围：** `agentloopgate/splits/`、`agentloopgate/evaluation/reset.py`、`data/splits/`。  
+**实现：** 六池 Manifest、访问角色、Freeze Hash、Reset Digest、Infra Invalid。  
+**验收：** Updater 读取 Selection/Release 必须退出码 3；Reset Fixture 连续两次 Digest 一致。
+
+### T04：Benchmark Adapter、τ³ 与 A0
+
+**依赖：** T02、T03。  
+**修改范围：** `agentloopgate/adapters/tau3.py`、相关测试。  
+**实现：** 定义统一 BenchmarkAdapter；先检查实际 pin 的 τ³ API；实现 τ³ 运行与 JSONL Outcome 导入；映射 Outcome、Action、Token、延迟、成本、Host Trace 和 Evidence Receipt。  
+**验收：** 3—7 个 Pilot 可运行；至少一个 Reference Fixture 通过；合法社区 JSONL 可导入；自评分、错 Pool、错 Snapshot 和无 Evidence 的结果被拒绝；Infra Invalid 不进入分母。
+
+### T05：失败漏斗与 FailureBundle
+
+**依赖：** T04。  
+**修改范围：** `agentloopgate/diagnosis/`。  
+**实现：** 第 6.1 节分类、证据引用、优先级、脱敏 FailureBundle。  
+**验收：** Fixture 中已知检索/政策/工具错误分类正确；Bundle 不含受保护字段。
+
+### T06：Asset Manifest、Mutation Policy 与 Candidate Registry
+
+**依赖：** T01、T05。  
+**修改范围：** `agentloopgate/mutation/`、`agentloopgate/candidates/`、`harness/`。  
+**实现：** 路径白名单、Risk、Diff 预算、信任核 Hash、Leakage Scanner、候选状态机。  
+**验收：** 合法 L/M Patch 通过；改 Gate、Split、Evaluator、未登记路径、Gold 特征或 Risk-H 自动执行均失败。
+
+### T07：AHE Adapter 与 ACE Tripwire
+
+**依赖：** T06。  
+**修改范围：** `agentloopgate/updaters/`。  
+**实现：** 先做真实 AHE Spike；pin 版本；规范化输入输出；保存原始 Artifact。只有满足第 7.6 节才实现 ACE。  
+**验收：** 至少一个外部方法从 Fixture FailureBundle 生成可登记 Candidate；越权写入被 Candidate Check 拒绝。
+
+### T08：Evaluation、双选择器与 Gate
+
+**依赖：** T03、T04、T06。  
+**修改范围：** `agentloopgate/evaluation/`、`agentloopgate/gates/`。  
+**实现：** Pass^1/Pass^k、ID/OOD/Replay、Critical、成本、双选择器与第 4.4 节 Gate。  
+**验收：** 固定 Fixture 覆盖每一个 Gate pass/fail；决策顺序稳定；综合分不能覆盖硬门。
+
+### T09：Snapshot、Rollback 与报告
+
+**依赖：** T08。  
+**修改范围：** `agentloopgate/snapshots/`、`agentloopgate/reporting/`。  
+**实现：** Promote 授权、父版本回滚、Decision Markdown/JSON、四张图。  
+**验收：** 未授权 Promote 失败；Rollback 后 Harness Hash 与父 Snapshot 一致。
+
+### T10：Bridge Protocol
+
+**依赖：** T01、T06、T08。  
+**修改范围：** `agentloopgate/bridge/`、Schema 导出。  
+**实现：** stdio JSONL、方法路由、幂等、防任意方法、错误码、TypeScript 类型生成；加入 trace sync/verify 方法。  
+**验收：** health/validate/check/explain/ingest/sync 全通过；重复请求不重复写；未知方法、超大请求、Final/Promote 请求拒绝。
+
+### T11：DeepSeek Harness Spike 与原生 Bundle
+
+**依赖：** T10。  
+**修改范围：** `integrations/deepseek-harness/`、`agentloopgate/runtime/`、`agentloopgate/cli.py`、`docs/deepseek-harness.md`。  
+**实现：** pin 官方版本/commit；确认实际 Bundle、Service、Session Event、Persistence、Telemetry、Tool、Command、Headless seam；实现 Service、Provider、四个只读 Tool和 `agentloopgate init/doctor` Bootstrap。  
+**验收：** build/typecheck/test；Bundle 在全新 Headless Profile 加载；工具通过 Bridge 返回正确结构；Doctor 正确报告三档 Readiness；插件不注册竞争性的 `ctx.sessionTelemetry` Backend。
+
+### T12：Observer、权限与生命周期 Conformance
+
+**依赖：** T11。  
+**修改范围：** DeepSeek 插件和 E2E Fixture。  
+**实现：** Session/Event live + backfill、SourceTraceRef、Cursor/去重、reference/mirror 模式、Propose 默认禁用、权限拒绝、Bridge 故障隔离、卸载清理。  
+**验收：** 满足第 8.9 节全部条件；分别验证 JSONL Persistence、SQLite Persistence 和一个启用 OTel 的 Fixture 不被替换；不安装插件时 Python Core 测试仍通过。
+
+### T13：真实 Candidate Ladder 与正式实验
+
+**依赖：** T04—T12。  
+**修改范围：** 配置、候选、运行 Artifact；冻结后禁止改核心代码。  
+**实现：** 先完成第 8.10 节 DeepSeek 插件 × 3—7 个 Banking Pilot 纵向验证，并为每个
+Task/Trial 生成 `PilotEvidenceJoin`；再冻结合同/数据，运行 A0，生成 3—6 候选，完成 Selection、
+双 RC、Release-ID/OOD、Replay 与 Decision。  
+**验收：** Banking Pilot 能从正式 Decision 经 Join 同时回链 DeepSeek Session Event 与 τ³ Outcome，
+且可证明 τ³ 执行了真实工具；关闭插件后原生 Trace 仍工作；至少一个真实提案被 Candidate
+Check 拒绝，或一个已登记候选被正式 Gate `HOLD/REJECT`；
+所有结论可追溯；若无 Ship 候选则诚实 HOLD。
+
+### T14：公开发布与 Clean-room
+
+**依赖：** T13。  
+**修改范围：** README、LICENSE、第三方声明、公开 Artifact、Release 配置。  
+**实现：** No-key Quickstart、三档 Readiness、原生 Trace 共存说明、插件安装/卸载步骤、脱敏结果、2—3 分钟 Demo，并提供 `scripts/verify_p0.sh` 统一执行 Python Fixture 与插件 Conformance。  
+**验收：** 在干净目录运行 `./scripts/verify_p0.sh` 完成 Python Demo 和插件 Conformance；公开内容无 Secret/PII/Final 泄漏。
+
+### 12.1 标准任务 Prompt
+
+复制给 Coding Agent：
+
+```text
+实现 SPEC 第 12 节 Task Txx，只做该任务。
+先读取 SPEC 0、相关接口章节和当前仓库；再检查被 pin 上游源码，禁止猜测 API。
+先补测试，再实现最小代码。不得修改 Objective、Gate、Split、Trust Kernel 或其他任务范围。
+完成后运行任务卡验收命令，并按 SPEC 0.2 格式报告。
+```
+
+---
+
+## 13. 测试与 P0 Definition of Done
+
+### 13.1 测试层级
+
+**Unit：** Schema、Hash、SourceTraceRef、Cursor/去重、ACL、Mutation Policy、Leakage、Gate、Bridge 路由。  
+**Integration：** Fixture/τ³/JSONL Adapter、AHE/ACE Adapter、Evidence Verify、Snapshot/Rollback、Plugin Bridge、DSH Persistence/Telemetry 共存。  
+**E2E：** No-key Demo、Banking Pilot 纵向验证、Candidate Ladder、DeepSeek Headless Conformance、Core Independence。
+
+### 13.2 必须长期通过的命令
+
+```bash
+uv run ruff check .
+uv run pytest -q
+uv run agentloopgate demo --fixture tests/fixtures/public_demo
+
+cd integrations/deepseek-harness
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run test:conformance
+pnpm pack
+
+cd ../..
+./scripts/verify_p0.sh
+```
+
+Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 package script `test:conformance`，CI 只调用该 script，不在多处复制宿主命令。
+
+### 13.3 四张核心图
+
+1. A0—An 的 Pass^1、Pass^k 与成本曲线；
+2. 检索 → 政策 → 工具 → 正确状态失败漏斗；
+3. Update/Selection/ID/OOD/Replay 候选对照；
+4. Gate 瀑布与最终 Ship/Hold 理由。
+
+### 13.4 P0 完成条件
+
+只有同时满足以下条件才算 v1 完成：
+
+- Objective Contract、Split、Asset Manifest 已冻结并可校验；
+- Python Core 从 Run 到 Decision 一条命令可重放；
+- 至少一个真实外部 Updater 接入；
+- 至少 3 个真实候选、至少 2 个资产族、至少 1 个真实拒绝；
+- ID/OOD/Replay、Pass^k、安全、成本和 Eval Integrity 可审计；
+- Ship/Hold 结论唯一，且可回滚；
+- DeepSeek Harness 原生 Bundle 可安装/加载/调用/卸载；
+- 开发者现有 DeepSeek Session Persistence 和 OTel Telemetry 在安装前后继续工作；
+- SourceTraceRef 能把 AgentLoopGate Decision 回链到 DeepSeek `session.id + event.seq`；
+- `agentloopgate init/doctor` 能达到 `observe_ready` 并明确列出 `check/govern` 缺口；
+- 插件不能打开 Final、改 Gate 或 Promote；
+- 插件关闭后 Core 完整可用；
+- 3—7 个 Banking Pilot 完成 τ³ Turn → DeepSeek 模型 Session/原生 Trace → τ³ Tool/Outcome → 双侧 Evidence Join → Gate 的纵向链路；
+- No-key Demo、README、许可证、第三方声明和公开结果包可用。
+
+以下均不能替代上述条件：漂亮架构图、大量文档、Fixture 的假提升、未运行的测试、只读插件壳、手写 Candidate 冒充外部 Updater。
+
+---
+
+## 14. 八周执行顺序
+
+### 第 1 周：事实源与两项 Spike
+
+- T00—T03；
+- τ³ 最小 Pilot；
+- AHE 启动 Spike；
+- DeepSeek Harness Bundle/Service/Session/Persistence/Telemetry/Headless seam Spike；
+- Pilot 后冻结 Objective 候选阈值和版本。
+
+### 第 2 周：基线与诊断
+
+- T04—T05；
+- 运行 A0 Update-Source；
+- 得到真实失败漏斗和 2—3 个 FailureBundle。
+
+### 第 3 周：受控修改与 Updater
+
+- T06—T07；
+- 生成第一批 Candidate；
+- 验证路径、泄漏、Risk 和 Diff 预算。
+
+### 第 4 周：评测与 Gate
+
+- T08—T09；
+- 完成 Update-Check、Replay、Fixture 全 Gate 覆盖；
+- 形成 Candidate Ladder。
+
+### 第 5 周：DeepSeek Harness 插件
+
+- T10—T12；
+- 打包 Bundle；
+- Headless、权限、Observer、原生 Trace 共存、故障隔离与卸载测试；
+- 完成 3—7 个 Banking Pilot 纵向验证。
+
+### 第 6 周：Selection 与 Release
+
+- 冻结候选；
+- 运行双选择器、Release-ID/OOD、Pass^k 和 Replay；
+- 生成真实 Decision；
+- 若 Ship，回滚演练。
+
+### 第 7 周：产品化
+
+- 报告、四张图、README；
+- 插件 Clean-room 安装；
+- No-key Demo 和脱敏结果包。
+
+### 第 8 周：发布
+
+- T14；
+- 公开仓库和 Release Artifact；
+- Demo 视频；
+- 发布后从干净环境复查一次。
+
+---
+
+## 15. 风险与停止规则
+
+| 风险 | Tripwire | 行动 |
+|---|---|---|
+| τ³ 接入失败 | 2 天不能稳定跑 1 个 Pilot | 使用最简 BM25；仍失败则阻塞，不换题包装 |
+| AHE 不兼容 | 满足第 7.6 节且 3 天无合法候选 | ADR 后降级 ACE |
+| ACE 仍失败 | 再投入 2 天仍无合法候选 | P0 阻塞；不自研冒充 |
+| DeepSeek Harness API 漂移 | pin 版本与文档不一致 | 以实际源码为准更新 Adapter/文档，保留精确 pin |
+| 插件原生安装路径不稳定 | 官方 CLI 无稳定 install verb | 使用官方 Bundle + Profile patch 的 out-of-tree 加载；仍必须是 Cordis 原生插件 |
+| Telemetry Backend 冲突 | 插件加载后原 OTel 消失或 duplicate provider | AgentLoopGate 不注册 `ctx.sessionTelemetry` Backend，改用 Session Event 旁路订阅 |
+| 原生 Trace 被重复或改写 | 安装插件前后逻辑 SessionEvent 不一致 | 对比事件类型/序号/Hash；不一致即阻止发布插件 |
+| Trace 补录不完整 | Cursor 出现序号缺口或 SourceTraceRef 不可验证 | 标记 `evidence_incomplete`，阻止对应 Run 进入 Gate |
+| “即插即用”承诺过度 | 无 Evaluator 仍声称可治理 | Doctor 三档 Readiness；只承诺即插即观察/体检、配置后治理 |
+| Observer 字段不足 | 无法得到 Outcome | 继续记录 Session/Tool 事实，由 Evaluator Adapter 导入 Outcome；不让 Observer 猜分 |
+| 插件影响 Agent | Observer/Bridge 异常阻塞 Turn | 异步批量、有限缓冲、fail open；修复前不发布插件 |
+| 候选越权 | 修改信任核、Final 或未登记路径 | 直接 REJECT，新建 Candidate ID |
+| 成本超限 | Pilot 外推超预算 | 候选 6→3；不删 Release-ID/OOD、安全或插件 P0 |
+| 全部候选无提升 | Selection 无合格候选 | 输出 HOLD；项目仍可完成 |
+
+不允许优先删除：Objective Contract、真实外部 Updater、独立数据池、ID/OOD/Replay、安全/成本 Gate、Trial Reset、Decision、DeepSeek 原生插件、原生 Trace 共存、Banking 纵向验证、Core Independence。
+
+---
+
+## 16. 变更控制
+
+### 16.1 Pilot 前可调整
+
+- 代码目录细节；
+- 上游 Adapter 的实际字段映射；
+- DeepSeek Harness 官方 API 对应的入口文件名；
+- Fixture 数据；
+- Pilot 测得的成本/延迟阈值候选。
+
+### 16.2 正式候选前必须冻结
+
+- τ³、AHE/ACE、DeepSeek Harness 精确版本与 commit；
+- 模型、检索配置和预算；
+- Objective Contract 与 Gate 阈值；
+- 六池任务与 Hash；
+- Replay 任务；
+- OOD 工作流族；
+- Asset Manifest、Mutation Policy、Risk 与 Diff Budget；
+- AHE/ACE 选择状态；
+- Trial 数、Infra Invalid 与重试规则；
+- 双选择器规则；
+- DeepSeek 插件权限策略与 Bridge Protocol 版本；
+- Trace `reference/mirror` 模式、Redaction Policy、Cursor/去重、Evidence Verify 与原生 Telemetry 共存规则；
+- Banking Pilot 的 3—7 个任务、DSH Profile 和 Trace/Outcome Join Key。
+
+### 16.3 冻结后允许的变更
+
+只允许：
+
+1. 明确 Bug 修复，并对 A0 与全部受影响候选对称重跑；
+2. 命中预注册 Tripwire 的降级；
+3. 不改变数值结论的报告、脱敏和安装文档修复。
+
+每次变更必须保留旧结果并写入机器可读 Experiment Log。
+
+---
+
+## 17. 旧 SPEC 核心保留映射
+
+| 旧 SPEC 核心 | 新 P0 位置 | 状态 |
+|---|---|---|
+| Objective Contract 与 RPCR | §1、§4 | 完整保留并简化 Schema |
+| 失败漏斗与修改路由 | §6 | 完整保留 |
+| 广义 Harness 资产 | §3.4 | 保留全资产模型；P0 自动执行收敛到 L/M |
+| AHE 默认、ACE 降级 | §7 | 完整保留，并明确真实接入验收 |
+| Candidate Snapshot Ladder | §5.7、§6.3 | 完整保留 |
+| AHE-native vs AgentLoopGate Selector | §5.7、§7.5 | 完整保留 |
+| 六池隔离与防泄漏 | §5.1、§3.3 | 完整保留 |
+| ID/OOD/Replay/Pass^k | §4、§5 | 完整保留 |
+| 安全、成本、可靠性硬门 | §4 | 完整保留 |
+| Outcome-first、Reset、Infra Invalid | §5.3—§5.6 | 保留核心，删去过度审计平台 |
+| Ship/Hold/Rollback | §4.4、§9.6 | 完整保留 |
+| Governance Trust Kernel | §3.3 | 完整保留 |
+| DeepSeek Harness Cordis 插件 | §8、T10—T12 | 提升为明确 P0 社区交付 |
+| DeepSeek 原生 Session/Persistence/Telemetry | §3.2、§8.6 | 明确为共存而非替代；新增 P0 兼容合同 |
+| Banking 作为可靠性/可用性验证场 | §8.10、T13 | 新增插件 × 真实场景纵向验证 |
+| 本地事实源、插件失效降级 | §3、§8.6、§13 | 完整保留 |
+| 可复现开源版本 | §2.5、T14 | 保留，删除原创证明繁文 |
+| Capability Map | §2.7 | 移出 P0 |
+| Evaluation-to-Data | §2.7 | 移出 P0 |
+| Model × Harness 2×2 | §2.7 | 移出 P0 |
+| Langfuse UI | §2.7 | 移出 P0；不影响本地事实源 |
+
+精简原则是“删除不直接证明主张的旁支”，不是删除原项目的持续优化、治理和社区接入能力。
+
+---
+
+## 18. 实施依据
+
+实现前必须重新核对被 pin 版本，官方源码优先于本 SPEC 中的描述：
+
+1. τ³-bench：<https://github.com/sierra-research/tau2-bench>
+2. SEAGym：<https://github.com/antropy-research/SEAGym>
+3. AHE：<https://github.com/china-qijizhifeng/agentic-harness-engineering>
+4. ACE：<https://github.com/kayba-ai/agentic-context-engine>
+5. DeepSeek Harness：<https://github.com/deepseek-ai/deepseek-harness>
+6. DeepSeek Harness Architecture：<https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md>
+7. DeepSeek Harness Development：<https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/development.md>
+8. DeepSeek Session Event Log：<https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/core/session>
+9. DeepSeek Session Telemetry Seam：<https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/session/session-telemetry>
+10. DeepSeek OTel Backend：<https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/session/session-telemetry-otel>
+11. DeepSeek JSONL/SQLite Persistence：<https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/session>
+
+DeepSeek Harness 官方文档确认：它使用 Cordis 插件架构；Profile 由有序 Bundle 和 Patch 组成；`headless` 是官方模板；Service、事件、Tool Registry 和可逆 Effect 是扩展点。Session 是 append-only 运行事实源，可由 JSONL/SQLite 持久化；Telemetry 是独立可选出口。它同时明确处于 Developer Preview，因此 T11 必须精确 pin 并以真实源码完成 Conformance。
+
+---
+
+## 19. 开工顺序
+
+下一步不是继续扩写规格，而是按顺序执行：
+
+```text
+T00 -> T01 -> (T02 + T03) -> T04 -> T05 -> T06 -> T07
+                                      |                |
+                                      +-------> T08 -> T09
+T01 + T06 + T08 -> T10 -> T11 -> T12
+T04...T12 -> T13 -> T14
+```
+
+第一张任务卡是 T00。第一阶段入场券是：`doctor`、Schema 测试、Host Trace→Normalized 重建、六池 ACL 和两个真实上游 Spike，而不是新的方向性文档。

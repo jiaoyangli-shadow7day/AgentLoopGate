@@ -1,0 +1,44 @@
+[build-system]
+requires = ["flit-core>=3.12,<4"]
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "agentloopgate"
+version = "0.1.0"
+description = "Evidence-driven continuous improvement and release governance for agent harnesses."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2.11,<3",
+  "pyyaml>=6.0,<7",
+  "typer>=0.16,<1",
+]
+
+[project.scripts]
+agentloopgate = "agentloopgate.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4,<9",
+  "ruff>=0.12,<1",
+]
+
+[tool.flit.module]
+name = "agentloopgate"
+
+[tool.flit.sdist]
+include = ["build_backend.py"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

@@ -1,0 +1,77 @@
+{
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "pool": "update_check",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "document_count": 5,
+      "high_risk": true,
+      "task_id": "task_058",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 6,
+      "high_risk": false,
+      "task_id": "task_027",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 5,
+      "high_risk": true,
+      "task_id": "task_059",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 10,
+      "high_risk": false,
+      "task_id": "task_073",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 3,
+      "high_risk": false,
+      "task_id": "task_031",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 23,
+      "high_risk": false,
+      "task_id": "task_065",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 10,
+      "high_risk": false,
+      "task_id": "task_089",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 25,
+      "high_risk": false,
+      "task_id": "task_075",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 14,
+      "high_risk": false,
+      "task_id": "task_086",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 7,
+      "high_risk": false,
+      "task_id": "task_052",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    }
+  ]
+}

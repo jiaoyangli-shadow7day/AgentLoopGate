@@ -1,0 +1,718 @@
+"""Fail-closed preflight for the credentialed P0 experiment."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic import Field, ValidationError, model_validator
+
+from agentloopgate.adapters import (
+    DSH_COMMIT,
+    DSH_VERSION,
+    TAU3_COMMIT,
+    DshTau3Adapter,
+    DshTau3PilotConfig,
+    PilotPricingConfig,
+    load_pilot_pricing,
+)
+from agentloopgate.candidates import CandidateRegistry
+from agentloopgate.contracts import (
+    canonical_digest,
+    computed_contract_digest,
+    file_digest,
+    load_contract,
+    verify_contract_digest,
+)
+from agentloopgate.mutation import (
+    CandidateChecker,
+    freeze_trust_kernel,
+    load_asset_manifest,
+    load_mutation_policy,
+)
+from agentloopgate.schemas import Digest, PilotEvidenceJoin, Pool, RunRecord, RuntimeHost
+from agentloopgate.schemas.models import ArtifactId, NonEmpty, StrictModel
+from agentloopgate.snapshots import SnapshotIntegrityError, SnapshotManager
+from agentloopgate.splits import SplitService
+from agentloopgate.splits.models import PoolManifest
+from agentloopgate.updaters import AheAdapter, AheExternalRunner
+
+from .batch import (
+    DshFormalBatchExecutor,
+    FormalBatchRunner,
+    FormalBatchRunResult,
+    FormalBatchSpec,
+    FormalStage,
+)
+from .protocol import FormalExecutionProtocol, load_execution_protocol
+from .study import BankingR2StudyPlan, load_study_plan
+
+
+class FormalExperimentConfig(StrictModel):
+    schema_version: Literal["1.0", "1.1"]
+    experiment_id: ArtifactId
+    provider: Literal["deepseek-official"]
+    agent_model: Literal["deepseek-v4-flash"]
+    user_model: Literal["deepseek/deepseek-v4-flash"]
+    baseline_snapshot_id: ArtifactId
+    candidate_count: int = Field(ge=3, le=6)
+    update_source_trials: Literal[1]
+    update_check_trials: Literal[1]
+    selection_trials: Literal[1]
+    release_trials: int = Field(ge=1)
+    stable_success_required: int = Field(ge=1)
+    min_asset_families: int = Field(ge=2)
+    min_rejected_or_held_candidates: int = Field(ge=1)
+    tau3_checkout: NonEmpty
+    ahe_checkout: NonEmpty
+    dsh_executable: NonEmpty
+    dsh_home: NonEmpty
+    dsh_profile: NonEmpty
+    pricing_config: NonEmpty
+    execution_protocol_config: NonEmpty | None = None
+    study_plan_config: NonEmpty | None = None
+
+    @model_validator(mode="after")
+    def reliability_is_possible(self) -> FormalExperimentConfig:
+        if self.stable_success_required > self.release_trials:
+            raise ValueError("stable_success_required cannot exceed release_trials")
+        if self.schema_version == "1.1" and (
+            self.execution_protocol_config is None or self.study_plan_config is None
+        ):
+            raise ValueError(
+                "formal config 1.1 requires execution_protocol_config and study_plan_config"
+            )
+        if self.schema_version == "1.0" and (
+            self.execution_protocol_config is not None or self.study_plan_config is not None
+        ):
+            raise ValueError("execution protocol and study plan require formal config 1.1")
+        return self
+
+
+class FormalPreflightReport(StrictModel):
+    schema_version: Literal["1.0"] = "1.0"
+    experiment_id: ArtifactId
+    ready: bool
+    checks: dict[NonEmpty, bool]
+    missing: list[NonEmpty]
+    code_revision: str | None
+    pilot_task_count: int
+    candidate_count: int
+    dsh_version: str | None
+    dsh_commit: Literal["141eb6fef83422698aef7a981029e843e8161534"] = DSH_COMMIT
+    ahe_status: NonEmpty
+    protocol_digest: Digest | None
+    study_digest: Digest | None
+
+
+def load_formal_config(path: Path) -> FormalExperimentConfig:
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"cannot read formal experiment config: {path}") from exc
+    return FormalExperimentConfig.model_validate(raw)
+
+
+def inspect_formal_preflight(
+    project_root: Path,
+    *,
+    config_path: Path,
+) -> FormalPreflightReport:
+    root = project_root.resolve()
+    config = load_formal_config(_under(root, config_path))
+    checks: dict[str, bool] = {}
+    missing: list[str] = []
+
+    contract = None
+    try:
+        contract = load_contract(root / "configs/objective_contract.yaml")
+        verify_contract_digest(contract)
+        checks["objective_frozen"] = True
+    except (OSError, ValueError, ValidationError) as exc:
+        checks["objective_frozen"] = False
+        missing.append(f"objective_frozen:{exc}")
+
+    split = None
+    try:
+        split = SplitService(root / "configs/splits.yaml").verify()
+        checks["splits_frozen"] = True
+    except (OSError, ValueError, ValidationError) as exc:
+        checks["splits_frozen"] = False
+        missing.append(f"splits_frozen:{exc}")
+
+    if contract is not None and (
+        contract.reliability.trials != config.release_trials
+        or contract.reliability.stable_success_required != config.stable_success_required
+    ):
+        checks["reliability_matches_contract"] = False
+        missing.append("reliability_matches_contract")
+    else:
+        checks["reliability_matches_contract"] = contract is not None
+
+    code_revision = _code_revision(root)
+    checks["code_revision"] = code_revision is not None
+    if code_revision is None:
+        missing.append("code_revision:cannot hash the reviewed source tree")
+
+    pilot_task_count = _verified_pilot_task_count(root)
+    checks["banking_pilot_evidence"] = 3 <= pilot_task_count <= 7
+    if not checks["banking_pilot_evidence"]:
+        missing.append("banking_pilot_evidence:run 3-7 frozen Pilot tasks first")
+
+    pricing = load_pilot_pricing(_under(root, Path(config.pricing_config)))
+    protocol = None
+    if contract is not None and split is not None and split.split_digest is not None:
+        try:
+            protocol = _verified_protocol(
+                root,
+                config,
+                objective_digest=computed_contract_digest(contract),
+                split_digest=split.split_digest,
+                pricing=pricing,
+            )
+            checks["execution_protocol_frozen"] = protocol is not None
+            if protocol is None:
+                missing.append(
+                    "execution_protocol_frozen:legacy config cannot start a new paid run"
+                )
+        except (OSError, ValueError, ValidationError) as exc:
+            checks["execution_protocol_frozen"] = False
+            missing.append(f"execution_protocol_frozen:{exc}")
+    else:
+        checks["execution_protocol_frozen"] = False
+        missing.append("execution_protocol_frozen:objective or split is unavailable")
+    study = None
+    if protocol is not None:
+        try:
+            study = _verified_study(root, config, protocol=protocol)
+            checks["study_plan_frozen"] = True
+        except (OSError, ValueError, ValidationError) as exc:
+            checks["study_plan_frozen"] = False
+            missing.append(f"study_plan_frozen:{exc}")
+    else:
+        checks["study_plan_frozen"] = False
+        missing.append("study_plan_frozen:execution protocol is unavailable")
+    pilot = DshTau3PilotConfig(
+        dsh_executable=_under(root, Path(config.dsh_executable)),
+        dsh_home=_under(root, Path(config.dsh_home)),
+        patch_path=root / "examples/tau3-banking/dsh-tau3.patch.yml",
+        session_root=root / "runs/dsh/native-sessions",
+        profile=config.dsh_profile,
+        provider=config.provider,
+        model=config.agent_model,
+        experiment_namespace=f"{config.experiment_id}-preflight",
+        pricing=pricing,
+        turn_timeout_seconds=protocol.turn_timeout_seconds if protocol else 180,
+        provider_max_retries=(
+            protocol.dsh_provider_max_retries
+            if protocol and protocol.dsh_provider_max_retries is not None
+            else 1
+        ),
+        provider_retry_delay_ms=(
+            protocol.dsh_provider_retry_delay_ms
+            if protocol and protocol.dsh_provider_retry_delay_ms is not None
+            else 500
+        ),
+        agent_temperature=(
+            protocol.agent_temperature
+            if protocol and protocol.agent_temperature is not None
+            else 0
+        ),
+        agent_max_output_tokens=(
+            protocol.agent_max_output_tokens
+            if protocol and protocol.agent_max_output_tokens is not None
+            else 4096
+        ),
+    )
+    dsh_adapter = DshTau3Adapter(
+        root,
+        checkout=_under(root, Path(config.tau3_checkout)),
+        pilot=pilot,
+    )
+    dsh_health = dsh_adapter.doctor()
+    checks["dsh_tau3_ready"] = dsh_health.ready
+    if not dsh_health.ready:
+        missing.append(f"dsh_tau3_ready:{dsh_health.remediation}")
+
+    policy = load_mutation_policy(root / "configs/mutation_policy.yaml")
+    manifest = load_asset_manifest(root / "configs/harness_assets.yaml")
+    updater = AheAdapter(
+        root,
+        registry=CandidateRegistry(
+            root,
+            CandidateChecker(root, manifest, policy, freeze_trust_kernel(root, policy)),
+        ),
+        runner=AheExternalRunner(
+            _under(root, Path(config.ahe_checkout)),
+            project_root=root,
+            timeout_seconds=(
+                protocol.updater_timeout_seconds
+                if protocol and protocol.updater_timeout_seconds is not None
+                else 3600
+            ),
+            max_iterations=(
+                protocol.updater_max_iterations
+                if protocol and protocol.updater_max_iterations is not None
+                else 80
+            ),
+            max_output_tokens=(
+                protocol.updater_max_output_tokens
+                if protocol and protocol.updater_max_output_tokens is not None
+                else 8000
+            ),
+            temperature=(
+                protocol.updater_temperature
+                if protocol and protocol.updater_temperature is not None
+                else Decimal("0.3")
+            ),
+            max_retries=(
+                protocol.updater_max_retries
+                if protocol and protocol.updater_max_retries is not None
+                else 0
+            ),
+            retry_delay_seconds=(
+                protocol.updater_retry_delay_seconds
+                if protocol and protocol.updater_retry_delay_seconds is not None
+                else Decimal(1)
+            ),
+            input_price_per_million=pricing.input_cache_miss,
+            cache_read_price_per_million=pricing.input_cache_hit,
+            output_price_per_million=pricing.output,
+        ),
+    )
+    ahe_health = updater.doctor()
+    checks["ahe_ready"] = ahe_health.ready
+    if not ahe_health.ready:
+        missing.append(f"ahe_ready:{ahe_health.remediation}")
+
+    candidate_count = sum(
+        any((directory / "events").glob("*.json"))
+        for directory in (root / "candidates").glob("*")
+        if directory.is_dir()
+    )
+    checks["credential_process_boundary"] = bool(
+        os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    )
+    if not checks["credential_process_boundary"]:
+        missing.append("credential_process_boundary:export DEEPSEEK_API_KEY in this process")
+
+    return FormalPreflightReport(
+        experiment_id=config.experiment_id,
+        ready=all(checks.values()),
+        checks=checks,
+        missing=sorted(set(missing)),
+        code_revision=code_revision,
+        pilot_task_count=pilot_task_count,
+        candidate_count=candidate_count,
+        dsh_version=dsh_health.version,
+        ahe_status=ahe_health.status,
+        protocol_digest=protocol.protocol_digest if protocol else None,
+        study_digest=study.study_digest if study else None,
+    )
+
+
+class FormalExperimentService:
+    """Prepare the immutable A0 snapshot and execute one formal evidence stage."""
+
+    def __init__(self, project_root: Path, *, config_path: Path) -> None:
+        self.root = project_root.resolve()
+        self.config = load_formal_config(_under(self.root, config_path))
+        self.splits = SplitService(self.root / "configs/splits.yaml")
+        self.snapshots = SnapshotManager(self.root)
+
+    def ensure_baseline(self, *, require_active: bool = True) -> str:
+        contract = load_contract(self.root / "configs/objective_contract.yaml")
+        verify_contract_digest(contract)
+        split = self.splits.verify()
+        if split.split_digest is None:
+            raise ValueError("verified split is missing its digest")
+        pricing = load_pilot_pricing(
+            _under(self.root, Path(self.config.pricing_config))
+        )
+        if self.config.schema_version == "1.1":
+            protocol = self._protocol(
+                objective_digest=computed_contract_digest(contract),
+                split_digest=split.split_digest,
+                pricing=pricing,
+            )
+            if protocol is None:
+                raise ValueError("formal config 1.1 has no execution protocol")
+            _verified_study(self.root, self.config, protocol=protocol)
+        code_revision = _code_revision(self.root)
+        if code_revision is None:
+            raise ValueError("cannot hash the reviewed source tree")
+        manifest = load_asset_manifest(self.root / "configs/harness_assets.yaml")
+        harness_paths = sorted(
+            path.relative_to(self.root).as_posix()
+            for path in (self.root / "harness").rglob("*")
+            if path.is_file() and not path.is_symlink()
+        )
+        try:
+            existing = self.snapshots.verify(self.config.baseline_snapshot_id)
+        except SnapshotIntegrityError:
+            existing = None
+        if existing is None:
+            create = (
+                self.snapshots.create_evaluation_baseline
+                if self.config.schema_version == "1.1"
+                else self.snapshots.create_baseline
+            )
+            baseline = create(
+                snapshot_id=self.config.baseline_snapshot_id,
+                harness_paths=harness_paths,
+                model_id=f"{self.config.provider}/{self.config.agent_model}",
+                objective_digest=computed_contract_digest(contract),
+                split_digest=split.split_digest,
+                asset_manifest_digest=canonical_digest(manifest),
+                code_revision=code_revision,
+                runtime_host=RuntimeHost.DEEPSEEK_HARNESS.value,
+                runtime_version=f"deepseek-harness@{DSH_VERSION}",
+                created_at=datetime.now(UTC),
+            )
+        else:
+            baseline = existing
+        expected = {
+            "model_id": f"{self.config.provider}/{self.config.agent_model}",
+            "objective_digest": computed_contract_digest(contract),
+            "split_digest": split.split_digest,
+            "asset_manifest_digest": canonical_digest(manifest),
+            "code_revision": code_revision,
+        }
+        actual = {key: getattr(baseline, key) for key in expected}
+        if actual != expected:
+            raise ValueError("existing A0 snapshot does not match the frozen formal inputs")
+        if require_active:
+            active = self.snapshots.verify_active_live()
+            if self.config.schema_version == "1.0" and active.snapshot_id != baseline.snapshot_id:
+                raise ValueError("formal A0 is not the active parent snapshot")
+            if (
+                self.config.schema_version == "1.1"
+                and active.harness_files != baseline.harness_files
+            ):
+                raise ValueError(
+                    "evaluation A0 does not match the active live harness bytes"
+                )
+        return baseline.snapshot_id
+
+    def run_stage(
+        self,
+        stage: FormalStage,
+        *,
+        snapshot_id: str,
+        existing_only: bool = False,
+    ) -> FormalBatchRunResult:
+        contract = load_contract(self.root / "configs/objective_contract.yaml")
+        verify_contract_digest(contract)
+        split = self.splits.verify()
+        if split.split_digest is None:
+            raise ValueError("verified split is missing its digest")
+        snapshot = self.snapshots.verify(snapshot_id)
+        if (
+            snapshot.objective_digest != computed_contract_digest(contract)
+            or snapshot.split_digest != split.split_digest
+            or snapshot.model_id
+            != f"{self.config.provider}/{self.config.agent_model}"
+        ):
+            raise ValueError("snapshot does not match the frozen formal execution context")
+        task_ids = self._task_ids(stage)
+        trials = self._trials(stage)
+        pricing = load_pilot_pricing(
+            _under(self.root, Path(self.config.pricing_config))
+        )
+        protocol = self._protocol(
+            objective_digest=computed_contract_digest(contract),
+            split_digest=split.split_digest,
+            pricing=pricing,
+        )
+        if protocol is None and not existing_only:
+            raise ValueError(
+                "new paid formal execution requires a frozen execution protocol"
+            )
+        if protocol is not None:
+            _verified_study(self.root, self.config, protocol=protocol)
+        spec_payload = dict(
+            experiment_id=self.config.experiment_id,
+            stage=stage,
+            pool=(Pool.UPDATE_SOURCE if stage is FormalStage.REPLAY else Pool(stage.value)),
+            snapshot_id=snapshot.snapshot_id,
+            candidate_id=snapshot.candidate_id,
+            task_ids=task_ids,
+            trials=trials,
+            agent_model=f"{self.config.provider}/{self.config.agent_model}",
+            user_model=self.config.user_model,
+            objective_digest=snapshot.objective_digest,
+            split_digest=snapshot.split_digest,
+            benchmark_commit=TAU3_COMMIT,
+            initial_state_digests=self._initial_state_digests(task_ids),
+        )
+        if protocol is not None:
+            spec_payload["protocol_digest"] = protocol.protocol_digest
+        spec = FormalBatchSpec.model_validate(spec_payload)
+        turn_timeout_seconds = protocol.turn_timeout_seconds if protocol else 180
+        max_concurrency = protocol.max_concurrency if protocol else 1
+        max_retries = protocol.max_retries if protocol else 1
+        retry_delay_seconds = (
+            str(protocol.retry_delay_seconds) if protocol else "1"
+        )
+        pilot = DshTau3PilotConfig(
+            dsh_executable=_under(self.root, Path(self.config.dsh_executable)),
+            dsh_home=_under(self.root, Path(self.config.dsh_home)),
+            patch_path=self.root / "examples/tau3-banking/dsh-tau3.patch.yml",
+            session_root=self.root / "runs/dsh/native-sessions",
+            profile=self.config.dsh_profile,
+            provider=self.config.provider,
+            model=self.config.agent_model,
+            experiment_namespace=spec.run_name,
+            pricing=pricing,
+            harness_root=self.root / "snapshots" / snapshot.snapshot_id / "files",
+            turn_timeout_seconds=turn_timeout_seconds,
+            provider_max_retries=(
+                protocol.dsh_provider_max_retries
+                if protocol and protocol.dsh_provider_max_retries is not None
+                else 1
+            ),
+            provider_retry_delay_ms=(
+                protocol.dsh_provider_retry_delay_ms
+                if protocol and protocol.dsh_provider_retry_delay_ms is not None
+                else 500
+            ),
+            agent_temperature=(
+                protocol.agent_temperature
+                if protocol and protocol.agent_temperature is not None
+                else 0
+            ),
+            agent_max_output_tokens=(
+                protocol.agent_max_output_tokens
+                if protocol and protocol.agent_max_output_tokens is not None
+                else 4096
+            ),
+        )
+        adapter = DshTau3Adapter(
+            self.root,
+            checkout=_under(self.root, Path(self.config.tau3_checkout)),
+            pilot=pilot,
+        )
+        return FormalBatchRunner(
+            self.root,
+            DshFormalBatchExecutor(
+                self.root,
+                adapter,
+                existing_only=existing_only,
+                max_concurrency=max_concurrency,
+                max_retries=max_retries,
+                retry_delay_seconds=retry_delay_seconds,
+                seed=(protocol.benchmark_seed if protocol else 300) or 300,
+                max_steps=(protocol.max_steps if protocol else 200) or 200,
+                max_errors=(protocol.max_errors if protocol else 10) or 10,
+                simulation_timeout_seconds=(
+                    (protocol.simulation_timeout_seconds if protocol else 1800)
+                    or 1800
+                ),
+                agent_temperature=str(
+                    (protocol.agent_temperature if protocol else 0) or 0
+                ),
+                user_temperature=str(
+                    (protocol.user_temperature if protocol else 0) or 0
+                ),
+                user_model_max_retries=(
+                    (protocol.user_model_max_retries if protocol else 1)
+                    if protocol is None or protocol.user_model_max_retries is not None
+                    else 1
+                ),
+            ),
+        ).run(spec)
+
+    def _protocol(
+        self,
+        *,
+        objective_digest: str,
+        split_digest: str,
+        pricing,
+    ) -> FormalExecutionProtocol | None:
+        return _verified_protocol(
+            self.root,
+            self.config,
+            objective_digest=objective_digest,
+            split_digest=split_digest,
+            pricing=pricing,
+        )
+
+    def _task_ids(self, stage: FormalStage) -> list[str]:
+        split = self.splits.verify()
+        if stage is FormalStage.REPLAY:
+            return list(split.replay_task_ids)
+        pool = Pool(stage.value)
+        manifest_path = _under(self.root, Path(split.pools[pool].manifest))
+        try:
+            manifest = PoolManifest.model_validate_json(
+                manifest_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"cannot load the frozen {pool.value} manifest") from exc
+        return [task.task_id for task in manifest.tasks]
+
+    def _trials(self, stage: FormalStage) -> int:
+        return {
+            FormalStage.UPDATE_SOURCE: self.config.update_source_trials,
+            FormalStage.UPDATE_CHECK: self.config.update_check_trials,
+            FormalStage.SELECTION: self.config.selection_trials,
+            FormalStage.RELEASE_ID: self.config.release_trials,
+            FormalStage.RELEASE_OOD: self.config.release_trials,
+            FormalStage.REPLAY: self.config.release_trials,
+        }[stage]
+
+    def _initial_state_digests(self, task_ids: list[str]) -> dict[str, str]:
+        path = _under(self.root, Path(self.config.tau3_checkout)) / (
+            "data/tau2/domains/banking_knowledge/tasks.json"
+        )
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            raise ValueError("cannot read the pinned τ³ task catalog") from exc
+        if not isinstance(raw, list):
+            raise ValueError("pinned τ³ task catalog must be a list")
+        tasks = {
+            item.get("id"): item
+            for item in raw
+            if isinstance(item, dict) and isinstance(item.get("id"), str)
+        }
+        if not set(task_ids).issubset(tasks):
+            raise ValueError("a frozen task is missing from the pinned τ³ catalog")
+        return {
+            task_id: canonical_digest(
+                {"task_id": task_id, "initial_state": tasks[task_id].get("initial_state")}
+            )
+            for task_id in task_ids
+        }
+
+
+def _verified_pilot_task_count(root: Path) -> int:
+    task_ids: set[str] = set()
+    for path in (root / "runs/evidence_joins").glob("PEJ_*.json"):
+        try:
+            join = PilotEvidenceJoin.model_validate_json(path.read_text(encoding="utf-8"))
+            tau = RunRecord.model_validate_json(
+                (root / "runs/normalized" / f"{join.tau_run_id}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            dsh = RunRecord.model_validate_json(
+                (root / "runs/normalized" / f"{join.dsh_run_id}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+        except (OSError, ValueError):
+            continue
+        if (
+            tau.pool is Pool.PILOT
+            and dsh.pool is Pool.PILOT
+            and tau.task_id == join.task_id == dsh.task_id
+            and tau.trial_index == join.trial_index == dsh.trial_index
+            and tau.success == join.outcome_success == dsh.success
+        ):
+            task_ids.add(join.task_id)
+    return len(task_ids)
+
+
+def _verified_protocol(
+    root: Path,
+    config: FormalExperimentConfig,
+    *,
+    objective_digest: str,
+    split_digest: str,
+    pricing: PilotPricingConfig,
+) -> FormalExecutionProtocol | None:
+    if config.execution_protocol_config is None:
+        return None
+    protocol = load_execution_protocol(
+        _under(root, Path(config.execution_protocol_config))
+    )
+    expected = {
+        "experiment_id": config.experiment_id,
+        "objective_digest": objective_digest,
+        "split_digest": split_digest,
+        "benchmark_commit": TAU3_COMMIT,
+        "agent_model": f"{config.provider}/{config.agent_model}",
+        "user_model": config.user_model,
+        "pricing_digest": canonical_digest(pricing),
+    }
+    actual = {key: getattr(protocol, key) for key in expected}
+    if actual != expected:
+        mismatches = sorted(key for key in expected if actual[key] != expected[key])
+        raise ValueError(
+            "execution protocol conflicts with formal inputs: " + ", ".join(mismatches)
+        )
+    return protocol
+
+
+def _verified_study(
+    root: Path,
+    config: FormalExperimentConfig,
+    *,
+    protocol: FormalExecutionProtocol,
+) -> BankingR2StudyPlan:
+    if config.study_plan_config is None:
+        raise ValueError("formal config has no frozen study plan")
+    study = load_study_plan(_under(root, Path(config.study_plan_config)))
+    if study.experiment_id != config.experiment_id:
+        raise ValueError("study plan experiment_id conflicts with formal config")
+    if study.protocol_digest != protocol.protocol_digest:
+        raise ValueError("study plan is not bound to the frozen execution protocol")
+    return study
+
+
+def _code_revision(root: Path) -> str | None:
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            timeout=10,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    try:
+        paths = sorted(item.decode("utf-8") for item in listed.split(b"\0") if item)
+        files = {
+            relative: file_digest(root / relative)
+            for relative in paths
+            if _is_execution_source(relative)
+            and (root / relative).is_file()
+            and not (root / relative).is_symlink()
+        }
+    except (OSError, UnicodeDecodeError):
+        return None
+    return f"tree:{canonical_digest(files)}" if files else None
+
+
+def _is_execution_source(relative: str) -> bool:
+    """Keep generated evidence and publication prose out of runtime identity."""
+
+    if relative in {
+        ".python-version",
+        "build_backend.py",
+        "pyproject.toml",
+        "uv.lock",
+    }:
+        return True
+    if relative.startswith(("agentloopgate/", "configs/", "data/", "examples/")):
+        return True
+    if not relative.startswith("integrations/deepseek-harness/"):
+        return False
+    nested = relative.removeprefix("integrations/deepseek-harness/")
+    return nested in {"package.json", "pnpm-lock.yaml", "tsconfig.json"} or nested.startswith(
+        ("src/", "test/")
+    )
+
+
+def _under(root: Path, path: Path) -> Path:
+    resolved = path.resolve() if path.is_absolute() else (root / path).resolve()
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"formal experiment path escapes project root: {path}")
+    return resolved

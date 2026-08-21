@@ -1,0 +1,43 @@
+schema_version: '1.0'
+benchmark:
+  name: tau3-bench
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+status: frozen
+frozen_at: '2026-08-20T09:11:22.928417Z'
+split_digest: sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1
+pools:
+  pilot:
+    manifest: data/splits/pilot.json
+    expected_count: 7
+    manifest_digest: sha256:b2e12bb09aa4eafc66c4dfcc16a34cd0789bca2b32b3d2330b354e369d7e4002
+  update_source:
+    manifest: data/splits/update_source.json
+    expected_count: 25
+    manifest_digest: sha256:5f8f4a3a801a80bf4762e549f3efe655ba27cd1bfe9831b9d6b29f62d1846e4b
+  update_check:
+    manifest: data/splits/update_check.json
+    expected_count: 10
+    manifest_digest: sha256:6437c348b60bfefde478bb144c57fe68dbc3eecf96c0b423ca64ef16268d7661
+  selection:
+    manifest: data/splits/selection.json
+    expected_count: 15
+    manifest_digest: sha256:771ed683d1d2a7e19092346b3f24b4005d31bebc44085a61245a76a1ceac50d2
+  release_id:
+    manifest: data/splits/release_id.json
+    expected_count: 20
+    manifest_digest: sha256:630ed71a3e915888b23dad580f24373d2da50858aea34989ad72f6825e024bf8
+  release_ood:
+    manifest: data/splits/release_ood.json
+    expected_count: 20
+    manifest_digest: sha256:c9c862660f7364c7f26898aba7662af4fd7a2e9acb9be8ef1601fb8fb2fcfd7b
+replay_task_ids:
+- task_069
+- task_067
+- task_068
+- task_066
+- task_063
+- task_047
+- task_025
+- task_048
+- task_044
+- task_006

@@ -1,0 +1,13 @@
+schema_version: "1.0"
+method: "ahe"
+ahe:
+  repository: "https://github.com/china-qijizhifeng/agentic-harness-engineering"
+  version: "0.1.0"
+  commit: "8b2a55d97590363fe50c3cc6b5e833b020a4bb4c"
+  nexau_version: "0.3.9"
+  environment: "isolated-python-3.13-plus"
+  credential_env: "DEEPSEEK_API_KEY"
+  write_isolation: "macos-sandbox-exec"
+ace:
+  enabled: false
+  tripwire_status: "not_triggered"

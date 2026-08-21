@@ -1,0 +1,182 @@
+{
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "pool": "update_source",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "document_count": 4,
+      "high_risk": false,
+      "task_id": "task_040",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 11,
+      "high_risk": false,
+      "task_id": "task_079",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 4,
+      "high_risk": true,
+      "task_id": "task_007",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 15,
+      "high_risk": true,
+      "task_id": "task_066",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 6,
+      "high_risk": false,
+      "task_id": "task_019",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 11,
+      "high_risk": false,
+      "task_id": "task_078",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 6,
+      "high_risk": true,
+      "task_id": "task_006",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 13,
+      "high_risk": true,
+      "task_id": "task_063",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 9,
+      "high_risk": false,
+      "task_id": "task_053",
+      "tool_complexity": 4,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 10,
+      "high_risk": true,
+      "task_id": "task_025",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 16,
+      "high_risk": true,
+      "task_id": "task_068",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 19,
+      "high_risk": false,
+      "task_id": "task_080",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 4,
+      "high_risk": true,
+      "task_id": "task_001",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 6,
+      "high_risk": true,
+      "task_id": "task_044",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 11,
+      "high_risk": false,
+      "task_id": "task_093",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 5,
+      "high_risk": true,
+      "task_id": "task_003",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 17,
+      "high_risk": true,
+      "task_id": "task_067",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 13,
+      "high_risk": false,
+      "task_id": "task_074",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 6,
+      "high_risk": true,
+      "task_id": "task_002",
+      "tool_complexity": 1,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 9,
+      "high_risk": true,
+      "task_id": "task_048",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 4,
+      "high_risk": false,
+      "task_id": "task_041",
+      "tool_complexity": 5,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 12,
+      "high_risk": true,
+      "task_id": "task_047",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 8,
+      "high_risk": false,
+      "task_id": "task_020",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    },
+    {
+      "document_count": 19,
+      "high_risk": true,
+      "task_id": "task_069",
+      "tool_complexity": 4,
+      "workflow_family": "credit_card"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_082",
+      "tool_complexity": 3,
+      "workflow_family": "knowledge_only"
+    }
+  ]
+}

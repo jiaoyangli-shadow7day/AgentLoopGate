@@ -1,0 +1,38 @@
+schema_version: "1.0"
+assets:
+  - asset_id: "system-prompt"
+    family: "prompt_instruction"
+    path_patterns: ["harness/system_prompt.md"]
+    risk_tier: "L"
+    allowed_operations: ["propose", "patch", "evaluate", "rollback"]
+    rollback_unit: "prompt-unit"
+  - asset_id: "context-and-skills"
+    family: "context_memory_skill"
+    path_patterns: ["harness/context/**", "harness/skills/**"]
+    risk_tier: "L"
+    allowed_operations: ["propose", "patch", "evaluate", "rollback"]
+    rollback_unit: "context-unit"
+  - asset_id: "retrieval-policy"
+    family: "retrieval_search_policy"
+    path_patterns: ["harness/retrieval/**"]
+    risk_tier: "M"
+    allowed_operations: ["propose", "patch", "evaluate", "rollback"]
+    rollback_unit: "retrieval-unit"
+  - asset_id: "tool-routing"
+    family: "tool_contract_routing"
+    path_patterns: ["harness/tools/**"]
+    risk_tier: "M"
+    allowed_operations: ["propose", "patch", "evaluate", "rollback"]
+    rollback_unit: "tool-routing-unit"
+  - asset_id: "orchestration-state"
+    family: "orchestration_state"
+    path_patterns: ["harness/orchestration/**"]
+    risk_tier: "M"
+    allowed_operations: ["propose", "patch", "evaluate", "rollback"]
+    rollback_unit: "orchestration-unit"
+  - asset_id: "middleware-runtime"
+    family: "middleware_runtime_code"
+    path_patterns: ["harness/middleware/**"]
+    risk_tier: "H"
+    allowed_operations: ["propose", "evaluate", "rollback"]
+    rollback_unit: "middleware-unit"

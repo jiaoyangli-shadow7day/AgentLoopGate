@@ -1,0 +1,5 @@
+schema_version: "1.0"
+require_discovery_before_unavailable_claim: true
+validate_required_parameters: true
+reject_unsupported_actions: true
+require_authorization_for_state_change: true

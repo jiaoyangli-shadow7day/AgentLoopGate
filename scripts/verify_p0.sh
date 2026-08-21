@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERIFY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/agentloopgate-verify.XXXXXX")"
+
+cleanup() {
+  rm -rf -- "${VERIFY_TMP}"
+}
+trap cleanup EXIT
+
+cd "${VERIFY_ROOT}"
+
+echo "[1/5] Python environment and static checks"
+uv sync --frozen --reinstall-package agentloopgate
+uv run ruff check .
+uv run pytest -q
+
+echo "[2/5] Governance fixtures and deterministic public package"
+uv run agentloopgate doctor --json
+uv run agentloopgate contract validate configs/objective_contract.yaml --json
+uv run agentloopgate split verify --json
+uv run agentloopgate eval reset-check --fixture tests/fixtures/reset --json
+uv run agentloopgate demo --fixture tests/fixtures/public_demo --json
+uv run agentloopgate demo \
+  --fixture tests/fixtures/public_demo \
+  --build-output "${VERIFY_TMP}/public_demo" \
+  --project . \
+  --json
+
+echo "[3/5] Python release artifact clean-room"
+uv build --out-dir "${VERIFY_TMP}/python-dist"
+uv venv "${VERIFY_TMP}/wheel-venv" --python 3.12
+uv pip install \
+  --python "${VERIFY_TMP}/wheel-venv/bin/python" \
+  "${VERIFY_TMP}"/python-dist/agentloopgate-*.whl
+(
+  cd "${VERIFY_TMP}"
+  "${VERIFY_TMP}/wheel-venv/bin/agentloopgate" --version
+  mkdir artifact-project
+  "${VERIFY_TMP}/wheel-venv/bin/agentloopgate" init \
+    --runtime deepseek-harness \
+    --project "${VERIFY_TMP}/artifact-project"
+  cd "${VERIFY_TMP}/artifact-project"
+  if ARTIFACT_DOCTOR_JSON=$( \
+    "${VERIFY_TMP}/wheel-venv/bin/agentloopgate" doctor \
+      --runtime deepseek-harness \
+      --project . \
+      --json
+  ); then
+    ARTIFACT_DOCTOR_EXIT=0
+  else
+    ARTIFACT_DOCTOR_EXIT=$?
+  fi
+  echo "${ARTIFACT_DOCTOR_JSON}"
+  ARTIFACT_DOCTOR_JSON="${ARTIFACT_DOCTOR_JSON}" \
+  ARTIFACT_DOCTOR_EXIT="${ARTIFACT_DOCTOR_EXIT}" \
+    "${VERIFY_TMP}/wheel-venv/bin/python" - <<'PY'
+import json
+import os
+
+status = int(os.environ["ARTIFACT_DOCTOR_EXIT"])
+payload = json.loads(os.environ["ARTIFACT_DOCTOR_JSON"])
+if status != 4:
+    raise SystemExit(f"fresh-project doctor must exit 4, got {status}")
+if payload.get("status") != "not_ready":
+    raise SystemExit("fresh-project doctor must report not_ready")
+for level in ("observe_ready", "check_ready", "govern_ready"):
+    if level not in payload:
+        raise SystemExit(f"fresh-project doctor omitted {level}")
+PY
+)
+
+echo "[4/5] DeepSeek Harness Bundle checks"
+cd "${VERIFY_ROOT}/integrations/deepseek-harness"
+corepack pnpm install --frozen-lockfile
+corepack pnpm run generate:protocol
+corepack pnpm run typecheck
+corepack pnpm test
+corepack pnpm run build
+corepack pnpm run test:conformance
+corepack pnpm pack --pack-destination "${VERIFY_TMP}"
+
+echo "[5/5] Public-tree secret check"
+cd "${VERIFY_ROOT}"
+if rg -l 'sk-[A-Za-z0-9]{20,}' . --hidden \
+  -g '!.git/**' \
+  -g '!.venv/**' \
+  -g '!.cache/**' \
+  -g '!**/node_modules/**' \
+  -g '!dist/**' \
+  -g '!integrations/deepseek-harness/lib/**' \
+  >"${VERIFY_TMP}/secret-files.txt"; then
+  echo "Secret-like token found in one or more source files; paths withheld." >&2
+  exit 3
+fi
+
+echo "AgentLoopGate clean-room checks passed."
+echo "Real Banking Pilot and Candidate Ladder are separate credentialed acceptance work."

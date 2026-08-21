@@ -1,0 +1,9 @@
+schema_version: "1.0"
+kind: "tau3_outcome"
+authority: "independent"
+benchmark: "tau3-bench"
+benchmark_commit: "fc0055dc4e0a316c3f83133267fbd6faaa770992"
+suite: "banking_knowledge"
+success_rule: "official_reward_equals_1"
+infrastructure_rule: "termination_reason_infrastructure_error"
+llm_grader_allowed: false

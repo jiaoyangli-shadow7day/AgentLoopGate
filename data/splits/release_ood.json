@@ -1,0 +1,147 @@
+{
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "pool": "release_ood",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "document_count": 2,
+      "high_risk": false,
+      "task_id": "task_010",
+      "tool_complexity": 2,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 3,
+      "high_risk": true,
+      "task_id": "task_016",
+      "tool_complexity": 2,
+      "workflow_family": "high_risk_account_action"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_032",
+      "tool_complexity": 3,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_012",
+      "tool_complexity": 1,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_099",
+      "tool_complexity": 5,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 1,
+      "high_risk": true,
+      "task_id": "task_005",
+      "tool_complexity": 3,
+      "workflow_family": "high_risk_account_action"
+    },
+    {
+      "document_count": 13,
+      "high_risk": false,
+      "task_id": "task_088",
+      "tool_complexity": 4,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_092",
+      "tool_complexity": 4,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_004",
+      "tool_complexity": 1,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 21,
+      "high_risk": false,
+      "task_id": "task_101",
+      "tool_complexity": 3,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 6,
+      "high_risk": false,
+      "task_id": "task_008",
+      "tool_complexity": 1,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 8,
+      "high_risk": false,
+      "task_id": "task_049",
+      "tool_complexity": 5,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 2,
+      "high_risk": false,
+      "task_id": "task_034",
+      "tool_complexity": 2,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 19,
+      "high_risk": false,
+      "task_id": "task_098",
+      "tool_complexity": 3,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 5,
+      "high_risk": false,
+      "task_id": "task_014",
+      "tool_complexity": 1,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 21,
+      "high_risk": false,
+      "task_id": "task_102",
+      "tool_complexity": 3,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_033",
+      "tool_complexity": 3,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_081",
+      "tool_complexity": 5,
+      "workflow_family": "human_transfer"
+    },
+    {
+      "document_count": 12,
+      "high_risk": false,
+      "task_id": "task_100",
+      "tool_complexity": 4,
+      "workflow_family": "referral"
+    },
+    {
+      "document_count": 1,
+      "high_risk": false,
+      "task_id": "task_035",
+      "tool_complexity": 3,
+      "workflow_family": "human_transfer"
+    }
+  ]
+}

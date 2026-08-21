@@ -1,0 +1,30 @@
+# AgentLoopGate adds governance semantics beside the native Session log.
+# It intentionally does not register a sessionPersistence or sessionTelemetry provider.
+- insert:
+    - id: agentloopgate-provider
+      name: '@agentloopgate/dsh-plugin/provider'
+      config:
+        projectRoot: !!js process.cwd()
+        bridgeCommand: uv
+        bridgeArgs: [run, agentloopgate]
+        requestTimeoutMs: 10000
+        shutdownGraceMs: 1000
+        stderrMaxBytes: 65536
+
+    - id: agentloopgate-observer
+      name: '@agentloopgate/dsh-plugin/observer'
+      inject: [agentLoopGate, sessions]
+      config:
+        live: true
+        backfillOnStart: true
+        ingestMode: reference
+        persistenceKind: jsonl
+        maxBatchEvents: 100
+        maxBufferEvents: 1000
+        sourceRevision: deepseek-harness@141eb6fef83422698aef7a981029e843e8161534
+
+    - id: agentloopgate-tools
+      name: '@agentloopgate/dsh-plugin/tools'
+      inject: [agentLoopGate, tools]
+      config:
+        timeoutMs: 10000

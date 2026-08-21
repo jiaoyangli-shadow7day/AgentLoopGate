@@ -1,0 +1,10 @@
+schema_version: "1.0"
+provider: deepseek-official
+model: deepseek-v4-flash
+currency: USD
+unit: per_million_tokens
+input_cache_miss: "0.14"
+input_cache_hit: "0.0028"
+output: "0.28"
+source_url: https://api-docs.deepseek.com/quick_start/pricing/
+checked_at: "2026-08-20T00:00:00Z"

@@ -1,0 +1,119 @@
+# P0 banking validation overlay. DeepSeek Harness owns the model session and
+# native JSONL trace; τ³ remains the only tool executor and outcome evaluator.
+
+- id: agent-default-model
+  config:
+    provider: !!js process.env.AGENTLOOPGATE_DSH_PROVIDER
+    model: !!js process.env.AGENTLOOPGATE_DSH_MODEL
+
+- id: llm-deepseek
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: !!js Number(process.env.AGENTLOOPGATE_PROVIDER_MAX_RETRIES)
+      backoff:
+        initialDelayMs: !!js Number(process.env.AGENTLOOPGATE_PROVIDER_RETRY_DELAY_MS)
+        maxDelayMs: !!js Number(process.env.AGENTLOOPGATE_PROVIDER_RETRY_DELAY_MS)
+        jitterRatio: 0
+
+- id: session-persistence-jsonl
+  config:
+    root: !!js process.env.AGENTLOOPGATE_DSH_SESSION_ROOT
+    compression: none
+
+- id: system-prompt
+  config:
+    persona: >-
+      You are the banking agent under evaluation. Follow the policy and tool
+      schemas supplied in each user turn. Return exactly the requested JSON
+      reply object and no markdown. You do not execute tools yourself: the
+      outer tau3 evaluator executes requested calls and returns their results.
+
+# No second model call and no model-visible coding, filesystem, shell, web,
+# workflow, subagent, governance, or user-question tools are admitted here.
+- id: session-title-llm
+  disabled: true
+- id: plan-mode
+  disabled: true
+- id: user-questions
+  disabled: true
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: agent-instructions
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-report
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: tool-ralph
+  disabled: true
+- id: tool-str-replace-editor
+  disabled: true
+- id: web
+  disabled: true
+- id: web-search-deepseek
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: code-runtime
+  disabled: true
+- id: agentloopgate-tools
+  disabled: true
+
+# Replace the ordinary headless positional-task driver with the resumable
+# one-turn protocol used by the τ³ HalfDuplexAgent adapter.
+- id: headless-startup
+  disabled: true
+- id: headless-runner
+  disabled: true
+
+- id: agentloopgate-provider
+  config:
+    projectRoot: !!js process.env.AGENTLOOPGATE_PROJECT_ROOT
+    bridgeCommand: !!js process.env.AGENTLOOPGATE_BRIDGE_COMMAND
+    bridgeArgs: []
+    requestTimeoutMs: 10000
+    shutdownGraceMs: 1000
+    stderrMaxBytes: 65536
+
+- id: agentloopgate-observer
+  config:
+    live: true
+    backfillOnStart: true
+    ingestMode: reference
+    persistenceKind: jsonl
+    maxBatchEvents: 100
+    maxBufferEvents: 1000
+    sourceRevision: deepseek-harness@141eb6fef83422698aef7a981029e843e8161534
+
+- insert:
+    - id: agentloopgate-tau3-runner
+      name: '@agentloopgate/dsh-plugin/tau3-runner'
+      inject: [agentDefaultModel, agents, sessions, sessionPersistence]
+      config:
+        prompt: !!js process.env.AGENTLOOPGATE_TAU_PROMPT
+        sessionId: !!js process.env.AGENTLOOPGATE_TAU_SESSION_ID
+        temperature: !!js Number(process.env.AGENTLOOPGATE_AGENT_TEMPERATURE)
+        maxTokens: !!js Number(process.env.AGENTLOOPGATE_AGENT_MAX_OUTPUT_TOKENS)

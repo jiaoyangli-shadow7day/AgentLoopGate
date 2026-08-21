@@ -1,0 +1,31 @@
+contract_version: '1.0'
+project: AgentLoopGate
+primary_metric: reliable_policy_compliant_resolution
+benchmark:
+  name: tau3-bench
+  suite: banking_knowledge
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+reliability:
+  trials: 3
+  stable_success_required: 3
+gates:
+  leakage_hits_max: 0
+  critical_violations_max: 0
+  id_stable_task_net_min: 0
+  ood_stable_task_net_min: -1
+  replay_stable_task_net_min: -1
+  catastrophic_regressions_max: 0
+  mean_cost_ratio_max: 1.2
+  p50_latency_ratio_max: 1.25
+decision_order:
+- evaluation_integrity
+- leakage
+- critical_violation
+- id_effect
+- ood_noninferiority
+- replay
+- reliability
+- cost
+- latency
+frozen_at: '2026-08-20T13:48:38.066110Z'
+contract_digest: sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f
