@@ -1,9 +1,9 @@
 # Banking R12 successor plan
 
-Status: frozen no-model identity, `PAID_HOLD`. Protocol, Study, Evaluation
-Baseline, calibrations, isolated DeepSeek Harness profile, and machine
-preregistration are verified. No paid authorization, model call, promotion,
-repository visibility change, Release, or submission was created.
+Status: terminal immutable `HOLD`. Protocol, Study, Evaluation Baseline,
+calibrations, isolated DeepSeek Harness profile, preregistration, paid scope,
+and all retained execution evidence verify. R12 must not be rerun, supplemented,
+or extended.
 
 Frozen identity:
 
@@ -40,6 +40,30 @@ The resulting open-source conclusion must be conditional on the terminal kind:
   remains an explicit `HOLD`; it is never repaired by hiding a position or
   extending the same experiment identity.
 
+## Actual terminal outcome
+
+R12 executed 25/25 Update-Source positions and produced three separately
+metered AHE candidate snapshots. It then executed only the 10-position
+independent `R12_A0` Update-Check anchor. Nine positions were valid; `task_073`
+failed both frozen attempts with the same empty-`UserMessage` infrastructure
+error. The anchor therefore sealed `HOLD` for `infra_invalid:1` and
+`missing_valid_trials` before any candidate evaluation.
+
+- Update-Source: 25 valid, Pass@1 `9/25`.
+- A0 Update-Check anchor: 9 valid, 1 Infra Invalid, Pass@1 `3/9`.
+- External Updater: 3 candidates, 36 calls, exact cost USD `0.0120033368`.
+- Executed formal positions: 35 of the planned 125.
+- Candidate Update-Check, Selection, Release-ID/OOD/Replay, Decision, and
+  Promote: zero.
+- Total observed Provider-call cost lower bound: exact known scope USD
+  `1.1970712488`; local compute monetary cost remains `unmetered_unknown`.
+
+The content-addressed terminal record is
+`artifacts/research/banking_r12/formal_execution_seal.json`, digest
+`sha256:73457f10b7a7f8e2347b7d06cf24680ff46805546290b3ba89432bbca5ad383e`.
+R12 supports a fail-closed and independent-cost-governance claim. It does not
+support candidate-effectiveness or positive self-evolution claims.
+
 ## Frozen inputs required before execution
 
 Before any model call, create a fresh experiment identity (provisionally
@@ -75,17 +99,20 @@ The first paid scope is intentionally complete and bounded:
 | Selection | 60 | A0 plus the same three candidates, decisions, full cost/latency/retry/integrity inputs |
 
 No stage may begin until the preceding evidence is sealed and verifies as
-complete. The Owner must explicitly authorize the exact R12 scope; credentials,
-a frozen config, or a green preflight are insufficient.
+complete. R12 ran under its exact content-addressed machine authorization.
+Future private experiments use the standing Owner mandate while retaining an
+exact per-scope authorization artifact; credentials, a frozen config, or a
+green preflight alone remain insufficient.
 
 ## Terminal branches
 
 1. **Selection HOLD:** seal the Selection-HOLD outcome and prove that no
    Release-stage model calls occurred. Build the HOLD-appropriate sanitized
    public package and report a governance/fail-closed result.
-2. **Selection SELECT:** first audit the Decision and Candidate lineage. Only
-   after a second explicit Owner authorization may Release-ID, Release-OOD, and
-   Replay run. A release claim then requires all corresponding gates to pass.
+2. **Selection SELECT:** first audit the Decision and Candidate lineage. Under
+   the standing private-experiment mandate, the operator may create the exact
+   bound Release-tail capability and run Release-ID, Release-OOD, and Replay.
+   A release claim then requires all corresponding gates to pass.
 3. **Integrity HOLD before Selection:** seal the failed stage and its full cost
    scope, report it as incomplete evidence, and prepare another successor only
    after diagnosing whether the cause is implementation, Harness, environment,

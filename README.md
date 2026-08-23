@@ -27,9 +27,7 @@ Release-ID、Release-OOD 与 Replay 均未启动，也没有任何候选被部�
 
 C1 与 C2 都是 7/15，但成功任务集合互换，不能证明稳定方向性提升。随后零模型审计确认旧
 Selection 设计缺少 A0 同池基线和 `HOLD/ABSTAIN`，C1/C3 语义重复，C2 又引用未绑定到 Banking
-Runtime 的通用工具能力。因此 R10 只作为不可变历史/工程证据，不能继续生成发布级 RC。当前
-所有新增付费实验处于 `PAID_HOLD`：先修正 Selector、候选语义/能力绑定、成本与尾延迟证据以及
-正常 Selection-HOLD 终态；未经 Owner 再授权，不运行下一批模型实验。
+Runtime 的通用工具能力。因此 R10 只作为不可变历史/工程证据，不能继续生成发布级 RC。
 
 修正后的 Study schema 1.2 将 Selection 改为 A0 + 3 个语义不同候选，共 60 个位置，并允许在
 没有严格稳定增益时正常弃权。软件实现和完整 clean-room 已通过；这证明治理、证据、成本、
@@ -44,12 +42,15 @@ Update-Source 位置被执行；24 个位置产生有效结果，`task_020` 为 
 身份。R11 的精确身份、成本和恢复记录见
 [`docs/research/banking-r11-preregistration.md`](docs/research/banking-r11-preregistration.md)。
 
-后继验证现已无模型冻结为 `EXP_BANKING_R12`：它使用 Cost-Lineage Calibration 1.2 强制验证
-Infra Invalid 最终失败 Attempt 的封存路径，并重新绑定 Protocol、Study、源码、`R12_A0`、
-DeepSeek Harness Profile 与机器预注册。最终 no-key clean-room 通过 190 个 Python、13 个
-TypeScript 测试及 281 文件 Secret/PII 零发现。预检当前仅缺 Owner 对外部 Updater 与
-25/40/60 第一段付费范围的明确授权；R12 尚未调用模型。详情见
+`EXP_BANKING_R12` 已以不可变 `HOLD` 终止：25 个 Update-Source 全部有效，外部 AHE 生成三个
+候选；随后独立 `R12_A0` Update-Check Anchor 仅得到 9/10 有效位置，`task_073` 两次均因空
+`UserMessage` 结构错误成为 Infra Invalid，因而在候选评测之前停止。共执行 35 个正式位置；候选
+Update-Check、Selection、Release 和 Promote 均为零。全部已观测 Provider 调用成本下界为 USD
+`1.1970712488`，已知调用均有精确账本。R12 证明了 Trace 共存、独立成本恢复与 fail-closed
+治理，但没有证明候选有效或找到正向自进化方向。详情见
 [`docs/research/banking-r12-successor-plan.md`](docs/research/banking-r12-successor-plan.md)。
+终态机器记录见
+[`artifacts/research/banking_r12/formal_execution_seal.json`](artifacts/research/banking_r12/formal_execution_seal.json)。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 
@@ -199,10 +200,11 @@ uv run agentloopgate experiment study-verify \
   --config configs/banking_r11_study_v1.yaml --json
 ```
 
-R11 已形成不可变的部分执行与 `HOLD` 证据；它不能作为新的付费执行入口。后继实验必须重新冻结
-Protocol/Study/Experiment/Baseline，并获得 Owner 对该精确范围的明确授权。仓库故意不提供“复制即可
-启动下一轮”的命令。最低授权检查点是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及
-A0+3 候选共 60 个 Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OOD/Replay。若没有候选满足
+R11 与 R12 均已形成不可变 `HOLD` 证据，不能作为新的付费执行入口。后继实验必须重新冻结
+Protocol/Study/Experiment/Baseline。Owner 已授予私有研究实验持续委托，因此受托 Operator 无需
+逐批再次请求聊天确认，但仍必须为每个冻结 Scope 创建并验真内容寻址的机器授权凭据。最低检查点
+是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及 A0+3 候选共 60 个 Selection
+位置；只有 Selection 选出候选，才可创建绑定该 Decision 的 Release-ID/OOD/Replay 实验凭据。若没有候选满足
 严格增益与非回退规则，编排器以成功退出码封存 `selection_hold_outcome.json` 和 JSON/Markdown
 报告，记录逐候选原因、完整成本证据，并证明未启动 Release 或新的模型调用。
 
@@ -210,7 +212,7 @@ A0+3 候选共 60 个 Selection 位置；只有 Selection 选出候选，才另�
 [`configs/templates/formal_experiment_1_2.example.yaml`](configs/templates/formal_experiment_1_2.example.yaml)
 开始填写；模板本身不可执行，也不代表授权。Formal config 1.2 必须指向私有授权目录，CLI
 preflight 与 `FormalExperimentService` 会在每个新付费 Stage 前分别验真。授权命令只在 Owner
-明确批准后运行，且自身不调用模型；完整边界见
+持续委托或精确单次批准下由受托 Operator 运行，且自身不调用模型；完整边界见
 [`docs/research/paid-experiment-authorization.md`](docs/research/paid-experiment-authorization.md)。
 
 每个付费批次都有输入 Hash、保留的原始 τ³ 结果、双侧 Trace/Receipt/RunRecord/Join 与聚合摘要。

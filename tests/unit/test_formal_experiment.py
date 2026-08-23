@@ -1238,6 +1238,30 @@ def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
         assert result["otelCoexistence"] is True
 
 
+def test_banking_r12_terminal_seal_is_content_addressed_and_fail_closed() -> None:
+    seal = json.loads(
+        Path("artifacts/research/banking_r12/formal_execution_seal.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared = seal.pop("artifact_digest")
+
+    assert canonical_digest(seal) == declared
+    assert seal["terminal_state"] == "immutable_hold"
+    assert seal["execution_scope"]["executed_formal_positions"] == 35
+    assert seal["execution_scope"]["update_check"][
+        "candidate_positions_executed"
+    ] == 0
+    assert seal["execution_scope"]["selection"]["executed"] == 0
+    assert seal["execution_scope"]["release_id_ood_replay_executed"] == 0
+    assert seal["external_updater"]["exact_cost_usd"] == "0.0120033368"
+    assert seal["aggregate_cost"]["total_observed_provider_cost_lower_bound"] == (
+        "1.1970712488"
+    )
+    assert seal["governance_findings"]["candidate_effectiveness_established"] is False
+    assert seal["governance_findings"]["release_started"] is False
+
+
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
     orchestrator = FormalExperimentOrchestrator(
         Path("."),

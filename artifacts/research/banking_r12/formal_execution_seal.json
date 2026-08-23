@@ -1,0 +1,243 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_FORMAL_EXECUTION_SEAL",
+  "experiment_id": "EXP_BANKING_R12",
+  "recorded_at": "2026-08-23T14:54:15Z",
+  "terminal_state": "immutable_hold",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "protocol_digest": "sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2",
+    "study_digest": "sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4",
+    "source_revision": "tree:sha256:d7f8e3a0b8a9004fcb1778d90bb773360dda6a5fa1eb7ad68ca9a64eece265bd",
+    "baseline_snapshot_id": "R12_A0",
+    "baseline_snapshot_digest": "sha256:f4af003bf938583b134e6a1eab42bcb0abcf9f10b730e8f1411c61b443922c36",
+    "pre_run_preregistration_digest": "sha256:2c331639045313568fac9cf91dd350731805df666244e2717840523a46ed439e",
+    "paid_authorization_digest": "sha256:6f3236e1590529a737ee058bacbf976477de1aedb8d8e5c65e6a5941816f3862"
+  },
+  "execution_scope": {
+    "planned_formal_positions": 125,
+    "executed_formal_positions": 35,
+    "valid_formal_positions": 34,
+    "infra_invalid_positions": 1,
+    "update_source": {
+      "planned": 25,
+      "executed": 25,
+      "valid": 25
+    },
+    "update_check": {
+      "planned": 40,
+      "executed": 10,
+      "valid": 9,
+      "executed_subject": "R12_A0_independent_anchor",
+      "candidate_positions_executed": 0
+    },
+    "selection": {
+      "planned": 60,
+      "executed": 0
+    },
+    "release_id_ood_replay_executed": 0,
+    "promotion_executed": false
+  },
+  "batches": [
+    {
+      "batch_id": "B_64C534DEBBB8E13FBFD9",
+      "stage": "update_source",
+      "subject_snapshot_id": "R12_A0",
+      "disposition": "complete",
+      "batch_digest": "sha256:db5843a0c9bf0230039abcc257a4681f27bf8eff09eb6d1ce3c2de34afece398",
+      "cost_digest": "sha256:37934df4b045609087bee814f26f3b0e3a0ab6a770245c4f0761a82be1a73a25",
+      "valid_runs": 25,
+      "infra_invalid_runs": 0,
+      "pass_1": "9/25",
+      "mean_valid_cost_usd": "0.02883051584",
+      "p50_latency_ms": 203741,
+      "observed_whole_attempt_agent_cost_usd": "0.5909617224",
+      "observed_whole_attempt_user_cost_usd": "0.1645926800",
+      "observed_whole_attempt_cost_lower_bound_usd": "0.7555544024",
+      "agent_model_calls": 818,
+      "user_model_calls": 257,
+      "agent_tokens": {
+        "input": 1894941,
+        "cache_read": 39345408,
+        "output": 769653
+      },
+      "user_tokens": {
+        "input": 1047570,
+        "output": 64046
+      },
+      "unresolved_model_calls": 0,
+      "notable_attempts": [
+        {
+          "task_id": "task_067",
+          "attempt_index": 1,
+          "state": "failed",
+          "duration_ms": 405889,
+          "error": "DeepSeek Harness turn did not complete: error"
+        },
+        {
+          "task_id": "task_067",
+          "attempt_index": 2,
+          "state": "completed",
+          "duration_ms": 922101,
+          "agent_cost_usd": "0.055292804",
+          "user_cost_usd": "0.004426392"
+        },
+        {
+          "task_id": "task_082",
+          "attempt_index": 1,
+          "state": "completed",
+          "termination_reason": "MAX_STEPS",
+          "duration_ms": 1529190
+        }
+      ]
+    },
+    {
+      "batch_id": "B_C0B15B8911A0AB5E8C4D",
+      "stage": "update_check",
+      "subject_snapshot_id": "R12_A0",
+      "candidate_id": null,
+      "disposition": "hold",
+      "hold_reasons": [
+        "infra_invalid:1",
+        "missing_valid_trials"
+      ],
+      "batch_digest": "sha256:5bb874ead22093d042ee6460361d892f8d1c79e285abcf8797310436b5a30ec4",
+      "cost_digest": "sha256:79497565cad26d1881ad713d8c1d6e857aa886b16f6a411072a32f35ac2a1b4d",
+      "valid_runs": 9,
+      "infra_invalid_runs": 1,
+      "pass_1": "3/9",
+      "mean_valid_cost_usd": "0.04077250302222222222222222222",
+      "p50_latency_ms": 490804,
+      "observed_whole_attempt_agent_cost_usd": "0.3610550496",
+      "observed_whole_attempt_user_cost_usd": "0.0684584600",
+      "observed_whole_attempt_cost_lower_bound_usd": "0.4295135096",
+      "agent_model_calls": 421,
+      "user_model_calls": 135,
+      "agent_tokens": {
+        "input": 979684,
+        "cache_read": 23218432,
+        "output": 567456
+      },
+      "user_tokens": {
+        "input": 438059,
+        "output": 25465
+      },
+      "unresolved_model_calls": 0,
+      "notable_attempts": [
+        {
+          "task_id": "task_027",
+          "attempt_index": 1,
+          "state": "completed",
+          "termination_reason": "TIMEOUT",
+          "duration_ms": 1803561,
+          "agent_cost_usd": "0.06502431600000001",
+          "tau_reported_user_cost_usd": "0.0"
+        },
+        {
+          "task_id": "task_073",
+          "attempt_index": 1,
+          "state": "failed",
+          "duration_ms": 578310,
+          "error": "UserMessage must have either content or tool_calls"
+        },
+        {
+          "task_id": "task_073",
+          "attempt_index": 2,
+          "state": "failed",
+          "duration_ms": 218819,
+          "error": "UserMessage must have either content or tool_calls"
+        }
+      ]
+    }
+  ],
+  "external_updater": {
+    "updater": "ahe@0.1.0@8b2a55d97590363fe50c3cc6b5e833b020a4bb4c",
+    "proposal_plan_digest": "sha256:c9968f18a6892675897b497de97560015d2d293945d2334272fee0fdc2aa6397",
+    "candidate_count": 3,
+    "model_call_count": 36,
+    "input_tokens": 9907,
+    "cache_read_tokens": 422656,
+    "output_tokens": 33689,
+    "exact_cost_usd": "0.0120033368",
+    "duration_ms": 307483,
+    "unresolved_model_calls": 0,
+    "candidates": [
+      {
+        "candidate_id": "C_AHE_EDB554F6BE4A",
+        "attempt_id": "AHEATT_B62BC34EB78D4A73A888424B1CE098D9",
+        "snapshot_id": "S_CAA17C1100AC6692",
+        "snapshot_manifest_sha256": "c8c2d239c1eb417b8d114e2ddf9ad30f141abc884bca21ca591dc3a40e6b376d",
+        "patch_digest": "sha256:6f234c3ebae803b77921b7ee14205be0b3121a5653da93a5c31808f71acacff8",
+        "model_calls": 15,
+        "input_tokens": 4281,
+        "cache_read_tokens": 192000,
+        "output_tokens": 13663,
+        "exact_cost_usd": "0.0049625800",
+        "duration_ms": 119817
+      },
+      {
+        "candidate_id": "C_AHE_E22D64EB76E9",
+        "attempt_id": "AHEATT_0F355336DA1A44D8909EA41509CCE467",
+        "snapshot_id": "S_D0E5EDB86F27A301",
+        "snapshot_manifest_sha256": "35cfebf09d005b525da70ac040540c415e2afa63c4d59552c061091b55f155a1",
+        "patch_digest": "sha256:a32f867e30402b3cdba93efcc85e5d3051261bbb69e89c358103692fb2bd9891",
+        "model_calls": 12,
+        "input_tokens": 3025,
+        "cache_read_tokens": 133376,
+        "output_tokens": 12141,
+        "exact_cost_usd": "0.0041964328",
+        "duration_ms": 113524
+      },
+      {
+        "candidate_id": "C_AHE_37F1FC56BBFC",
+        "attempt_id": "AHEATT_D427355154184C2C8289551B3D933F58",
+        "snapshot_id": "S_32E1F55BDB20D8B8",
+        "snapshot_manifest_sha256": "f3d9cb8c0657081e357c806668f57c4e3e9d78b6491e91348209940165fe71a1",
+        "patch_digest": "sha256:08becd548dd99250847c8568965cca5b0c5dfba233817c55ed7e415814ea0161",
+        "model_calls": 9,
+        "input_tokens": 2601,
+        "cache_read_tokens": 97280,
+        "output_tokens": 7885,
+        "exact_cost_usd": "0.0028443240",
+        "duration_ms": 74142
+      }
+    ],
+    "sandbox_limitations": [
+      "AHE stderr reported repeated Operation not permitted failures for /tmp/nexau_bash_tool_results",
+      "all three updater processes exited zero and emitted content-addressed patches and snapshots",
+      "no candidate received Update-Check or Selection evaluation, so no effectiveness claim is permitted"
+    ]
+  },
+  "aggregate_cost": {
+    "currency": "USD",
+    "accounting_status": "exact_for_all_observed_provider_calls",
+    "update_source_whole_attempt_lower_bound": "0.7555544024",
+    "updater_exact": "0.0120033368",
+    "update_check_anchor_whole_attempt_lower_bound": "0.4295135096",
+    "total_observed_provider_cost_lower_bound": "1.1970712488",
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "governance_findings": {
+    "deepseek_native_trace_preserved": true,
+    "agentloopgate_independent_attempt_and_cost_ledgers_present": true,
+    "provider_price_map_failure_recovered_by_frozen_agentloopgate_ledger": true,
+    "same_identity_rerun_permitted": false,
+    "terminal_reason": "A0 Update-Check anchor lacked one valid trial after the frozen retry budget",
+    "candidate_effectiveness_established": false,
+    "self_evolution_direction_established": false,
+    "selection_decision_created": false,
+    "release_started": false
+  },
+  "allowed_claims": [
+    "AgentLoopGate preserved immutable R12 evidence and stopped downstream evaluation on incomplete independent anchor evidence",
+    "AgentLoopGate independently recovered exact per-call cost evidence when the host benchmark price mapping was unavailable",
+    "the external updater produced three executable content-addressed candidate snapshots from failure bundles",
+    "R12 does not establish that any candidate improves the baseline"
+  ],
+  "required_successor_repairs": [
+    "normalize or reject empty final UserMessage chunks before pydantic validation without altering valid task outcomes",
+    "eliminate or explicitly constrain the AHE temporary-directory sandbox warning before treating updater self-checks as evidence",
+    "freeze a new experiment identity and perform no-model regression and clean-room validation before new paid calls"
+  ],
+  "artifact_digest": "sha256:73457f10b7a7f8e2347b7d06cf24680ff46805546290b3ba89432bbca5ad383e"
+}

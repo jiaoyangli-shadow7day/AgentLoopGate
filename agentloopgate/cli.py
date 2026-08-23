@@ -1252,8 +1252,9 @@ def experiment_run(
             code="formal_workflow_blocked",
             message=str(exc),
             remediation=(
-                "Inspect retained immutable artifacts; fix only the stated environment or "
-                "evidence issue, then rerun."
+                "Inspect and seal the retained immutable artifacts. Do not rerun or extend "
+                "the same formal experiment identity; after fixing the stated environment "
+                "or evidence issue, freeze a new successor identity before new paid work."
             ),
             as_json=json_output,
             exit_code=5,

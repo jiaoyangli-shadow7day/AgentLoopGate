@@ -588,10 +588,14 @@ governed Candidate ID。后者不得在 `HOLD/ABSTAIN` 或已有 `selection_hold
 CLI preflight 与 `FormalExperimentService` 必须在每个新付费 Stage 前分别验真适用授权；直接调用
 Service 不能绕过。`existing-only` 不要求付费授权且绝不能调用模型。
 
-`agentloopgate experiment authorize-paid` 只在 Owner 对精确 Scope 明确授权后使用，必须要求逐字
-确认语句，输出 `paid_execution_started=false`、`model_calls=0` 与 `cost_status=not_applicable`；它
-只封存授权，不能启动 Batch。仅存在 API Key、通过 preflight 的其他项目、过去授权、相邻 Scope
-授权或 Coding Agent 自行推断均不构成许可。
+`agentloopgate experiment authorize-paid` 必须要求逐字确认语句，输出
+`paid_execution_started=false`、`model_calls=0` 与 `cost_status=not_applicable`；它只封存精确
+Scope 的机器能力凭据，不能启动 Batch。2026-08-23 起，Owner 已对实现冻结研究目标所需的私有实验
+授予持续委托：受托研究 Operator 在冻结并审计精确 Scope 后可代为创建该凭据，无需逐批再次请求
+聊天确认；这项委托包括满足 `SELECT` 前置条件后的 Release-ID/OOD/Replay 评测，但不包括 Promote、
+部署、改变仓库可见性、发布 GitHub Release、公开证据或投稿。仅存在 API Key、通过 preflight、过去
+授权或 Coding Agent 自行推断仍不构成许可；持续委托及每个精确机器凭据必须同时可审计。历史实验的
+原授权边界保持不可变。治理记录见 `docs/research/standing-experiment-mandate.md`。
 
 ### 5.6 最小评估审计
 
@@ -2157,9 +2161,14 @@ Attempt 且同一 task/trial/seed 的最终冻结 Attempt 为 failed 时，封�
 R12 最终冻结源码的 `R12-NM-003` no-key clean-room 通过 190 个 Python、13 个 TypeScript 测试、
 sdist→wheel、DSH conformance/build/pack 和 281 文件 Secret/PII 零发现；耗时 16.11 s real、
 12.42 s user CPU、2.81 s system CPU，最大 RSS 358,694,912 bytes，已知模型调用与费用均为 0，
-本地计算货币成本仍为 `unmetered_unknown`。预检已通过除付费授权外的所有冻结输入、DSH、AHE 与
-凭证进程边界检查；当前没有授权 Artifact，Updater 与任何 R12 正式位置均未启动。机器预注册 Digest
-为 `sha256:2c331639045313568fac9cf91dd350731805df666244e2717840523a46ed439e`。
+本地计算货币成本仍为 `unmetered_unknown`。随后 R12 在精确机器授权下执行 25 个 Update-Source
+位置、三个外部 AHE 候选和 10 个 A0 Update-Check Anchor 位置；Anchor 的 `task_073` 在两次冻结
+Attempt 中均因空 `UserMessage` 结构错误成为 Infra Invalid，批次因 9/10 有效分母而不可变
+`HOLD`。候选 Update-Check、Selection、Release 与 Promote 均未启动，不能声称候选有效或已经找到
+正确自进化方向。所有已观测 Provider 调用成本下界为 USD `1.1970712488`，已知调用均为精确账本，
+本地计算仍为 `unmetered_unknown`。终态封存 Digest 为
+`sha256:73457f10b7a7f8e2347b7d06cf24680ff46805546290b3ba89432bbca5ad383e`；同一 R12 身份禁止
+重跑、补齐或扩展，修复后必须冻结后继身份。
 
 ---
 

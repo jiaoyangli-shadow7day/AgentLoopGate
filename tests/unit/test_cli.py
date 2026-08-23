@@ -13,6 +13,7 @@ from agentloopgate import cli as cli_module
 from agentloopgate.cli import app
 from agentloopgate.experiment import (
     FormalSelectionHoldOutcome,
+    FormalWorkflowBlocked,
     PaidExecutionAuthorizationError,
 )
 
@@ -278,6 +279,47 @@ def test_formal_run_reports_missing_paid_scope_as_policy_denial(
 
     assert result.exit_code == 3
     assert json.loads(result.stdout)["code"] == "paid_authorization_required"
+
+
+def test_formal_hold_forbids_rerunning_the_same_identity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class _Orchestrator:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        @staticmethod
+        def run():
+            raise FormalWorkflowBlocked("formal batch sealed HOLD")
+
+    monkeypatch.setattr(
+        cli_module,
+        "inspect_formal_preflight",
+        lambda *_args, **_kwargs: SimpleNamespace(ready=True, missing=[]),
+    )
+    monkeypatch.setattr(cli_module, "FormalExperimentOrchestrator", _Orchestrator)
+
+    result = runner.invoke(
+        app,
+        [
+            "experiment",
+            "run",
+            "--project",
+            str(tmp_path),
+            "--config",
+            "unused.yaml",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 5
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "formal_workflow_blocked"
+    assert "Do not rerun or extend the same formal experiment identity" in payload[
+        "remediation"
+    ]
+    assert "freeze a new successor identity" in payload["remediation"]
 
 
 def test_deepseek_init_is_idempotent_and_does_not_touch_governance_files(

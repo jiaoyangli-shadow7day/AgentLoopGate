@@ -28,11 +28,14 @@ records `external_updater_generation_authorized=true`, and the orchestrator
 re-verifies it immediately before invoking AHE. Updater tokens, retries, time,
 path, and cost remain separately metered; they are never hidden inside the 125.
 
-## Owner action
+## Owner mandate and operator action
 
-Do not run either command from a standing automation or infer permission from a
-credential being present. After the Owner explicitly authorizes the exact
-scope, the operator runs one of:
+Do not infer permission from a credential being present. Under the standing
+private-experiment mandate, the delegated research operator may run the
+applicable command after freezing and auditing the exact scope; a new
+conversational approval is not required for each Batch or experimental tail.
+Without that mandate, the Owner must explicitly authorize the exact scope.
+See `docs/research/standing-experiment-mandate.md`.
 
 ```sh
 agentloopgate experiment authorize-paid \
@@ -61,5 +64,8 @@ verifies the applicable artifact again immediately before every new paid
 stage, so bypassing the CLI preflight does not bypass authorization. A Release
 stage additionally re-verifies the Selection bytes and refuses `HOLD`.
 
-The repository currently contains no authorization for the next experiment;
-`PAID_HOLD` remains in force.
+The confirmation token is a machine integrity acknowledgement, not evidence
+that a credential alone authorized spending. The standing mandate covers only
+private research execution. Snapshot Promote, deployment, repository visibility
+changes, public Release, evidence publication, and submission remain separately
+authorized actions.
