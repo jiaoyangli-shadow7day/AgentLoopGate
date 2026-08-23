@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.2",
+  "artifact_id": "BANKING_R13_COST_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R12",
+  "source_incident_artifact": "artifacts/research/banking_r12/r11_infra_invalid_lineage_incident.json",
+  "source_incident_digest": "sha256:c913d790554577dfde9c8547444eda9b286d9e9c80be100c17d1bdf96d9c0988",
+  "contains_raw_customer_data": false,
+  "pricing_digest": "sha256:0dcc3e377789e4ef449ba539021fd0d448a78520bedbddc1156abd3733c26271",
+  "cost_authority_policy": "verified_tokens_times_frozen_prices_v1",
+  "valid_cost_lineage_policy": "direct_final_task_attempt_calls_v1",
+  "raw_cost_evidence_policy": "comparison_only_v1",
+  "positive_token_zero_cost_policy": "reject_positive_frozen_contribution_v1",
+  "cost_gate_input_policy": "direct_valid_agent_plus_user_mean_v1",
+  "assertions": [
+    "all frozen token prices are validated before any paid User Simulator call",
+    "terminal cost is computed from verified input, cache-read, and output tokens times frozen prices",
+    "a positive token contribution at a positive frozen price cannot be emitted as exact zero",
+    "valid cost follows retained simulation to completed task attempt to direct Agent and User calls",
+    "an infrastructure_error retained simulation with no completed attempt binds only to the final failed attempt at the same frozen task position",
+    "failed, retried, unretained, and unresolved calls remain in whole-attempt accounting",
+    "tau3 raw cost is comparison evidence and cannot override direct accounting",
+    "EvaluationSummary binds the direct cost digest, exact status, and Agent plus User mean",
+    "selection curves and final Cost Gate consume only the bound direct summary value",
+    "multi-batch mean cost is weighted by valid run count"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:0c4da255d6c204f8e3fe5e55f985c30fe704895c902a9780dc770e12439a1886",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/evaluation/metrics.py": "sha256:24ae8b23dc612278ac3a9e1a002ce7181b69e16786e881dab585b33a67497cbf",
+    "agentloopgate/experiment/ledger.py": "sha256:7f49ea4c3bf5c89d43640ed7132925ac40dcf31810cddb7cd4b371da9777a73d",
+    "agentloopgate/experiment/batch.py": "sha256:95a320336c750deb2139deadf792315232f4a45c72688d712a89369ccde6b8db",
+    "agentloopgate/experiment/orchestrator.py": "sha256:1f95c2561a2d31f4d42c74032f675417e99c6da122fd7aa47b27e24193ba00bc",
+    "agentloopgate/experiment/protocol.py": "sha256:5d6a5cac3b2fa6a9a81b2f15ba866143c35367488d506472e57280939d092876",
+    "agentloopgate/experiment/service.py": "sha256:b458a5bc19544ffd59b8db17041db8e6a7648e4046ae231a0dfc4893abb7d538",
+    "agentloopgate/updaters/ahe.py": "sha256:d572b851389c272a312a589a0b2fa779393f195f13d8e386504d8f92cc44b78c",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:16a8bd0590f925f8092b0996a8c498d9311fe28689240db07c24180636e459c9"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-23T15:30:10Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "provider_false_zero_recomputed": "passed",
+      "missing_price_pre_call_rejected": "passed",
+      "direct_lineage_overrides_raw": "passed",
+      "positive_token_exact_zero_rejected": "passed",
+      "direct_total_mean_reaches_gate": "passed",
+      "infra_invalid_failed_attempt_lineage_sealed": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R12-NM-002",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 189,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_274_files_zero_findings",
+        "real_seconds": "17.99",
+        "user_cpu_seconds": "14.16",
+        "system_cpu_seconds": "3.17",
+        "maximum_resident_set_bytes": 361594880,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R13-NM-005",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 199,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel_install": "passed",
+        "dsh_headless_bundle_conformance": "passed",
+        "plugin_build_and_pack": "passed",
+        "secret_pii_scan": "passed_295_files_zero_findings",
+        "real_seconds": "22.38",
+        "user_cpu_seconds": "15.87",
+        "system_cpu_seconds": "3.76",
+        "maximum_resident_set_bytes": 358989824,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "deterministic fixtures prove accounting, failed-attempt lineage, and Gate dataflow but do not independently verify provider invoices",
+    "raw versus direct mismatches are disclosed rather than assumed to be provider billing errors",
+    "local compute monetary cost is unavailable and is never represented as zero"
+  ],
+  "artifact_digest": "sha256:ea7b75ee68b2e5cc6610cedfdb1b65f8dfa7d90befa2abae3ba4437cb2271517"
+}
