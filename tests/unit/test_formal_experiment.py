@@ -50,6 +50,7 @@ from agentloopgate.experiment import (
 )
 from agentloopgate.experiment import ledger as ledger_module
 from agentloopgate.experiment import orchestrator as orchestrator_module
+from agentloopgate.experiment import service as service_module
 from agentloopgate.experiment.orchestrator import (
     FormalExperimentOrchestrator,
     FormalSelectionHoldOutcome,
@@ -882,12 +883,19 @@ def test_banking_r7_freezes_reply_v5_and_direct_lineage_protocol() -> None:
         )
 
 
-def test_banking_r11_existing_only_allows_runtime_repair_but_keeps_artifacts_pinned() -> None:
+def test_banking_r11_existing_only_allows_runtime_repair_but_keeps_artifacts_pinned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = load_formal_config(Path("configs/formal_experiment_r11.yaml"))
     protocol = load_execution_protocol(
         Path(config.execution_protocol_config or "missing")
     )
     pricing = load_pilot_pricing(Path(config.pricing_config))
+    monkeypatch.setattr(
+        service_module,
+        "verify_evaluator_overlay_sources",
+        lambda *_args, **_kwargs: None,
+    )
 
     verified = _verified_protocol(
         Path(".").resolve(),
@@ -1113,7 +1121,9 @@ def test_banking_r11_freezes_corrected_selection_and_paid_scope() -> None:
     )
 
 
-def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline() -> None:
+def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = load_formal_config(Path("configs/formal_experiment_r12.yaml"))
     protocol = load_execution_protocol(
         Path(config.execution_protocol_config or "missing")
@@ -1173,6 +1183,11 @@ def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline() -> None:
     assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
 
     pricing = load_pilot_pricing(Path(config.pricing_config))
+    monkeypatch.setattr(
+        service_module,
+        "verify_evaluator_overlay_sources",
+        lambda *_args, **_kwargs: None,
+    )
     verified = _verified_protocol(
         Path(".").resolve(),
         config,
