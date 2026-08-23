@@ -1593,6 +1593,47 @@ def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen(
     )
 
 
+def test_banking_r14_frozen_identity_private_ci_is_content_addressed() -> None:
+    validation = json.loads(
+        Path(
+            "artifacts/research/banking_r14/"
+            "frozen_identity_private_ci_validation.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    declared_digest = validation.pop("artifact_digest")
+    assert declared_digest == (
+        "sha256:60b4ba01dec42874a6b8db06e8624be3e31932186b4c3642673257a88daa557b"
+    )
+    assert canonical_digest(validation) == declared_digest
+    assert validation["commit"] == "f176e2492670c3d075a3b871a3a78d84eb69e359"
+    assert validation["source_revision"] == (
+        "tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe"
+    )
+    assert validation["protocol_digest"] == (
+        "sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1"
+    )
+    assert validation["study_digest"] == (
+        "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96"
+    )
+    assert validation["preregistration_digest"] == (
+        "sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9"
+    )
+    assert validation["conclusion"] == "success"
+    assert validation["repository_visibility"] == "private"
+    assert validation["repository_remained_private"] is True
+    assert validation["acceptance"]["python_tests_passed"] == 206
+    assert validation["acceptance"]["python_tests_platform_skipped"] == 2
+    assert validation["acceptance"]["typescript_tests_passed"] == 13
+    assert validation["acceptance"]["secret_and_direct_pii_files_scanned"] == 316
+    assert validation["acceptance"]["secret_and_direct_pii_findings"] == 0
+    assert validation["superseded_failed_ci_attempt"]["python_tests_failed"] == 1
+    assert validation["external_model_calls"] == 0
+    assert validation["known_model_cost_usd"] == "0"
+    assert validation["ci_compute_monetary_cost"] == "unmetered_unknown"
+    assert validation["paid_execution_authorization_created"] is False
+
+
 def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
     base = Path("artifacts/research/banking_r12/ablations")
     integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))

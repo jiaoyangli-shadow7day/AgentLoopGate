@@ -11,8 +11,8 @@ after the permanent failure. The Protocol 2.0 position-level stop control,
 experiment-scoped candidate diagnostic, and DNS-only Provider precheck now pass
 no-model fault injection and clean-room. Successor `EXP_BANKING_R14` now binds
 Protocol `8c6baf…53de1`, Study `e2afe1…35d96`, source `0e2b2e…5abe`, and
-evaluation baseline `R14_A0`; its exact private CI and paid machine capability
-remain pending, so paid calls are still zero. The standing
+evaluation baseline `R14_A0`. Its exact private CI has passed, while the paid
+machine capability remains pending, so paid calls are still zero. The standing
 private-experiment mandate permits bounded private experiments after all exact
 machine gates pass; it does not permit publication, repository visibility
 changes, or Promote.
@@ -34,7 +34,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
 | Position-level permanent-Infra fail-fast | FROZEN IN R14 / ZERO-MODEL VERIFIED | Protocol 2.0; injected non-final permanent failure; next positions and resume calls zero; prior/failed Attempt retained; calibration `b098b6…e573` | Exercise under the exact R14 paid identity |
-| Exact paid-execution authorization | IMPLEMENTED / R14 PENDING | R13 authorization is consumed and terminal; R14 Protocol/Study/source/A0 and preregistration `a704e9…5a3f9` are frozen | Create the R14 capability only after its exact-source private CI passes |
+| Exact paid-execution authorization | IMPLEMENTED / R14 PENDING | R13 authorization is consumed and terminal; R14 Protocol/Study/source/A0 and preregistration `a704e9…5a3f9` are frozen; exact-source CI passed | Create and verify the exact R14 pre-Release capability before any model call |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
 | Full source/release-artifact clean-room | PASS LOCAL FOR FROZEN R14 | 208 Python and 13 TypeScript tests; Ruff, sdist→wheel, DSH conformance/build/pack and audit passed in 20.33 s | Pass exact-source private Linux CI and repeat for the final public tree |
 | Secret and direct-PII audit | PASS FOR FROZEN R14 LOCAL TREE | 315 files scanned with zero findings and withheld paths/values | Repeat in private CI and for the final public result package |
@@ -44,7 +44,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | REPAIR PASS / EXACT R14 PENDING | Repair commit `b34eb9b`, run `32659211875`, passed; machine record `banking_r14/private_ci_validation.json` digest `80bf6d…c3a68a`; repository remained private | Commit and pass CI for exact R14 Protocol/Study/source/A0/preregistration before authorization |
+| Version-controlled private CI seal | PASS FOR EXACT R14 SOURCE | Commit `f176e24`, run `32660507957`, job `97245844684`; 206 Python passed/2 platform skips, 13 TypeScript passed, packaging/conformance passed, 316-file scan zero findings; machine record `frozen_identity_private_ci_validation.json` digest `60b4ba…a557b`; repository remained private | Repeat for terminal result package and final public tree |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves
@@ -66,8 +66,9 @@ evaluated.
 
 R14 is preparation evidence only: its Protocol 2.0 identity, independent A0,
 calibrations, timeouts, waste-control policy, and local clean-room are frozen.
-Until exact-source private CI and the machine capability pass, it has made no
-Updater or formal model call and cannot contribute an effectiveness claim.
+Its exact-source private CI passed. Until the exact machine capability passes,
+it has made no Updater or formal model call and cannot contribute an
+effectiveness claim.
 
 ## Cost interpretation
 
