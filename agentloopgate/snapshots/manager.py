@@ -112,21 +112,34 @@ class SnapshotManager:
         runtime_host: str,
         runtime_version: str,
         created_at: datetime,
+        allow_reviewed_harness_revision: bool = False,
     ) -> SnapshotManifest:
         """Capture a non-active baseline for a new evaluation revision.
 
-        The deployment activation registry remains untouched. The live harness
-        must already match its active snapshot, and the evaluation baseline may
-        differ only in non-harness execution identity such as code revision.
+        The deployment activation registry remains untouched. Legacy callers
+        may only revise non-harness execution identity. A corrected formal
+        experiment may explicitly capture reviewed source bytes that differ
+        from the deployed snapshot without activating those bytes.
         """
 
         self._safe_id(snapshot_id)
-        active = self.verify_active_live()
+        active = (
+            self.active_snapshot()
+            if allow_reviewed_harness_revision
+            else self.verify_active_live()
+        )
         expected = sorted(set(harness_paths))
         actual = self._live_harness_paths()
-        if actual != expected or expected != sorted(active.harness_files):
+        if actual != expected:
             raise SnapshotIntegrityError(
-                "evaluation baseline must exactly cover the active live harness tree"
+                "evaluation baseline must exactly cover the reviewed live harness tree"
+            )
+        if (
+            not allow_reviewed_harness_revision
+            and expected != sorted(active.harness_files)
+        ):
+            raise SnapshotIntegrityError(
+                "legacy evaluation baseline must cover the active harness tree"
             )
         manifest = SnapshotManifest(
             schema_version="1.0",
@@ -145,7 +158,10 @@ class SnapshotManager:
             ),
             created_at=created_at,
         )
-        if manifest.harness_files != active.harness_files:
+        if (
+            not allow_reviewed_harness_revision
+            and manifest.harness_files != active.harness_files
+        ):
             raise SnapshotIntegrityError(
                 "evaluation baseline harness bytes differ from the active snapshot"
             )
@@ -336,6 +352,13 @@ class SnapshotManager:
         active = self.active_snapshot()
         self._require_live_matches(active)
         return active
+
+    def verify_live(self, snapshot_id: str) -> SnapshotManifest:
+        """Verify live harness bytes against any immutable snapshot."""
+
+        snapshot = self.verify(snapshot_id)
+        self._require_live_matches(snapshot)
+        return snapshot
 
     def verify(self, snapshot_id: str) -> SnapshotManifest:
         directory = self._snapshot_dir(snapshot_id)

@@ -244,6 +244,49 @@ def test_evaluation_baseline_does_not_change_deployment_activation(tmp_path: Pat
     assert len(list((tmp_path / "snapshots/activations").glob("*.json"))) == 1
 
 
+def test_reviewed_evaluation_baseline_can_differ_without_activation(
+    tmp_path: Path,
+) -> None:
+    prompt = tmp_path / "harness/system_prompt.md"
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("deployed\n", encoding="utf-8")
+    manager = SnapshotManager(tmp_path)
+    manager.create_baseline(
+        snapshot_id="S_A0",
+        harness_paths=["harness/system_prompt.md"],
+        model_id="fixture-model",
+        objective_digest=DIGEST_A,
+        split_digest=DIGEST_B,
+        asset_manifest_digest=DIGEST_C,
+        code_revision="deployed-revision",
+        runtime_host="python_cli",
+        runtime_version="fixture@1",
+        created_at=datetime(2026, 8, 20, tzinfo=UTC),
+    )
+    prompt.write_text("reviewed evaluation revision\n", encoding="utf-8")
+
+    evaluation = manager.create_evaluation_baseline(
+        snapshot_id="R11_A0",
+        harness_paths=["harness/system_prompt.md"],
+        model_id="fixture-model",
+        objective_digest=DIGEST_A,
+        split_digest=DIGEST_B,
+        asset_manifest_digest=DIGEST_C,
+        code_revision="reviewed-r11-revision",
+        runtime_host="deepseek_harness",
+        runtime_version="deepseek-harness@fixture",
+        created_at=datetime(2026, 8, 23, tzinfo=UTC),
+        allow_reviewed_harness_revision=True,
+    )
+
+    assert evaluation.harness_files != manager.active_snapshot().harness_files
+    assert manager.verify_live(evaluation.snapshot_id) == evaluation
+    assert manager.active_snapshot().snapshot_id == "S_A0"
+    assert len(list((tmp_path / "snapshots/activations").glob("*.json"))) == 1
+    with pytest.raises(SnapshotAuthorizationError, match="drift"):
+        manager.verify_active_live()
+
+
 def test_decision_report_contains_json_markdown_and_exactly_four_core_charts(
     tmp_path: Path,
 ) -> None:

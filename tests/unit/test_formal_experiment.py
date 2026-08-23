@@ -32,6 +32,7 @@ from agentloopgate.experiment import (
     FormalExecutionProtocol,
     FormalStage,
     PaidExecutionAuthorization,
+    PaidExecutionAuthorizationError,
     ReplyLineageCalibration,
     computed_cost_lineage_calibration_digest,
     computed_evaluator_correction_calibration_digest,
@@ -157,6 +158,7 @@ def test_paid_authorization_binds_source_study_scope_and_task_positions(
             FormalStage.SELECTION,
         ],
         authorized_task_positions=125,
+        external_updater_generation_authorized=True,
         authorized_by="owner",
         authorized_at="2026-08-23T00:00:00Z",
         confirmation="OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT",
@@ -250,6 +252,7 @@ def test_release_authorization_requires_a_bound_select_not_hold(
             FormalStage.REPLAY,
         ],
         authorized_task_positions=450,
+        external_updater_generation_authorized=False,
         selection_digest=selection_digest,
         governed_candidate_id="C_1",
         authorized_by="owner",
@@ -1025,6 +1028,48 @@ def test_banking_r10_binds_scoped_evaluator_correction_and_core560() -> None:
             split_digest=protocol.split_digest,
             pricing=pricing,
         )
+
+
+def test_banking_r11_freezes_corrected_selection_and_paid_scope() -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r11.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    study = load_study_plan(Path(config.study_plan_config or "missing"))
+
+    assert config.schema_version == "1.2"
+    assert config.experiment_id == protocol.experiment_id == "EXP_BANKING_R11"
+    assert config.baseline_snapshot_id == "R11_A2"
+    assert config.paid_execution_authorization_root == (
+        "runs/authorizations/EXP_BANKING_R11"
+    )
+    assert protocol.schema_version == "1.8"
+    assert study.schema_version == "1.2"
+    assert study.protocol_digest == protocol.protocol_digest
+    assert study.supersedes_study_digest == (
+        "sha256:188c4bec10d842208c3adb173c9a824b2660d251a794b6a38fb2ae954773395a"
+    )
+    assert study.core_target_trial_count == 575
+    assert sum(row.target_trials for row in study.matrix[:3]) == 125
+    assert sum(row.target_trials for row in study.matrix[3:]) == 450
+    selection = next(
+        row for row in study.matrix if row.stage is FormalStage.SELECTION
+    )
+    assert selection.variant_count == 4
+    assert selection.target_trials == 60
+    assert study.selection_whole_attempt_cost_ratio_max == Decimal("1.2")
+    assert study.selection_p95_latency_ratio_max == Decimal("1.2")
+    assert study.selection_max_retry_increase == 0
+    assert study.selection_max_timeout_increase == 0
+
+    pricing = load_pilot_pricing(Path(config.pricing_config))
+    assert _verified_protocol(
+        Path(".").resolve(),
+        config,
+        objective_digest=protocol.objective_digest,
+        split_digest=protocol.split_digest,
+        pricing=pricing,
+    ) == protocol
 
 
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
@@ -1885,6 +1930,35 @@ def test_formal_candidate_subset_enforces_asset_family_diversity() -> None:
     selected = _diverse_subset(candidates, count=3, min_families=2)
 
     assert [item.candidate_id for item in selected] == ["C_1", "C_2", "C_4"]
+
+
+def test_r11_candidate_generation_requires_paid_updater_authorization(
+    tmp_path: Path,
+) -> None:
+    orchestrator = object.__new__(FormalExperimentOrchestrator)
+    orchestrator.root = tmp_path
+    orchestrator.config = SimpleNamespace(schema_version="1.2")
+
+    class _DeniedService:
+        @staticmethod
+        def verify_updater_generation_authorization(*, snapshot_id: str) -> None:
+            assert snapshot_id == "R11_A0"
+            raise PaidExecutionAuthorizationError("fixture Owner authorization missing")
+
+    orchestrator.service = _DeniedService()
+    diagnosis = SimpleNamespace(
+        unresolved_evaluation_incident_run_ids=[],
+        ranked_bundles=[
+            SimpleNamespace(
+                bundle=SimpleNamespace(
+                    failure_type=FailureType.TOOL_DISCOVERY_ERROR
+                )
+            )
+        ],
+    )
+
+    with pytest.raises(PaidExecutionAuthorizationError, match="Owner authorization"):
+        orchestrator._propose("R11_A0", diagnosis)
 
 
 def test_r2_role_assignment_reports_logical_execution_and_reuse_counts() -> None:

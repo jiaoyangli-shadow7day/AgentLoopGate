@@ -1,0 +1,316 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R11_PRE_RUN_PREREGISTRATION",
+  "experiment_id": "EXP_BANKING_R11",
+  "recorded_at": "2026-08-23T05:01:28Z",
+  "status": "frozen_paid_hold",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "formal_config": "configs/formal_experiment_r11.yaml",
+    "protocol_id": "BANKING_R11_PROTOCOL_1",
+    "protocol_digest": "sha256:68b03d74f7195b80928c61fdd79f713fe3bcbba0c0df3b054763c4d88bb663ea",
+    "study_id": "BANKING_R11_STUDY_1",
+    "study_digest": "sha256:97de7e47fd2328f568b74b70f23cc6347adae477d9bc1db81984ec641ca05ebb",
+    "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+    "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+    "source_revision": "tree:sha256:c392a3af0afadd566bd21169d11e63684312921c1e1fbab24f13cefb88bebee0",
+    "baseline_snapshot_id": "R11_A2",
+    "baseline_snapshot_digest": "sha256:c65cec1e852e1840d04a556f595b99e788bc7099b3afd084e6401209ccf5a2bb",
+    "baseline_manifest_file_sha256": "e2b0024038cab5241a18c233ec31f4d5ec58695aada418c3351ce3f3e05c9e8b",
+    "active_snapshot_id": "A0",
+    "deployment_activation_changed": false,
+    "superseded_preparation_baselines": [
+      {
+        "snapshot_id": "R11_A0",
+        "snapshot_digest": "sha256:f739a2d26cea47ebd36a5023681e3fc2ee0a2b5435c9c917bdaecd17e1359f19",
+        "reason": "captured before the external-Updater paid authorization boundary"
+      },
+      {
+        "snapshot_id": "R11_A1",
+        "snapshot_digest": "sha256:a667cae3655fe6a9d1a335fa31eb791624f89e756d6ff5b1646ee78bf0772913",
+        "reason": "captured before the bounded sdist builder correction"
+      }
+    ]
+  },
+  "calibration_digests": {
+    "reply_lineage": "sha256:effa38ac756a05861de4655d97df27046c9ef149ddddb0da7ea55b9291f525d4",
+    "cost_lineage": "sha256:c45f1451019db52d58f1cfcb2ba703fb151af3a85102a7e39fe85e2571c4e654",
+    "evaluator_correction": "sha256:7eb9162f41e19845aaca3dc570677ef288627ee84a80de30a523cc5c573ca3d5"
+  },
+  "pre_release_checkpoint": {
+    "formal_positions": 125,
+    "stages": {
+      "update_source": 25,
+      "update_check": 40,
+      "selection": 60
+    },
+    "external_updater_generation": {
+      "included_in_owner_scope": true,
+      "included_in_formal_position_count": false,
+      "separately_metered": true,
+      "proposal_budget": 6
+    },
+    "candidate_plan": {
+      "eligible_candidate_count": 3,
+      "minimum_asset_families": 2,
+      "siblings_from_same_baseline": true,
+      "semantic_deduplication": true,
+      "runtime_capability_binding": true,
+      "r10_decision_grade_candidate_reuse": [],
+      "insufficient_diversity_action": "stop_before_update_check"
+    },
+    "selection_policy": {
+      "baseline_bound": true,
+      "strict_stable_success_gain": true,
+      "stable_task_regression_max": 0,
+      "whole_attempt_cost_ratio_max": "1.2",
+      "p95_latency_ratio_max": "1.2",
+      "max_retry_increase": 0,
+      "max_timeout_increase": 0,
+      "no_qualifying_candidate": "selection_hold"
+    }
+  },
+  "conditional_release_tail": {
+    "formal_positions": 450,
+    "requires_verified_select": true,
+    "requires_separate_owner_authorization": true,
+    "blocked_by_selection_hold": true
+  },
+  "planning_estimate": {
+    "sequential_wall_clock_hours": "15-25",
+    "central_provider_model_cost_usd": "4.05",
+    "working_provider_model_cost_range_usd": "3.5-6.5",
+    "estimate_is_gate": false,
+    "estimate_is_authorization": false,
+    "basis": {
+      "r10_exact_cost_through_95_positions_usd": "3.0651904832",
+      "linear_125_position_projection_usd": "4.0331453726",
+      "r10_three_candidate_updater_cost_usd": "0.0116856824"
+    },
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "zero_model_validation": {
+    "attempt_id": "R11-NM-007",
+    "python_tests_passed": 183,
+    "typescript_tests_passed": 13,
+    "ruff": "passed",
+    "sdist_to_wheel_install": "passed",
+    "deepseek_harness_headless_conformance": "passed",
+    "plugin_build_and_pack": "passed",
+    "secret_pii_files_scanned": 269,
+    "secret_pii_findings": 0,
+    "real_seconds": "18.51",
+    "user_cpu_seconds": "12.33",
+    "system_cpu_seconds": "3.43",
+    "maximum_resident_set_bytes": 348913664,
+    "peak_memory_footprint_bytes": 1327440,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "baseline_attempts": [
+    {
+      "attempt_id": "ATT_DF33A1B466F3412392BA93E8D8A842CB",
+      "state": "failed",
+      "duration_ms": 6,
+      "error_type": "ValueError",
+      "error": "reply-lineage runtime binding mismatch",
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "ATT_D1638D2738E74A7E9C7FA128ECB13D99",
+      "state": "failed",
+      "duration_ms": 41,
+      "error_type": "SnapshotAuthorizationError",
+      "error": "legacy evaluation baseline could not capture reviewed Harness revision",
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "ATT_9E26282C7034478495668257317D2C1F",
+      "state": "completed_superseded",
+      "snapshot_id": "R11_A0",
+      "duration_ms": 45,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "ATT_56795665F0C640A2A109320394EDF775",
+      "state": "completed_superseded",
+      "snapshot_id": "R11_A1",
+      "duration_ms": 45,
+      "outer_real_seconds": "0.33",
+      "user_cpu_seconds": "0.21",
+      "system_cpu_seconds": "0.07",
+      "maximum_resident_set_bytes": 49119232,
+      "peak_memory_footprint_bytes": 31605120,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "ATT_700E356C64A14C8B8CAFF92374B1BC51",
+      "state": "completed",
+      "snapshot_id": "R11_A2",
+      "duration_ms": 70,
+      "outer_real_seconds": "0.55",
+      "user_cpu_seconds": "0.24",
+      "system_cpu_seconds": "0.09",
+      "maximum_resident_set_bytes": 49119232,
+      "peak_memory_footprint_bytes": 10076640,
+      "known_model_cost_usd": "0"
+    }
+  ],
+  "packaging_correction": {
+    "trigger_attempt": {
+      "attempt_id": "R11-NM-004-PRE",
+      "state": "operator_interrupted_after_diagnosis",
+      "blocked_stage": "python_sdist_build",
+      "cause": "Flit 3.12 default recursive exclusion scanned ignored append-only runs/bridge/requests",
+      "real_seconds": "260.72",
+      "user_cpu_seconds": "2.45",
+      "system_cpu_seconds": "0.88",
+      "maximum_resident_set_bytes": 70090752,
+      "peak_memory_footprint_bytes": 1278264,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "standalone_sdist_validation": {
+      "status": "passed",
+      "real_seconds": "1.12",
+      "user_cpu_seconds": "0.16",
+      "system_cpu_seconds": "0.11",
+      "maximum_resident_set_bytes": 34013184,
+      "peak_memory_footprint_bytes": 13042240,
+      "sdist_entries": 72,
+      "root_runtime_evidence_entries": 0,
+      "sdist_sha256": "5e75bbe973ef9a1d7312ec27b9a86f77f8ea24724a6d7ff2deb5934eb615cf70",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "final_current_sdist_validation": {
+      "status": "passed",
+      "real_seconds": "1.22",
+      "user_cpu_seconds": "0.17",
+      "system_cpu_seconds": "0.06",
+      "maximum_resident_set_bytes": 34455552,
+      "peak_memory_footprint_bytes": 13468224,
+      "sdist_entries": 72,
+      "root_runtime_evidence_entries": 0,
+      "sdist_sha256": "7b275f9e2f59f1819931e00c3aa1d3651b1931e4826852bf3d9da20e4b6e3f09",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "post_correction_validation_attempts": [
+      {
+        "attempt_id": "R11-NM-004",
+        "state": "passed_interim_source",
+        "python_tests_passed": 183,
+        "typescript_tests_passed": 13,
+        "secret_pii_files_scanned": 269,
+        "real_seconds": "17.15",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R11-NM-005",
+        "state": "failed_before_packaging",
+        "python_tests_passed": 182,
+        "python_tests_failed": 1,
+        "failure": "test still expected superseded baseline R11_A1 instead of R11_A2",
+        "real_seconds": "3.33",
+        "user_cpu_seconds": "1.24",
+        "system_cpu_seconds": "0.59",
+        "maximum_resident_set_bytes": 77627392,
+        "peak_memory_footprint_bytes": 1261880,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R11-NM-006",
+        "state": "passed_final_source_before_archive_guard",
+        "python_tests_passed": 183,
+        "typescript_tests_passed": 13,
+        "secret_pii_files_scanned": 269,
+        "real_seconds": "17.36",
+        "user_cpu_seconds": "12.55",
+        "system_cpu_seconds": "3.36",
+        "maximum_resident_set_bytes": 349650944,
+        "peak_memory_footprint_bytes": 1311056,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R11-NM-007",
+        "state": "passed_final_source_and_archive_guard",
+        "python_tests_passed": 183,
+        "typescript_tests_passed": 13,
+        "secret_pii_files_scanned": 269,
+        "real_seconds": "18.51",
+        "user_cpu_seconds": "12.33",
+        "system_cpu_seconds": "3.43",
+        "maximum_resident_set_bytes": 348913664,
+        "peak_memory_footprint_bytes": 1327440,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "deepseek_harness_profile": {
+    "home": "runs/dsh/r11-home",
+    "profile": "headless",
+    "dsh_version": "0.1.0-rc.8",
+    "dsh_commit": "141eb6fef83422698aef7a981029e843e8161534",
+    "plugin_package_sha256": "2d31e136a241148c22a8b9d3855d08ab133b39114e8b84e68811badaae9a4799",
+    "profile_manifest_sha256": "82a2bba608db33cdda3dcf64eadafa9e23ba71545c647d79b4e93a0e54cf0282",
+    "profile_lock_sha256": "403896b57d28614536378d064a01ae70301ebffac39b843f9255321c50fd64c0",
+    "profile_patch_sha256": "ef189a8c27db6d63930aa3046a3040482e952eafcb7487c644d508e8d461f027",
+    "composed_config_sha256": "2dbbce40cb4729aad467936d7259f345b24422acffc5dad3ec9ea8bc9031c488",
+    "composed_config_bytes": 11364,
+    "install_real_seconds": "0.67",
+    "install_user_cpu_seconds": "0.46",
+    "install_system_cpu_seconds": "0.14",
+    "install_maximum_resident_set_bytes": 215613440,
+    "install_peak_memory_footprint_bytes": 16828984,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "preflight": {
+    "status": "expected_paid_hold",
+    "exit_code": 4,
+    "frozen_input_checks_passed": [
+      "objective_frozen",
+      "splits_frozen",
+      "reliability_matches_contract",
+      "code_revision",
+      "banking_pilot_evidence",
+      "execution_protocol_frozen",
+      "study_plan_frozen"
+    ],
+    "credential_process_boundary": "absent_not_zero_not_persisted",
+    "paid_authorization_artifact_count": 0,
+    "missing_authorities": [
+      "process_scoped_deepseek_api_key",
+      "explicit_owner_pre_release_checkpoint_authorization"
+    ],
+    "real_seconds": "0.86",
+    "user_cpu_seconds": "0.32",
+    "system_cpu_seconds": "0.16",
+    "maximum_resident_set_bytes": 59834368,
+    "peak_memory_footprint_bytes": 10355192,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "cost": {
+    "r11_preparation_external_model_calls": 0,
+    "r11_preparation_known_model_cost_usd": "0",
+    "r11_paid_work_started": false,
+    "r11_updater_started": false,
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "prohibited_without_further_owner_action": [
+    "create_paid_authorization",
+    "invoke_external_updater",
+    "start_any_formal_paid_batch",
+    "activate_or_promote_snapshot",
+    "change_repository_visibility",
+    "publish_release",
+    "submit_report_or_paper"
+  ],
+  "artifact_digest": "sha256:c3c3288506af5ebdb93e4c6c61a5305caafdd4a279ab974b2e46d5069477d9a1"
+}

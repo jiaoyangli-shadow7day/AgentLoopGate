@@ -31,6 +31,13 @@ Runtime 的通用工具能力。因此 R10 只作为不可变历史/工程证据
 DeepSeek Harness Trace 共存与 fail-closed 行为可用，但尚未证明正向自进化效果。详细缺口与
 下一步见 [docs/release-readiness.md](docs/release-readiness.md)，R10 修正证据见
 [`artifacts/research/banking_r10/`](artifacts/research/banking_r10/)。
+
+修正检查点已进一步冻结为 `EXP_BANKING_R11`：Protocol、Study、源码身份和未激活的 Evaluation
+Baseline `R11_A2` 均已内容寻址；第一段范围为 125 个正式位置及单独计量的外部 Updater，预计顺序
+执行 15–25 小时。它目前仍是 `PAID_HOLD`，不存在 Owner 授权 Artifact，Updater 和正式位置均未
+启动，R11 已知模型成本为 USD `0`。冻结详情见
+[`docs/research/banking-r11-preregistration.md`](docs/research/banking-r11-preregistration.md)；冻结输入
+不代表授权，凭证存在也不能启动实验。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 
@@ -170,18 +177,18 @@ uv run agentloopgate contract freeze configs/objective_contract.yaml \
   --confirm "FREEZE OBJECTIVE" --json
 ```
 
-历史 R10 配置和 Artifact 只允许验真，不允许因当前源码变化而 Resume 成新付费结果。查看当前
-协议、Study 与暂停依据：
+历史 R10 配置和 Artifact 只允许验真，不允许因当前源码变化而 Resume 成新付费结果。查看已经
+冻结、但尚未授权的 R11 协议与 Study：
 
 ```sh
 uv run agentloopgate experiment protocol-verify \
-  --config configs/experiment_protocol_banking_r10_v1.yaml --json
+  --config configs/experiment_protocol_banking_r11_v1.yaml --json
 uv run agentloopgate experiment study-verify \
-  --config configs/banking_r10_study_v1.yaml --json
+  --config configs/banking_r11_study_v1.yaml --json
 ```
 
-下一次正式运行必须先生成新的 Protocol/Study/Experiment/Baseline 身份、通过无模型 preflight，
-并获得 Owner 对该精确付费范围的明确授权。仓库目前故意不提供“复制即可启动下一轮”的命令。
+R11 已生成新的 Protocol/Study/Experiment/Baseline 身份并通过无模型 preflight 的冻结输入检查；
+正式运行仍必须获得 Owner 对该精确付费范围的明确授权。仓库目前故意不提供“复制即可启动下一轮”的命令。
 最低授权检查点是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及 A0+3 候选共 60 个
 Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OOD/Replay。若没有候选满足
 严格增益与非回退规则，编排器以成功退出码封存 `selection_hold_outcome.json` 和 JSON/Markdown

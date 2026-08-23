@@ -47,6 +47,7 @@ from agentloopgate.experiment import (
     create_paid_execution_authorization,
     inspect_formal_preflight,
     load_execution_protocol,
+    load_formal_config,
     load_study_plan,
     run_integrity_gate_ablation,
     run_plugin_coexistence_ablation,
@@ -1152,7 +1153,14 @@ def experiment_baseline_freeze(
         )
         manager = SnapshotManager(project)
         snapshot = manager.verify(snapshot_id)
-        active = manager.verify_active_live()
+        config_record = load_formal_config(
+            config if config.is_absolute() else project / config
+        )
+        active = (
+            manager.active_snapshot()
+            if config_record.schema_version == "1.2"
+            else manager.verify_active_live()
+        )
     except (
         OSError,
         ValueError,

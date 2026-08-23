@@ -2,8 +2,9 @@
 
 Status date: 2026-08-23
 
-Current paid-evidence checkpoint: `EXP_BANKING_R10`, stopped after candidate C2
-Selection. Current execution policy: `PAID_HOLD`.
+Current paid-evidence checkpoint: immutable `EXP_BANKING_R10`, stopped after
+candidate C2 Selection. Corrected `EXP_BANKING_R11` inputs are frozen but not
+authorized. Current execution policy: `PAID_HOLD`.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -21,17 +22,17 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | A0-bound Selection with abstention | IMPLEMENTED / ZERO-MODEL VERIFIED | Study schema 1.2; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Run only under a new frozen paid identity after Owner authorization |
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
-| Explicit paid-execution authorization | IMPLEMENTED / PAID_HOLD | Formal config 1.2 authorization root; preflight + Service double-check; separate 125-position pre-Release and Selection-bound 450-position Release scopes; HOLD blocks Release | No authorization artifact exists; wait for explicit Owner scope approval |
+| Explicit paid-execution authorization | IMPLEMENTED / PAID_HOLD | Formal config 1.2 authorization root; preflight + Service double-check; first scope covers 125 formal positions and separately metered external Updater; Selection-bound 450-position Release scope is separate; HOLD blocks Release | No authorization artifact exists; wait for explicit Owner scope approval |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | Local: 176 Python and 13 TypeScript tests; private CI run `32615845655`: 175 Python passed, 1 macOS-only skip, 13 TypeScript passed; both built/installed sdist→wheel and passed Bundle build/pack plus DSH conformance | Rerun after the final public-result source change |
-| Secret and direct-PII audit | PASS FOR CURRENT TREE | Private CI scan of commit `5a0ec55`: 257 files; post-attestation local scan: 258 files; both zero findings with paths/values withheld | Rerun after public result package is assembled |
-| Corrected pre-Release paid checkpoint | NOT RUN / NOT AUTHORIZED | Planned 25 Update-Source + 40 Update-Check + 60 Selection = 125 positions, plus separately metered Updater | Freeze a new Protocol/Study/Experiment/Baseline and obtain explicit Owner authorization |
+| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | R11 final-source `R11-NM-007`: 183 Python and 13 TypeScript tests in 18.51 s; prior authorization-gate source commit `be5f2e8` passed private CI run `32616830515`, job `97138822393`, in 59 s; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed | Seal the current R11 freeze commit in private CI; rerun after any later execution-source change |
+| Secret and direct-PII audit | PASS FOR CURRENT TREE | `R11-NM-007` scanned 269 files with zero findings and withheld paths/values | Rerun for the final public result package |
+| Corrected pre-Release paid checkpoint | FROZEN / NOT AUTHORIZED | `EXP_BANKING_R11`; Protocol `68b03d…63ea`; Study `97de7e…5ebb`; source `c392a3…bee0`; Evaluation Baseline `R11_A2`; 25 + 40 + 60 = 125 positions plus separately metered Updater; machine preregistration `pre_run_preregistration.json` | Obtain explicit Owner authorization before Updater or any formal position |
 | Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL | Integrity and plugin-coexistence ablations exist; corrected selector behavior is fixture-tested | Derive selector/diagnosis statistics from the next sealed evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Fail-closed builder/verifier and package contract | Build only from the next valid terminal result, including a valid Selection-HOLD if that is the outcome |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | PASS | Commit `5a0ec55`; clean-room run `32615845655`, job `97136316636`; machine record `private_ci_validation.json` | Preserve the run; require another green run for future execution-source changes |
+| Version-controlled private CI seal | PASS FOR PRIOR SOURCE | Commit `be5f2e8`; clean-room run `32616830515`, job `97138822393`; repository remained private | Seal the final R11 freeze commit next; preserve both runs |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves
@@ -56,11 +57,11 @@ A0.
 
 ## Required completion order
 
-1. Keep R10 and every prior failure immutable; finish the current no-model
+1. Keep R10 and every prior failure immutable; finish the R11 no-model
    documentation, artifact, and private-CI seal.
-2. Prepare a new content-addressed Protocol, Study, Experiment, A0, semantic
-   candidate plan, and paid-scope estimate. Do not start it without explicit
-   Owner authorization.
+2. Treat the content-addressed R11 Protocol, Study, Experiment, `R11_A1`,
+   semantic candidate plan, and paid-scope estimate as frozen. Do not start it
+   without explicit Owner authorization.
 3. If authorized, run only the 125-position pre-Release checkpoint plus the
    separately metered external Updater. Current sequential estimate is 15–25
    hours; actual token, retry, time, path, and cost records remain mandatory.

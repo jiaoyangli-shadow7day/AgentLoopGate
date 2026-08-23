@@ -30,6 +30,17 @@ uv run agentloopgate demo \
 
 echo "[3/5] Python release artifact clean-room"
 uv build --out-dir "${VERIFY_TMP}/python-dist"
+VERIFY_SDISTS=("${VERIFY_TMP}"/python-dist/agentloopgate-*.tar.gz)
+if [[ ${#VERIFY_SDISTS[@]} -ne 1 || ! -f "${VERIFY_SDISTS[0]}" ]]; then
+  echo "Expected exactly one AgentLoopGate source distribution." >&2
+  exit 1
+fi
+if tar -tzf "${VERIFY_SDISTS[0]}" \
+  | grep -E '^agentloopgate-[^/]+/(runs|snapshots|candidates|reports)/' \
+    >/dev/null; then
+  echo "Source distribution contains a root runtime-evidence directory." >&2
+  exit 1
+fi
 uv venv "${VERIFY_TMP}/wheel-venv" --python 3.12
 uv pip install \
   --python "${VERIFY_TMP}/wheel-venv/bin/python" \

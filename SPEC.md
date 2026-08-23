@@ -1,7 +1,7 @@
 # AgentLoopGate v1.0：Vibe Coding 执行规格
 
 > 文档类型：产品目标 + 工程合同 + 实验协议 + 开发任务单  
-> 版本：v1.0 Execution Core r36
+> 版本：v1.0 Execution Core r37
 > 日期：2026-08-23
 > 周期：8 周，单人项目  
 > 默认实验载体：τ³-bench `banking_knowledge`  
@@ -167,7 +167,7 @@ AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治�
 | ID | 能力 | P0 验收结果 |
 |---|---|---|
 | P0-30 | No-key Demo | 一条命令运行 Fixture 的基线、候选、Gate、报告和插件 Conformance |
-| P0-31 | Public Release | 公开仓库、明确许可证、锁文件、第三方声明、Quickstart 和 Release Artifact |
+| P0-31 | Public Release | 公开仓库、明确许可证、锁文件、第三方声明、Quickstart 和 Release Artifact；源码打包只遍历显式发布 Allowlist，不扫描或收录被忽略的运行证据目录 |
 | P0-32 | 真实实验包 | 保存脱敏配置、聚合结果、候选 Diff、决策卡和失败案例 |
 | P0-33 | Banking 纵向验证 | 3—7 个 Pilot 由 DeepSeek Harness 承载模型会话、τ³ 执行工具并判 Outcome，AgentLoopGate 关联双侧证据并完成诊断与 Gate |
 
@@ -1648,8 +1648,8 @@ finish reason、执行路径和墙钟时间可审计；若无 Ship 候选则诚�
 
 **依赖：** T13。  
 **修改范围：** README、LICENSE、第三方声明、公开 Artifact、Release 配置。  
-**实现：** No-key Quickstart、三档 Readiness、原生 Trace 共存说明、插件安装/卸载步骤、脱敏结果、2—3 分钟 Demo，并提供 `scripts/verify_p0.sh` 统一执行 Python Fixture 与插件 Conformance。  
-**验收：** 在干净目录运行 `./scripts/verify_p0.sh` 完成 Python Demo 和插件 Conformance；公开内容无 Secret/PII/Final 泄漏。
+**实现：** No-key Quickstart、三档 Readiness、原生 Trace 共存说明、插件安装/卸载步骤、脱敏结果、2—3 分钟 Demo，并提供 `scripts/verify_p0.sh` 统一执行 Python Fixture 与插件 Conformance；Python sdist 只从明确的源码/元数据 Allowlist 构建，运行目录体量不得影响打包。
+**验收：** 在干净目录运行 `./scripts/verify_p0.sh` 完成 Python Demo 和插件 Conformance；在本地存在大量 ignored `runs/` 证据时 sdist 仍不得遍历或收录该目录；公开内容无 Secret/PII/Final 泄漏。
 
 ### 12.1 标准任务 Prompt
 
@@ -2089,6 +2089,42 @@ R10 的 Evidence Governance、Trace/Persistence/Telemetry 共存、直接 Token/
 先生成逐 Artifact 的 Evidence Reuse Audit；不能证明相同 Objective、Split、任务、Trial、模型、
 执行语义、Harness Composition 与 Evaluator 身份的证据，只能标记为 `historical_context`。任何最小
 补充付费计划仍需 Owner 明确授权。
+
+### 16.12 R11 修正检查点的冻结与授权边界
+
+R10 C2 后的零模型修正已经冻结为 `EXP_BANKING_R11`，但冻结不等于获准执行。其唯一可执行输入为：
+
+- Protocol `BANKING_R11_PROTOCOL_1`：
+  `sha256:68b03d74f7195b80928c61fdd79f713fe3bcbba0c0df3b054763c4d88bb663ea`；
+- Study `BANKING_R11_STUDY_1`：
+  `sha256:97de7e47fd2328f568b74b70f23cc6347adae477d9bc1db81984ec641ca05ebb`；
+- Execution Source：
+  `tree:sha256:c392a3af0afadd566bd21169d11e63684312921c1e1fbab24f13cefb88bebee0`；
+- Evaluation Baseline `R11_A2`：
+  `sha256:c65cec1e852e1840d04a556f595b99e788bc7099b3afd084e6401209ccf5a2bb`。
+
+`R11_A0` 是在外部 Updater 授权边界加入前生成的准备期 Baseline；`R11_A1` 是在 sdist 有界打包
+修正前生成的准备期 Baseline。二者只能保留为不可变历史，不能执行。活动部署仍为 `A0`，R11 的
+全部 Baseline Freeze 都没有部署或 Promote 任何 Snapshot。
+
+Formal Config schema `1.2+` 允许经过复核的新 Evaluation Baseline 与当前活动 Snapshot 的 Harness
+资产不同，但必须把新资产和 Source Revision 完整内容寻址，并在运行前按该 Evaluation Baseline
+重新验真 Live Bytes；该例外只用于尚未激活的正式评测输入。它不得绕过单独的人类 Promotion
+Approval，也不得改变活动 Snapshot Registry。旧 schema 继续要求与活动 Snapshot 相同。
+
+R11 的第一段 Owner 付费 Scope 必须同时、逐项授权：25 个 Update-Source、40 个 Update-Check、
+60 个 Selection，共 125 个正式任务位置，以及同一 Scope 内单独计量的外部 AHE Updater 生成调用。
+外部 Updater 不计入 125，但必须记录每次 Token、价格、成本、重试、耗时、执行路径和 Lineage；
+编排器必须在首次 AHE 调用前再次验证 `external_updater_generation_authorized=true`。凭证存在、输入
+已冻结或 preflight 通过都不能替代 Owner 授权。
+
+截至本修订，R11 已通过 `R11-NM-007` 零模型 Clean-room（183 个 Python、13 个 TypeScript 测试，
+269 文件 Secret/PII 扫描零发现），并故意停在 `PAID_HOLD`：当前进程无 API Key，授权目录中也没有
+Artifact，外部 Updater 与 125 个正式位置均未开始，已知 R11 模型成本为 USD `0`；本地计算货币成本
+为 `unmetered_unknown`。顺序执行时间 15–25 小时、中心成本约 USD 4.05、工作范围 USD 3.5–6.5
+仅用于计划，均不是 Gate、授权或停止条件。机器可验预注册与完整边界见
+`artifacts/research/banking_r11/pre_run_preregistration.json` 和
+`docs/research/banking-r11-preregistration.md`。
 
 ---
 

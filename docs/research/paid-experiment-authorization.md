@@ -14,13 +14,19 @@ minimum digest and scope needed for provenance.
 
 | Scope | Exact stages | Banking 1.2 positions | Additional binding |
 |---|---|---:|---|
-| `pre_release_checkpoint` | Update-Source, Update-Check, Selection | 125 | Protocol, Study, execution source and Owner confirmation |
+| `pre_release_checkpoint` | Update-Source, external Updater generation, Update-Check, Selection | 125 formal positions plus separately metered Updater calls | Protocol, Study, execution source and Owner confirmation |
 | `release_tail` | Release-ID, Release-OOD, Replay | 450 | The above plus the immutable `SELECT` digest and governed Candidate ID |
 
 The second scope cannot be created from a `HOLD/ABSTAIN` Selection. A sealed
 `selection_hold_outcome.json` permanently blocks Release authorization for that
 experiment. Existing-only evidence verification never needs paid authorization
 and never calls a model.
+
+The pre-Release scope explicitly includes external Updater generation even
+though those calls are not formal task positions. The authorization artifact
+records `external_updater_generation_authorized=true`, and the orchestrator
+re-verifies it immediately before invoking AHE. Updater tokens, retries, time,
+path, and cost remain separately metered; they are never hidden inside the 125.
 
 ## Owner action
 

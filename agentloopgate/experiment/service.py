@@ -148,6 +148,7 @@ class PaidExecutionAuthorization(StrictModel):
     source_revision: NonEmpty
     authorized_stages: list[FormalStage] = Field(min_length=3, max_length=3)
     authorized_task_positions: int = Field(ge=1)
+    external_updater_generation_authorized: bool
     selection_digest: Digest | None = None
     governed_candidate_id: ArtifactId | None = None
     authorized_by: NonEmpty
@@ -189,6 +190,13 @@ class PaidExecutionAuthorization(StrictModel):
             self.selection_digest is not None or self.governed_candidate_id is not None
         ):
             raise ValueError("pre-Release authorization cannot predict Selection")
+        if (
+            self.external_updater_generation_authorized
+            != (self.scope == "pre_release_checkpoint")
+        ):
+            raise ValueError(
+                "only pre-Release authorization can authorize external Updater generation"
+            )
         return self
 
 
@@ -393,6 +401,9 @@ def create_paid_execution_authorization(
         source_revision=source_revision,
         authorized_stages=stages,
         authorized_task_positions=positions,
+        external_updater_generation_authorized=(
+            scope == "pre_release_checkpoint"
+        ),
         selection_digest=selection_digest,
         governed_candidate_id=governed_candidate_id,
         authorized_by=authorized_by,
@@ -783,6 +794,11 @@ class FormalExperimentService:
                 if self.config.schema_version in {"1.1", "1.2"}
                 else self.snapshots.create_baseline
             )
+            create_kwargs = (
+                {"allow_reviewed_harness_revision": True}
+                if self.config.schema_version == "1.2"
+                else {}
+            )
             baseline = create(
                 snapshot_id=self.config.baseline_snapshot_id,
                 harness_paths=harness_paths,
@@ -794,6 +810,7 @@ class FormalExperimentService:
                 runtime_host=RuntimeHost.DEEPSEEK_HARNESS.value,
                 runtime_version=f"deepseek-harness@{DSH_VERSION}",
                 created_at=datetime.now(UTC),
+                **create_kwargs,
             )
         else:
             baseline = existing
@@ -808,11 +825,15 @@ class FormalExperimentService:
         if actual != expected:
             raise ValueError("existing A0 snapshot does not match the frozen formal inputs")
         if require_active:
-            active = self.snapshots.verify_active_live()
+            active = self.snapshots.active_snapshot()
+            if self.config.schema_version in {"1.0", "1.1"}:
+                active = self.snapshots.verify_active_live()
+            else:
+                self.snapshots.verify_live(baseline.snapshot_id)
             if self.config.schema_version == "1.0" and active.snapshot_id != baseline.snapshot_id:
                 raise ValueError("formal A0 is not the active parent snapshot")
             if (
-                self.config.schema_version in {"1.1", "1.2"}
+                self.config.schema_version == "1.1"
                 and active.harness_files != baseline.harness_files
             ):
                 raise ValueError(
@@ -1093,6 +1114,72 @@ class FormalExperimentService:
                 ),
             ),
         ).run(spec)
+
+    def verify_updater_generation_authorization(
+        self,
+        *,
+        snapshot_id: str,
+    ) -> PaidExecutionAuthorization:
+        """Re-verify the pre-Release scope before any external Updater call."""
+
+        contract = load_contract(self.root / "configs/objective_contract.yaml")
+        verify_contract_digest(contract)
+        split = self.splits.verify()
+        if split.split_digest is None:
+            raise PaidExecutionAuthorizationError(
+                "Updater authorization requires a verified frozen split"
+            )
+        snapshot = self.snapshots.verify(snapshot_id)
+        pricing = load_pilot_pricing(
+            _under(self.root, Path(self.config.pricing_config))
+        )
+        protocol = self._protocol(
+            objective_digest=computed_contract_digest(contract),
+            split_digest=split.split_digest,
+            pricing=pricing,
+        )
+        if (
+            self.config.schema_version != "1.2"
+            or protocol is None
+            or protocol.schema_version != "1.8"
+        ):
+            raise PaidExecutionAuthorizationError(
+                "external Updater generation requires formal config 1.2 and "
+                "frozen protocol 1.8"
+            )
+        study = _verified_study(self.root, self.config, protocol=protocol)
+        if study.schema_version != "1.2":
+            raise PaidExecutionAuthorizationError(
+                "external Updater generation requires Study 1.2"
+            )
+        source_revision = _code_revision(self.root)
+        if source_revision is None or snapshot.code_revision != source_revision:
+            raise PaidExecutionAuthorizationError(
+                "Updater execution source differs from the frozen Snapshot"
+            )
+        try:
+            authorization = verify_paid_execution_authorization(
+                _paid_authorization_path(
+                    self.root,
+                    self.config,
+                    scope="pre_release_checkpoint",
+                ),
+                config=self.config,
+                protocol=protocol,
+                study=study,
+                source_revision=source_revision,
+                required_stage=FormalStage.UPDATE_SOURCE,
+            )
+        except (OSError, ValueError, ValidationError) as exc:
+            raise PaidExecutionAuthorizationError(
+                "external Updater generation lacks exact pre-Release Owner "
+                f"authorization: {exc}"
+            ) from exc
+        if not authorization.external_updater_generation_authorized:
+            raise PaidExecutionAuthorizationError(
+                "pre-Release authorization excludes external Updater generation"
+            )
+        return authorization
 
     def _protocol(
         self,

@@ -62,6 +62,7 @@ from .service import (
     computed_paid_execution_authorization_digest,
     create_paid_execution_authorization,
     inspect_formal_preflight,
+    load_formal_config,
     load_paid_execution_authorization,
     verify_paid_execution_authorization,
 )
@@ -132,6 +133,7 @@ __all__ = [
     "load_cost_lineage_calibration",
     "load_evaluator_correction_calibration",
     "load_execution_protocol",
+    "load_formal_config",
     "load_paid_execution_authorization",
     "load_reply_lineage_calibration",
     "load_study_plan",

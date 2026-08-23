@@ -1107,6 +1107,10 @@ class FormalExperimentOrchestrator:
             raise FormalWorkflowBlocked(
                 "Update-Source produced no actionable, non-infrastructure FailureBundle"
             )
+        if self.config.schema_version == "1.2":
+            self.service.verify_updater_generation_authorization(
+                snapshot_id=baseline_id
+            )
         manifest = load_asset_manifest(self.root / "configs/harness_assets.yaml")
         policy = load_mutation_policy(self.root / "configs/mutation_policy.yaml")
         registry = self._registry()
