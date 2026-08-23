@@ -1181,6 +1181,16 @@ def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline(
     assert canonical_digest(preregistration) == declared_preregistration_digest
     assert preregistration["cost"]["r12_paid_work_started"] is False
     assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
+    ci_validation = json.loads(
+        Path("artifacts/research/banking_r12/private_ci_validation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared_ci_digest = ci_validation.pop("artifact_digest")
+    assert declared_ci_digest == (
+        "sha256:86f83a0c3fe4a2a013e44b583d893e0f9dd1278abe4e42e2aad92d28c946e962"
+    )
+    assert canonical_digest(ci_validation) == declared_ci_digest
 
     pricing = load_pilot_pricing(Path(config.pricing_config))
     monkeypatch.setattr(

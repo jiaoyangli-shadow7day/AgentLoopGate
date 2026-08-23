@@ -8,6 +8,11 @@ AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治�
 插件只负责把宿主事实安全地接入同一套 Candidate、Snapshot、ID/OOD/Replay 和 Gate 流程。
 项目的可执行产品合同是 [SPEC.md](SPEC.md)。
 
+参与开发、漏洞报告、社区行为、引用和版本变化分别见
+[CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)、
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)、[CITATION.cff](CITATION.cff) 和
+[CHANGELOG.md](CHANGELOG.md)。
+
 ## 当前状态
 
 仓库已经具备无 Key 治理内核、确定性公开 Demo、冻结的 97 任务六池划分、AHE Updater

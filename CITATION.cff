@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use AgentLoopGate, please cite the software and its accompanying technical report when available."
+title: "AgentLoopGate: Evidence-Governed Evolution and Release Control for Agent Harnesses"
+type: software
+authors:
+  - name: "AgentLoopGate Contributors"
+repository-code: "https://github.com/jiaoyangli-shadow7day/AgentLoopGate"
+license: Apache-2.0
+version: 0.1.0
+keywords:
+  - agent harness
+  - evidence governance
+  - evaluation
+  - release gating
+  - DeepSeek Harness
+abstract: >-
+  AgentLoopGate is a runtime-independent evidence governance and evolution
+  decision layer for Agent Harnesses. It preserves host-native traces, binds
+  immutable evaluation evidence, and produces auditable SHIP_RECOMMENDED, HOLD,
+  or REJECT recommendations without automatic deployment.

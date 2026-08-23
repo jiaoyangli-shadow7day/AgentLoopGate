@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_PRIVATE_CI_VALIDATION",
+  "experiment_id": "EXP_BANKING_R12",
+  "recorded_at": "2026-08-23T10:03:46Z",
+  "contains_raw_customer_data": false,
+  "repository_visibility": "private",
+  "execution_source_revision": "tree:sha256:d7f8e3a0b8a9004fcb1778d90bb773360dda6a5fa1eb7ad68ca9a64eece265bd",
+  "attempts": [
+    {
+      "run_id": 32631883411,
+      "head_commit": "b5c298133fd161ba0269efc2b6c46214915f4264",
+      "state": "failed",
+      "cause": "R11 existing-only protocol test unintentionally required the ignored local tau3 checkout",
+      "python_tests_passed": 186,
+      "python_tests_failed": 1,
+      "python_tests_skipped": 1,
+      "failed_before_model_boundary": true,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "run_id": 32632623291,
+      "head_commit": "d86eceab603afbafdef80eb5af1f3a67345bcebe",
+      "state": "failed",
+      "cause": "R11 and R12 protocol identity tests unintentionally required the ignored local tau3 checkout",
+      "python_tests_passed": 187,
+      "python_tests_failed": 2,
+      "python_tests_skipped": 1,
+      "failed_before_model_boundary": true,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "run_id": 32632677850,
+      "job_id": 97177688962,
+      "head_commit": "ba757100ae62b095958eb09b7b9818c37e2f9ba0",
+      "state": "passed",
+      "python_tests_passed": 189,
+      "python_tests_skipped": 1,
+      "typescript_tests_passed": 13,
+      "sdist_to_wheel_install": "passed",
+      "deepseek_harness_headless_conformance": "passed",
+      "plugin_build_and_pack": "passed",
+      "secret_pii_files_scanned": 282,
+      "secret_pii_findings": 0,
+      "clean_room_step_wall_time_seconds": 40,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    }
+  ],
+  "test_isolation_correction": {
+    "commit": "ba75710",
+    "change": "lineage and frozen-identity unit tests mock only evaluator overlay source-file verification, whose checkout-bound behavior has separate tests and preflight verification",
+    "execution_protocol_changed": false,
+    "experiment_identity_changed": false
+  },
+  "post_ci_local_public_tree_audit": {
+    "failed_attempt": {
+      "state": "cli_usage_error",
+      "argument": "--root",
+      "cause": "audit_public_tree.py accepts --project",
+      "scan_executed": false,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "successful_attempt": {
+      "state": "passed",
+      "argument": "--project .",
+      "files_scanned": 287,
+      "findings": 0,
+      "paths_and_values_withheld": true,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    }
+  },
+  "post_governance_local_clean_room": {
+    "attempt_id": "R12-NM-004",
+    "state": "passed",
+    "python_tests_passed": 190,
+    "typescript_tests_passed": 13,
+    "ruff": "passed",
+    "sdist_to_wheel_install": "passed",
+    "deepseek_harness_headless_conformance": "passed",
+    "plugin_build_and_pack": "passed",
+    "secret_pii_files_scanned": 288,
+    "secret_pii_findings": 0,
+    "real_seconds": "17.45",
+    "user_cpu_seconds": "12.56",
+    "system_cpu_seconds": "2.97",
+    "maximum_resident_set_bytes": 359743488,
+    "peak_memory_footprint_bytes": 1474896,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "limitations": [
+    "the passing CI run covers the frozen R12 execution source and tracked preregistration but predates the governance-only community files added afterward",
+    "the final public commit and sanitized result package require a fresh independent clean-room and public-tree audit",
+    "local compute and CI monetary costs are unmetered_unknown and are not represented as zero"
+  ],
+  "artifact_digest": "sha256:86f83a0c3fe4a2a013e44b583d893e0f9dd1278abe4e42e2aad92d28c946e962"
+}

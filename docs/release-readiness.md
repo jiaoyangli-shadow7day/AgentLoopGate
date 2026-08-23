@@ -34,7 +34,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | PASS | Commits `f6bd641` and `9a48956`; latest clean-room run `32620190226`, job `97147090957`; machine record `banking_r11/private_ci_validation.json`; repository remained private | Preserve the runs; require another green run for future execution-source changes |
+| Version-controlled private CI seal | PASS FOR R12 EXECUTION SOURCE | R12 commit `ba75710`; clean-room run `32632677850`, job `97177688962`; 189 Python passed/1 platform skip, 13 TypeScript passed, 282-file scan zero findings; machine record `banking_r12/private_ci_validation.json`; repository remained private | Rerun for the final public commit and sanitized result package |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves
