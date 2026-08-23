@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R13_PRIVATE_CI_VALIDATION",
+  "experiment_id": "EXP_BANKING_R13",
+  "recorded_at": "2026-08-23T15:44:05Z",
+  "contains_raw_customer_data": false,
+  "repository_visibility": "private",
+  "execution_source_revision": "tree:sha256:acf909334915b3dde4a8fc5dd7df4adc4d2fa1db4cb0e77fc801715a70ac9c1a",
+  "preregistration_digest": "sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961",
+  "attempts": [
+    {
+      "run_id": 32649389474,
+      "job_id": 97218510692,
+      "head_commit": "0f4c7db364bfba36ad7a595c685e2b69a4705d5b",
+      "state": "passed",
+      "python_tests_passed": 198,
+      "python_tests_skipped": 2,
+      "typescript_tests_passed": 13,
+      "ruff": "passed",
+      "sdist_to_wheel_install": "passed",
+      "deepseek_harness_headless_conformance": "passed",
+      "plugin_build_and_pack": "passed",
+      "secret_pii_files_scanned": 302,
+      "secret_pii_findings": 0,
+      "clean_room_step_wall_time_seconds": 45,
+      "job_wall_time_seconds": 63,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    }
+  ],
+  "local_pre_ci_validation": {
+    "python_tests_passed": 200,
+    "real_seconds": "5.16",
+    "user_cpu_seconds": "2.98",
+    "system_cpu_seconds": "0.88",
+    "maximum_resident_set_bytes": 160677888,
+    "peak_memory_footprint_bytes": 9404896,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "limitations": [
+    "CI and local compute monetary costs are unmetered_unknown and are not represented as zero",
+    "the final public commit and sanitized result package require a fresh independent clean-room and public-tree audit",
+    "this validation proves execution readiness and evidence integrity, not candidate effectiveness"
+  ],
+  "artifact_digest": "sha256:6c486256fbbd89b471706c012453259d2d7173edb139dd9f7268aaa04e3ece5d"
+}

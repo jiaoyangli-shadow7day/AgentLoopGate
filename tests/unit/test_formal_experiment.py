@@ -1338,6 +1338,18 @@ def test_banking_r13_preregistration_binds_successor_integrity_and_cost() -> Non
         "update_check": 40,
         "selection": 60,
     }
+    ci_validation = json.loads(
+        Path("artifacts/research/banking_r13/private_ci_validation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    declared_ci_digest = ci_validation.pop("artifact_digest")
+    assert declared_ci_digest == (
+        "sha256:6c486256fbbd89b471706c012453259d2d7173edb139dd9f7268aaa04e3ece5d"
+    )
+    assert canonical_digest(ci_validation) == declared_ci_digest
+    assert ci_validation["repository_visibility"] == "private"
+    assert ci_validation["attempts"][0]["known_model_cost_usd"] == "0"
 
 
 def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
