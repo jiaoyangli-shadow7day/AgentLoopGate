@@ -1,0 +1,272 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R14_PRE_RUN_PREREGISTRATION",
+  "experiment_id": "EXP_BANKING_R14",
+  "recorded_at": "2026-08-23T19:06:58Z",
+  "status": "frozen_private_ci_hold",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "formal_config": "configs/formal_experiment_r14.yaml",
+    "protocol_id": "BANKING_R14_PROTOCOL_1",
+    "protocol_digest": "sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1",
+    "study_id": "BANKING_R14_STUDY_1",
+    "study_digest": "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96",
+    "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+    "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+    "source_revision": "tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe",
+    "baseline_snapshot_id": "R14_A0",
+    "baseline_snapshot_digest": "sha256:5c1873205b9598e7458a94e8002c5bebfb0bdb29d279c8aa913970ff56d2024b",
+    "baseline_manifest_file_sha256": "bbf7b9f39529ce4ec6cef8f6408e27da809392690720a505f709aec29f87a58a",
+    "active_snapshot_id": "A0",
+    "deployment_activation_changed": false,
+    "supersedes_experiment_id": "EXP_BANKING_R13",
+    "r13_terminal_evidence_reused_as_decision_grade": false,
+    "r13_candidate_reuse": [],
+    "r13_rerun_or_supplement_permitted": false
+  },
+  "calibration_digests": {
+    "reply_lineage": "sha256:de6858cccc1850e9c541ed47686c7a928264854d1c2e157168573b951f309611",
+    "cost_lineage": "sha256:a0f99426621893f650b3a32c8023c5d3d167bcd21281fa8dc34bb7a54b0b1fdd",
+    "evaluator_correction": "sha256:97d1c4c9d0eda890a090fc5c8f430c291f60be74cb327fe68a42510c73e0097f",
+    "successor_integrity": "sha256:586db421bd3e5e51cd4bc643d2df30118774e336df5b4c9cc88b549ab639d35c",
+    "position_fail_fast": "sha256:b098b61edb3ec5bfa6fe80c7e96eeac9540b6bd2c162a999996975f2b056e573",
+    "r13_fail_fast_incident": "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653"
+  },
+  "waste_control": {
+    "position_fail_fast_policy": "stop_before_next_position_after_permanent_infra_invalid_v1",
+    "max_concurrency": 1,
+    "global_task_attempt_limit": 2,
+    "permanent_failure_action": "retain prior and failed attempts, emit a content-addressed trigger, and start zero later positions",
+    "resume_action": "verify existing terminal trigger and start zero new positions",
+    "provider_connectivity_preflight_policy": "dns_resolution_api_deepseek_com_v1",
+    "provider_preflight_sends_api_key": false,
+    "provider_preflight_sends_http": false,
+    "provider_preflight_model_calls": 0,
+    "simulation_timeout_seconds": 1800,
+    "turn_timeout_seconds": 360,
+    "dsh_stream_idle_timeout_ms": 300000,
+    "timeout_rationale": "retain limits that cover legitimate long Banking trajectories; stop confirmed permanent infrastructure failure between positions rather than truncate valid slow tasks"
+  },
+  "pre_release_checkpoint": {
+    "formal_positions": 125,
+    "stages": {
+      "update_source": 25,
+      "update_check": 40,
+      "selection": 60
+    },
+    "external_updater_generation": {
+      "included_in_standing_private_experiment_mandate": true,
+      "included_in_formal_position_count": false,
+      "separately_metered": true,
+      "proposal_budget": 6
+    },
+    "candidate_plan": {
+      "eligible_candidate_count": 3,
+      "minimum_asset_families": 2,
+      "siblings_from_same_baseline": true,
+      "semantic_deduplication": true,
+      "runtime_capability_binding": true,
+      "historical_candidate_reuse": [],
+      "insufficient_diversity_action": "stop_before_update_check"
+    },
+    "selection_policy": {
+      "baseline_bound": true,
+      "strict_stable_success_gain": true,
+      "stable_task_regression_max": 0,
+      "whole_attempt_cost_ratio_max": "1.2",
+      "p95_latency_ratio_max": "1.2",
+      "max_retry_increase": 0,
+      "max_timeout_increase": 0,
+      "no_qualifying_candidate": "selection_hold"
+    }
+  },
+  "conditional_release_tail": {
+    "formal_positions": 450,
+    "requires_verified_select": true,
+    "requires_separate_machine_authorization": true,
+    "requires_new_conversational_approval_under_standing_private_experiment_mandate": false,
+    "blocked_by_selection_hold": true,
+    "promotion_or_deployment_authorized": false
+  },
+  "planning_estimate": {
+    "pre_release_sequential_wall_clock_hours": "15-25",
+    "working_provider_model_cost_range_usd": "3.5-6.5",
+    "estimate_is_gate": false,
+    "estimate_is_authorization": false,
+    "cost_is_primary_gate": false,
+    "basis": {
+      "r10_exact_cost_through_95_positions_usd": "3.0651904832",
+      "r13_valid_source_cost_usd": "0.6636430192",
+      "r13_whole_attempt_known_lower_bound_usd": "0.6692124248000000062",
+      "r13_avoidable_post_failure_tail_cost_usd": "0.4686327800",
+      "r13_avoidable_post_failure_task_duration_ms": 6329212
+    },
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "zero_model_validation_attempts": [
+    {
+      "attempt_id": "R14-NM-001",
+      "scope": "protocol_2_foundation_clean_room",
+      "status": "passed",
+      "python_tests_passed": 206,
+      "typescript_tests_passed": 13,
+      "secret_pii_scan": "passed_307_files_zero_findings",
+      "real_seconds": "16.14",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-002",
+      "scope": "frozen_protocol_study_and_calibration_focused_tests",
+      "status": "passed",
+      "tests_passed": 2,
+      "tests_deselected": 60,
+      "reported_seconds": "0.25",
+      "ruff": "passed",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-003",
+      "scope": "evaluation_baseline_freeze",
+      "status": "passed",
+      "ledger_attempt_id": "ATT_4EEC9A021F6C4E2AA1DDAB2B25AF490A",
+      "ledger_duration_ms": 43,
+      "real_seconds": "0.40",
+      "maximum_resident_set_bytes": 50085888,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-004",
+      "scope": "real_dns_preflight_before_machine_authorization",
+      "status": "expected_authorization_hold",
+      "passed_checks": 10,
+      "candidate_count": 0,
+      "only_missing": "exact_pre_release_checkpoint_machine_authorization",
+      "real_seconds": "2.90",
+      "maximum_resident_set_bytes": 160694272,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-005",
+      "scope": "frozen_source_full_clean_room",
+      "status": "passed",
+      "python_tests_passed": 208,
+      "typescript_tests_passed": 13,
+      "ruff": "passed",
+      "sdist_to_wheel_install": "passed",
+      "dsh_headless_bundle_conformance": "passed",
+      "plugin_build_and_pack": "passed",
+      "secret_pii_scan": "passed_315_files_zero_findings",
+      "real_seconds": "20.33",
+      "user_cpu_seconds": "12.88",
+      "system_cpu_seconds": "3.04",
+      "maximum_resident_set_bytes": 360398848,
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-F001",
+      "scope": "cli_help_chain",
+      "status": "failed_before_validation",
+      "failure": "nonexistent experiment prepare subcommand",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    {
+      "attempt_id": "R14-NM-F002",
+      "scope": "protocol_verify_first_invocation",
+      "status": "failed_before_protocol_verification",
+      "failure": "formal config passed where protocol config was required",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    }
+  ],
+  "baseline_attempts": [
+    {
+      "attempt_id": "ATT_4EEC9A021F6C4E2AA1DDAB2B25AF490A",
+      "state": "completed",
+      "snapshot_id": "R14_A0",
+      "duration_ms": 43,
+      "manifest_file_digest": "sha256:bbf7b9f39529ce4ec6cef8f6408e27da809392690720a505f709aec29f87a58a",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    }
+  ],
+  "deepseek_harness_profile": {
+    "home": "runs/dsh/r14-home",
+    "profile": "headless",
+    "dsh_version": "0.1.0-rc.8",
+    "dsh_commit": "141eb6fef83422698aef7a981029e843e8161534",
+    "package_manager": "pnpm@11.7.0",
+    "plugin_install_mode": "link_to_content_addressed_execution_source",
+    "plugin_package_json_sha256": "b22e75606fd0509401d03c80217c09aa5a570927178cbdbb85a6bb10ed72fb74",
+    "profile_manifest_sha256": "05470d406ff021ef092fdcbfd0e6f9bbd905fb710fa9e2eb3bf3cbfc490707eb",
+    "profile_lock_sha256": "0db3d9dfba22adb49c86400e4c46955372c77b77b6567419bfb95d38629adfb0",
+    "profile_patch_sha256": "ef189a8c27db6d63930aa3046a3040482e952eafcb7487c644d508e8d461f027",
+    "profile_workspace_sha256": "ae7c5b68e2f157528e62885804e69e88583897b775e03c86fcbe52feaf498aba",
+    "installation_attempts": [
+      {
+        "attempt_id": "R14-DSH-001",
+        "state": "passed_with_unfrozen_package_manager_superseded",
+        "observed_pnpm_version": "11.19.0",
+        "model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R14-DSH-002",
+        "state": "passed",
+        "observed_pnpm_version": "11.7.0",
+        "frozen_lockfile": true,
+        "model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "preflight": {
+    "status": "expected_private_ci_and_machine_authorization_hold",
+    "frozen_input_checks_passed": [
+      "objective_frozen",
+      "splits_frozen",
+      "reliability_matches_contract",
+      "code_revision",
+      "banking_pilot_evidence",
+      "execution_protocol_frozen",
+      "study_plan_frozen",
+      "dsh_tau3_ready",
+      "ahe_ready",
+      "credential_process_boundary",
+      "provider_dns_resolution"
+    ],
+    "credential_value_recorded": false,
+    "r14_candidate_count": 0,
+    "paid_authorization_artifact_count": 0,
+    "exact_r14_source_private_ci_status": "pending",
+    "missing_authorities": [
+      "exact_pre_release_checkpoint_machine_authorization"
+    ],
+    "standing_private_experiment_mandate": true,
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "cost": {
+    "r14_preparation_external_model_calls": 0,
+    "r14_preparation_known_model_cost_usd": "0",
+    "r14_paid_work_started": false,
+    "r14_updater_started": false,
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "prohibited_until_private_ci_and_exact_machine_authorization": [
+    "invoke_external_updater",
+    "start_any_formal_paid_batch"
+  ],
+  "prohibited_without_separate_owner_publication_or_promotion_action": [
+    "activate_or_promote_snapshot",
+    "change_repository_visibility",
+    "publish_release",
+    "submit_report_or_paper"
+  ],
+  "artifact_digest": "sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9"
+}

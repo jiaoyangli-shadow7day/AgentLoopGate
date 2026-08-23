@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R14_SUCCESSOR_INTEGRITY_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R13",
+  "source_incident_artifact": "artifacts/research/banking_r13/r12_successor_integrity_incident.json",
+  "source_incident_digest": "sha256:552d0cd210f96ee23de5cb2516eff3e90337fdb716d78988677df7e8a0a4ab65",
+  "contains_raw_customer_data": false,
+  "user_empty_final_repair_policy": "bounded_same_call_context_final_only_v1",
+  "user_empty_final_repair_limit": 1,
+  "updater_sandbox_output_policy": "attempt_local_runtime_only_v1",
+  "assertions": [
+    "only an empty User Simulator final reply is eligible for repair",
+    "repair appends one correction to the unchanged conversation without inspecting Formal Gold",
+    "original and repair calls have distinct ledger events and direct task identity",
+    "retained response aggregates usage while per-call frozen-price accounting remains authoritative",
+    "a second empty response remains invalid and cannot trigger a third call",
+    "AHE runtime, cache, temporary, and long-output files remain inside the current attempt root",
+    "AHE doctor executes local NexAU bash inside the formal sandbox before any Updater model call"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:afe3fa1fc3fc4e66e3a099c8e215936963927f3014a09ed084c3ef06a6d91242",
+    "agentloopgate/runtime/__init__.py": "sha256:3999d733aa7afabd8704035d8cf0a4d2a36572ed68e9188de772f4c9326d964f",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:0d1d422bca4ef545776db9313899d96aa5780ce7c2566d6e1644c9a68aa24974",
+    "agentloopgate/updaters/ahe.py": "sha256:d572b851389c272a312a589a0b2fa779393f195f13d8e386504d8f92cc44b78c",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180",
+    "agentloopgate/experiment/__init__.py": "sha256:7108f9386eee7bf1ad60ffae4fdb9dbb7f85190295442086fb6ee096e41d5b0f",
+    "tests/unit/test_tau3_pilot_runtime.py": "sha256:f1106e1b2071f3066da82a13b75c7d79d96b50d6f9e5b1a6c54b9ef8d651f9c3",
+    "tests/unit/test_updaters.py": "sha256:0f771ae887c3e423150c18874dc04b00efeea12179fdfcfa7a126bdf2bb756f8"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-23T18:45:39Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "user_empty_final_single_repair": "passed",
+      "user_empty_final_second_empty_fails_closed": "passed",
+      "user_usage_and_cost_aggregation": "passed",
+      "user_calls_separately_ledgered": "passed",
+      "invalid_policy_or_limit_rejected": "passed",
+      "ahe_runtime_paths_attempt_local": "passed",
+      "ahe_long_tool_output_attempt_local": "passed",
+      "nexau_bash_inside_formal_sandbox": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R14-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 206,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_307_files_zero_findings",
+        "real_seconds": "16.14",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "fixtures prove bounded repair and sandbox routing but do not estimate future empty-reply frequency",
+    "a paid successor still requires a new protocol, source revision, baseline, preregistration, and exact machine authorization"
+  ],
+  "artifact_digest": "sha256:586db421bd3e5e51cd4bc643d2df30118774e336df5b4c9cc88b549ab639d35c"
+}

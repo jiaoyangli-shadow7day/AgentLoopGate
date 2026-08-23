@@ -2242,6 +2242,18 @@ DNS/Provider 可达性预检；预检不能
 `artifacts/research/banking_r13/formal_execution_seal.json`（Digest
 `sha256:a7d4315026af1dfc79e51f770432ba8cbc5b7bf86f04488993e669dcf5823454`）。
 
+首个合规后继已冻结为 `EXP_BANKING_R14`：Protocol
+`BANKING_R14_PROTOCOL_1`（Digest
+`sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1`）、Study
+`BANKING_R14_STUDY_1`（Digest
+`sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96`）、源码
+`tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe` 与
+评测基线 `R14_A0`（Digest
+`sha256:5c1873205b9598e7458a94e8002c5bebfb0bdb29d279c8aa913970ff56d2024b`）。其预注册
+Digest 为 `sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9`。
+精确 R14 私有 CI 和机器授权通过前，外部 Updater 与任何付费位置必须保持为 0；该状态不得解释为
+R14 已经证明候选有效。
+
 ---
 
 ## 17. 旧 SPEC 核心保留映射

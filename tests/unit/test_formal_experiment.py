@@ -1488,6 +1488,104 @@ def test_banking_r14_protocol_2_private_ci_validation_is_content_addressed() -> 
     assert validation["publication_or_submission_executed"] is False
 
 
+def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen() -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r14.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    study = load_study_plan(Path(config.study_plan_config or "missing"))
+    reply = load_reply_lineage_calibration(
+        Path(protocol.reply_lineage_calibration_artifact or "missing")
+    )
+    cost = load_cost_lineage_calibration(
+        Path(protocol.cost_lineage_calibration_artifact or "missing")
+    )
+    evaluator = load_evaluator_correction_calibration(
+        Path(protocol.evaluator_correction_calibration_artifact or "missing")
+    )
+    successor = load_successor_integrity_calibration(
+        Path(protocol.successor_integrity_calibration_artifact or "missing")
+    )
+    fail_fast = load_position_fail_fast_calibration(
+        Path(protocol.position_fail_fast_calibration_artifact or "missing")
+    )
+    preregistration = json.loads(
+        Path("artifacts/research/banking_r14/pre_run_preregistration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert config.experiment_id == protocol.experiment_id == "EXP_BANKING_R14"
+    assert config.baseline_snapshot_id == "R14_A0"
+    assert config.dsh_home == "runs/dsh/r14-home"
+    assert protocol.schema_version == "2.0"
+    assert protocol.protocol_digest == (
+        "sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1"
+    )
+    assert protocol.position_fail_fast_policy == (
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    )
+    assert protocol.provider_connectivity_preflight_policy == (
+        "dns_resolution_api_deepseek_com_v1"
+    )
+    assert protocol.simulation_timeout_seconds == 1800
+    assert protocol.turn_timeout_seconds == 360
+    assert protocol.dsh_stream_idle_timeout_ms == 300000
+    assert study.study_digest == (
+        "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96"
+    )
+    assert study.protocol_digest == protocol.protocol_digest
+    assert sum(
+        item.target_trials
+        for item in study.matrix
+        if item.stage
+        in {
+            FormalStage.UPDATE_SOURCE,
+            FormalStage.UPDATE_CHECK,
+            FormalStage.SELECTION,
+        }
+    ) == 125
+    assert reply.artifact_digest == protocol.reply_lineage_calibration_digest
+    assert cost.artifact_digest == protocol.cost_lineage_calibration_digest
+    assert evaluator.artifact_digest == (
+        protocol.evaluator_correction_calibration_digest
+    )
+    assert successor.artifact_digest == (
+        protocol.successor_integrity_calibration_digest
+    )
+    assert fail_fast.artifact_digest == (
+        protocol.position_fail_fast_calibration_digest
+    )
+    pricing = load_pilot_pricing(Path(config.pricing_config))
+    assert _verified_protocol(
+        Path(".").resolve(),
+        config,
+        objective_digest=protocol.objective_digest,
+        split_digest=protocol.split_digest,
+        pricing=pricing,
+    ) == protocol
+    declared_preregistration_digest = preregistration.pop("artifact_digest")
+    assert declared_preregistration_digest == (
+        "sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9"
+    )
+    assert canonical_digest(preregistration) == declared_preregistration_digest
+    assert preregistration["status"] == "frozen_private_ci_hold"
+    assert preregistration["frozen_identity"]["source_revision"] == (
+        "tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe"
+    )
+    assert preregistration["frozen_identity"]["baseline_snapshot_digest"] == (
+        "sha256:5c1873205b9598e7458a94e8002c5bebfb0bdb29d279c8aa913970ff56d2024b"
+    )
+    assert preregistration["waste_control"]["provider_preflight_model_calls"] == 0
+    assert preregistration["preflight"]["r14_candidate_count"] == 0
+    assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
+    assert preregistration["cost"]["r14_paid_work_started"] is False
+    assert preregistration["cost"]["r14_preparation_known_model_cost_usd"] == "0"
+    assert preregistration["cost"]["local_compute_monetary_cost"] == (
+        "unmetered_unknown"
+    )
+
+
 def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
     base = Path("artifacts/research/banking_r12/ablations")
     integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))
