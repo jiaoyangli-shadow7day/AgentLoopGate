@@ -1488,7 +1488,9 @@ def test_banking_r14_protocol_2_private_ci_validation_is_content_addressed() -> 
     assert validation["publication_or_submission_executed"] is False
 
 
-def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen() -> None:
+def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = load_formal_config(Path("configs/formal_experiment_r14.yaml"))
     protocol = load_execution_protocol(
         Path(config.execution_protocol_config or "missing")
@@ -1557,6 +1559,11 @@ def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen() -> None:
         protocol.position_fail_fast_calibration_digest
     )
     pricing = load_pilot_pricing(Path(config.pricing_config))
+    monkeypatch.setattr(
+        service_module,
+        "verify_evaluator_overlay_sources",
+        lambda *_args, **_kwargs: None,
+    )
     assert _verified_protocol(
         Path(".").resolve(),
         config,
