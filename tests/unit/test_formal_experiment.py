@@ -1208,6 +1208,36 @@ def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline(
     assert verified == protocol
 
 
+def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
+    base = Path("artifacts/research/banking_r12/ablations")
+    integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))
+    plugin = json.loads(
+        (base / "plugin_coexistence_overhead.json").read_text(encoding="utf-8")
+    )
+
+    for artifact in (integrity, plugin):
+        declared = artifact.pop("artifact_digest")
+        assert canonical_digest(artifact) == declared
+        assert artifact["study_digest"] == (
+            "sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4"
+        )
+        assert artifact["formal_decision"] is False
+        assert artifact["synthetic_control"] is True
+
+    assert integrity["production_decision"] == "HOLD"
+    assert integrity["counterfactual_decision"] == "SHIP_RECOMMENDED"
+    assert integrity["unsupported_admission_prevented"] is True
+    assert plugin["protocol_digest"] == (
+        "sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2"
+    )
+    assert plugin["additional_model_calls"] is False
+    for backend in ("jsonl", "sqlite"):
+        result = plugin["results"][backend]
+        assert result["sessionEventHashEquivalent"] is True
+        assert result["persistenceSurvival"] is True
+        assert result["otelCoexistence"] is True
+
+
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
     orchestrator = FormalExperimentOrchestrator(
         Path("."),

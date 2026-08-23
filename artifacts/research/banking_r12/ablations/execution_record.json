@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_NO_MODEL_ABLATION_EXECUTION",
+  "experiment_id": "EXP_BANKING_R12",
+  "protocol_digest": "sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2",
+  "study_digest": "sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4",
+  "recorded_at": "2026-08-23T10:09:00.816985Z",
+  "contains_raw_customer_data": false,
+  "attempts": [
+    {
+      "attempt_id": "ATT_F94EA2B6C64F41D499DA0DA9387C769A",
+      "operation": "integrity_gate_ablation",
+      "state": "completed",
+      "ledger_duration_ms": 2,
+      "outer_real_seconds": "0.34",
+      "outer_user_cpu_seconds": "0.18",
+      "outer_system_cpu_seconds": "0.03",
+      "maximum_resident_set_bytes": 48463872,
+      "peak_memory_footprint_bytes": 9290208,
+      "artifact": "artifacts/research/banking_r12/ablations/integrity_gate.json",
+      "artifact_digest": "sha256:bd833e39c646a7ea90f52259c2d55513160b3e0ecdfbf4f856e76f6183268f79",
+      "file_digest": "sha256:71f8d6db3aa57082615db64b04a84a4247a10aba85677124f481504cb3940d6a",
+      "model_calls": 0,
+      "known_model_cost_usd": "0",
+      "local_compute_monetary_cost": "unmetered_unknown"
+    },
+    {
+      "attempt_id": "ATT_1D3F50FD8BBD467985A008D223B78BC7",
+      "operation": "plugin_coexistence_overhead",
+      "state": "completed",
+      "ledger_duration_ms": 3438,
+      "outer_real_seconds": "3.78",
+      "outer_user_cpu_seconds": "2.17",
+      "outer_system_cpu_seconds": "0.50",
+      "maximum_resident_set_bytes": 305872896,
+      "peak_memory_footprint_bytes": 9306544,
+      "artifact": "artifacts/research/banking_r12/ablations/plugin_coexistence_overhead.json",
+      "artifact_digest": "sha256:db2b37b4491d1eb9bd1aeace9c295489d7401ba1a1d8340a51e645a55b744bb8",
+      "file_digest": "sha256:396264406a26c4aef18d3e4ca62e9bdda00e51e252ab86bbf9a4fb288b5ce51c",
+      "model_calls": 0,
+      "known_model_cost_usd": "0",
+      "local_compute_monetary_cost": "unmetered_unknown"
+    }
+  ],
+  "findings": {
+    "integrity_gate": {
+      "synthetic_control": true,
+      "production_decision": "HOLD",
+      "counterfactual_without_integrity_gate": "SHIP_RECOMMENDED",
+      "unsupported_admission_prevented": true
+    },
+    "plugin_coexistence_overhead": {
+      "synthetic_control": true,
+      "environment": "darwin-arm64-node-v24.14.1",
+      "jsonl_p50_overhead_ms": "0.289959",
+      "jsonl_p95_overhead_ms": "4.110417",
+      "sqlite_p50_overhead_ms": "0.40075",
+      "sqlite_p95_overhead_ms": "0.740291",
+      "session_event_hash_equivalent": true,
+      "persistence_survival": true,
+      "otel_coexistence": true
+    }
+  },
+  "claim_boundary": "Both artifacts are deterministic or system-fixture controls with formal_decision=false. They support fail-closed and host-coexistence engineering claims, not a positive self-evolution result or production-load overhead claim.",
+  "artifact_digest": "sha256:99318ec647a6fe5210052ced91598f3778c577f9fc604a9aa6970e51a3673255"
+}
