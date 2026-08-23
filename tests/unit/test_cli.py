@@ -11,7 +11,10 @@ from typer.testing import CliRunner
 
 from agentloopgate import cli as cli_module
 from agentloopgate.cli import app
-from agentloopgate.experiment import FormalSelectionHoldOutcome
+from agentloopgate.experiment import (
+    FormalSelectionHoldOutcome,
+    PaidExecutionAuthorizationError,
+)
 
 runner = CliRunner()
 
@@ -239,6 +242,42 @@ def test_formal_selection_hold_is_a_successful_cli_outcome(
     assert emitted["outcome_kind"] == "selection_hold"
     assert emitted["final_decision"] == "HOLD"
     assert emitted["release_batch_count"] == 0
+
+
+def test_formal_run_reports_missing_paid_scope_as_policy_denial(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class _Orchestrator:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        @staticmethod
+        def run():
+            raise PaidExecutionAuthorizationError("release_tail authorization absent")
+
+    monkeypatch.setattr(
+        cli_module,
+        "inspect_formal_preflight",
+        lambda *_args, **_kwargs: SimpleNamespace(ready=True, missing=[]),
+    )
+    monkeypatch.setattr(cli_module, "FormalExperimentOrchestrator", _Orchestrator)
+
+    result = runner.invoke(
+        app,
+        [
+            "experiment",
+            "run",
+            "--project",
+            str(tmp_path),
+            "--config",
+            "unused.yaml",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert json.loads(result.stdout)["code"] == "paid_authorization_required"
 
 
 def test_deepseek_init_is_idempotent_and_does_not_touch_governance_files(

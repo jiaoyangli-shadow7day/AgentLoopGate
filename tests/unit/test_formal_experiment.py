@@ -30,9 +30,12 @@ from agentloopgate.experiment import (
     FormalBatchRunner,
     FormalBatchSpec,
     FormalExecutionProtocol,
+    FormalStage,
+    PaidExecutionAuthorization,
     ReplyLineageCalibration,
     computed_cost_lineage_calibration_digest,
     computed_evaluator_correction_calibration_digest,
+    computed_paid_execution_authorization_digest,
     computed_protocol_digest,
     computed_reply_lineage_calibration_digest,
     computed_study_digest,
@@ -42,6 +45,7 @@ from agentloopgate.experiment import (
     load_execution_protocol,
     load_reply_lineage_calibration,
     load_study_plan,
+    verify_paid_execution_authorization,
 )
 from agentloopgate.experiment import ledger as ledger_module
 from agentloopgate.experiment import orchestrator as orchestrator_module
@@ -95,6 +99,209 @@ def test_formal_config_pins_reliability_models_and_candidate_floor(tmp_path: Pat
     path.write_text(yaml.safe_dump(invalid), encoding="utf-8")
     with pytest.raises(ValidationError, match="greater than or equal to 3"):
         load_formal_config(path)
+
+
+def test_formal_config_1_2_requires_a_paid_authorization_root(
+    tmp_path: Path,
+) -> None:
+    payload = yaml.safe_load(
+        Path("configs/formal_experiment_r10.yaml").read_text(encoding="utf-8")
+    )
+    payload["schema_version"] = "1.2"
+    missing = tmp_path / "missing-authorization-root.yaml"
+    missing.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="paid_execution_authorization_root"):
+        load_formal_config(missing)
+
+    payload["paid_execution_authorization_root"] = (
+        "runs/authorizations/EXP_BANKING_R10"
+    )
+    configured = tmp_path / "configured.yaml"
+    configured.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    assert load_formal_config(configured).schema_version == "1.2"
+
+
+def test_paid_authorization_binds_source_study_scope_and_task_positions(
+    tmp_path: Path,
+) -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r10.yaml")).model_copy(
+        update={
+            "schema_version": "1.2",
+            "paid_execution_authorization_root": "runs/authorizations/EXP_FIXTURE",
+        }
+    )
+    protocol = SimpleNamespace(protocol_digest=DIGEST_A)
+    study = SimpleNamespace(
+        study_digest=DIGEST_B,
+        matrix=[
+            SimpleNamespace(stage=FormalStage.UPDATE_SOURCE, target_trials=25),
+            SimpleNamespace(stage=FormalStage.UPDATE_CHECK, target_trials=40),
+            SimpleNamespace(stage=FormalStage.SELECTION, target_trials=60),
+            SimpleNamespace(stage=FormalStage.RELEASE_ID, target_trials=180),
+            SimpleNamespace(stage=FormalStage.RELEASE_OOD, target_trials=180),
+            SimpleNamespace(stage=FormalStage.REPLAY, target_trials=90),
+        ],
+    )
+    authorization = PaidExecutionAuthorization(
+        authorization_id="AUTH_PRE_RELEASE_FIXTURE",
+        experiment_id=config.experiment_id,
+        scope="pre_release_checkpoint",
+        protocol_digest=DIGEST_A,
+        study_digest=DIGEST_B,
+        source_revision="tree:fixture",
+        authorized_stages=[
+            FormalStage.UPDATE_SOURCE,
+            FormalStage.UPDATE_CHECK,
+            FormalStage.SELECTION,
+        ],
+        authorized_task_positions=125,
+        authorized_by="owner",
+        authorized_at="2026-08-23T00:00:00Z",
+        confirmation="OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT",
+        authorization_digest=DIGEST_C,
+    )
+    authorization = authorization.model_copy(
+        update={
+            "authorization_digest": computed_paid_execution_authorization_digest(
+                authorization
+            )
+        }
+    )
+    path = tmp_path / "pre_release_checkpoint.json"
+    path.write_text(authorization.model_dump_json(), encoding="utf-8")
+
+    verified = verify_paid_execution_authorization(
+        path,
+        config=config,
+        protocol=protocol,
+        study=study,
+        source_revision="tree:fixture",
+        required_stage=FormalStage.SELECTION,
+    )
+
+    assert verified.authorization_digest == authorization.authorization_digest
+    drifted = authorization.model_copy(update={"authorized_task_positions": 124})
+    drifted = drifted.model_copy(
+        update={
+            "authorization_digest": computed_paid_execution_authorization_digest(
+                drifted
+            )
+        }
+    )
+    path.write_text(drifted.model_dump_json(), encoding="utf-8")
+    with pytest.raises(ValueError, match="task-position scope mismatch"):
+        verify_paid_execution_authorization(
+            path,
+            config=config,
+            protocol=protocol,
+            study=study,
+            source_revision="tree:fixture",
+            required_stage=FormalStage.UPDATE_SOURCE,
+        )
+
+
+def test_release_authorization_requires_a_bound_select_not_hold(
+    tmp_path: Path,
+) -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r10.yaml")).model_copy(
+        update={
+            "schema_version": "1.2",
+            "paid_execution_authorization_root": "runs/authorizations/EXP_FIXTURE",
+        }
+    )
+    protocol = SimpleNamespace(protocol_digest=DIGEST_A)
+    study = SimpleNamespace(
+        study_digest=DIGEST_B,
+        matrix=[
+            SimpleNamespace(stage=FormalStage.UPDATE_SOURCE, target_trials=25),
+            SimpleNamespace(stage=FormalStage.UPDATE_CHECK, target_trials=40),
+            SimpleNamespace(stage=FormalStage.SELECTION, target_trials=60),
+            SimpleNamespace(stage=FormalStage.RELEASE_ID, target_trials=180),
+            SimpleNamespace(stage=FormalStage.RELEASE_OOD, target_trials=180),
+            SimpleNamespace(stage=FormalStage.REPLAY, target_trials=90),
+        ],
+    )
+    selection_body = {
+        "schema_version": "1.1",
+        "inputs": [{"candidate_id": "C_1"}],
+        "selection": {
+            "agentloopgate_decision": "SELECT",
+            "agentloopgate_candidate_id": "C_1",
+        },
+    }
+    selection_digest = canonical_digest(selection_body)
+    selection_path = tmp_path / "selection.json"
+    selection_path.write_text(
+        json.dumps({**selection_body, "selection_digest": selection_digest}),
+        encoding="utf-8",
+    )
+    authorization = PaidExecutionAuthorization(
+        authorization_id="AUTH_RELEASE_FIXTURE",
+        experiment_id=config.experiment_id,
+        scope="release_tail",
+        protocol_digest=DIGEST_A,
+        study_digest=DIGEST_B,
+        source_revision="tree:fixture",
+        authorized_stages=[
+            FormalStage.RELEASE_ID,
+            FormalStage.RELEASE_OOD,
+            FormalStage.REPLAY,
+        ],
+        authorized_task_positions=450,
+        selection_digest=selection_digest,
+        governed_candidate_id="C_1",
+        authorized_by="owner",
+        authorized_at="2026-08-23T00:00:00Z",
+        confirmation="OWNER_AUTHORIZED_RELEASE_TAIL",
+        authorization_digest=DIGEST_C,
+    )
+    authorization = authorization.model_copy(
+        update={
+            "authorization_digest": computed_paid_execution_authorization_digest(
+                authorization
+            )
+        }
+    )
+    authorization_path = tmp_path / "release_tail.json"
+    authorization_path.write_text(authorization.model_dump_json(), encoding="utf-8")
+
+    assert (
+        verify_paid_execution_authorization(
+            authorization_path,
+            config=config,
+            protocol=protocol,
+            study=study,
+            source_revision="tree:fixture",
+            required_stage=FormalStage.RELEASE_ID,
+            selection_path=selection_path,
+        ).scope
+        == "release_tail"
+    )
+
+    held_body = {
+        **selection_body,
+        "selection": {
+            "agentloopgate_decision": "HOLD",
+            "agentloopgate_candidate_id": None,
+        },
+    }
+    held_digest = canonical_digest(held_body)
+    selection_path.write_text(
+        json.dumps({**held_body, "selection_digest": held_digest}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="requires a verified SELECT result"):
+        verify_paid_execution_authorization(
+            authorization_path,
+            config=config,
+            protocol=protocol,
+            study=study,
+            source_revision="tree:fixture",
+            required_stage=FormalStage.RELEASE_ID,
+            selection_path=selection_path,
+        )
 
 
 def test_study_1_2_requires_a0_selection_and_abstention_policy() -> None:

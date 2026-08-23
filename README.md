@@ -187,6 +187,13 @@ Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OO
 严格增益与非回退规则，编排器以成功退出码封存 `selection_hold_outcome.json` 和 JSON/Markdown
 报告，记录逐候选原因、完整成本证据，并证明未启动 Release 或新的模型调用。
 
+新实验配置只能从
+[`configs/templates/formal_experiment_1_2.example.yaml`](configs/templates/formal_experiment_1_2.example.yaml)
+开始填写；模板本身不可执行，也不代表授权。Formal config 1.2 必须指向私有授权目录，CLI
+preflight 与 `FormalExperimentService` 会在每个新付费 Stage 前分别验真。授权命令只在 Owner
+明确批准后运行，且自身不调用模型；完整边界见
+[`docs/research/paid-experiment-authorization.md`](docs/research/paid-experiment-authorization.md)。
+
 每个付费批次都有输入 Hash、保留的原始 τ³ 结果、双侧 Trace/Receipt/RunRecord/Join 与聚合摘要。
 重复执行会先验真并复用，不会静默重复付费调用；证据漂移返回退出码 `5`。获授权后，排障可用
 `agentloopgate experiment stage --stage <stage> --snapshot <snapshot-id>` 单独恢复一个批次。

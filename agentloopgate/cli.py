@@ -43,6 +43,8 @@ from agentloopgate.experiment import (
     FormalSelectionHoldOutcome,
     FormalStage,
     FormalWorkflowBlocked,
+    PaidExecutionAuthorizationError,
+    create_paid_execution_authorization,
     inspect_formal_preflight,
     load_execution_protocol,
     load_study_plan,
@@ -746,6 +748,87 @@ def experiment_preflight(
         raise typer.Exit(code=4)
 
 
+@experiment_app.command("authorize-paid")
+def experiment_authorize_paid(
+    scope: Annotated[
+        str,
+        typer.Option(
+            "--scope",
+            help="Exact paid scope: pre_release_checkpoint or release_tail.",
+        ),
+    ] = "pre_release_checkpoint",
+    authorized_by: Annotated[
+        str,
+        typer.Option("--authorized-by", help="Human Owner role or identifier."),
+    ] = "owner",
+    confirmation: Annotated[
+        str,
+        typer.Option(
+            "--confirm",
+            help="Exact scope-specific Owner confirmation phrase.",
+        ),
+    ] = "",
+    project: Annotated[
+        Path,
+        typer.Option("--project", help="AgentLoopGate project root."),
+    ] = Path("."),
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="Formal experiment configuration YAML."),
+    ] = Path("configs/formal_experiment.yaml"),
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a stable JSON object."),
+    ] = False,
+) -> None:
+    """Seal explicit human authorization; never run a model or paid stage."""
+    if scope not in {"pre_release_checkpoint", "release_tail"}:
+        _fail(
+            code="paid_authorization_scope_invalid",
+            message=f"Unsupported paid authorization scope: {scope}",
+            remediation="Use pre_release_checkpoint or release_tail.",
+            as_json=json_output,
+            exit_code=2,
+        )
+    try:
+        authorization, path = create_paid_execution_authorization(
+            project,
+            config_path=config,
+            scope=scope,
+            authorized_by=authorized_by,
+            confirmation=confirmation,
+        )
+    except (OSError, ValueError, ValidationError, YAMLError) as exc:
+        _fail(
+            code="paid_authorization_invalid",
+            message=str(exc),
+            remediation=(
+                "Restore the frozen Protocol, Study, source, and Selection evidence; "
+                "the Owner must provide the exact confirmation phrase."
+            ),
+            as_json=json_output,
+            exit_code=3,
+        )
+    payload = {
+        **authorization.model_dump(mode="json"),
+        "artifact_path": path.resolve().relative_to(project.resolve()).as_posix(),
+        "model_calls": 0,
+        "model_cost_usd": "0",
+        "cost_status": "not_applicable",
+        "paid_execution_started": False,
+        "deployment_activation_changed": False,
+    }
+    _emit(
+        payload,
+        as_json=json_output,
+        human=(
+            f"Paid scope authorized but not started: {authorization.scope}; "
+            f"positions={authorization.authorized_task_positions}; "
+            f"digest={authorization.authorization_digest}."
+        ),
+    )
+
+
 @experiment_app.command("protocol-verify")
 def experiment_protocol_verify(
     config: Annotated[
@@ -990,6 +1073,17 @@ def experiment_stage(
                 else service.ensure_baseline()
             )
             result = service.run_stage(stage, snapshot_id=snapshot or baseline_id)
+    except PaidExecutionAuthorizationError as exc:
+        _fail(
+            code="paid_authorization_required",
+            message=str(exc),
+            remediation=(
+                "Stop before paid work. The Owner must explicitly authorize this "
+                "exact scope; HOLD can never authorize Release."
+            ),
+            as_json=json_output,
+            exit_code=3,
+        )
     except BenchmarkUnavailableError as exc:
         _fail(
             code="formal_dependency_unavailable",
@@ -1126,6 +1220,17 @@ def experiment_run(
             project,
             config_path=config,
         ).run()
+    except PaidExecutionAuthorizationError as exc:
+        _fail(
+            code="paid_authorization_required",
+            message=str(exc),
+            remediation=(
+                "Stop before paid work. The Owner must explicitly authorize this "
+                "exact scope; HOLD can never authorize Release."
+            ),
+            as_json=json_output,
+            exit_code=3,
+        )
     except BenchmarkUnavailableError as exc:
         _fail(
             code="formal_dependency_unavailable",

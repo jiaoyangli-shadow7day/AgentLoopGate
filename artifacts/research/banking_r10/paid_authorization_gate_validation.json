@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "paid_authorization_gate_validation",
+  "recorded_at": "2026-08-23T03:53:55Z",
+  "execution_mode": "zero_model_fail_closed_validation",
+  "source_revision": "tree:sha256:2aa7f48df892320202313ddf6c1cc692f4523e1a9035bc4d23b9d717afb76139",
+  "spec_revision": "v1.0 Execution Core r36",
+  "purpose": "enforce the Owner PAID_HOLD boundary in preflight and immediately before every new paid formal stage",
+  "implementation_bindings": {
+    "agentloopgate/experiment/service.py": "sha256:4ca2cbfa874ce68cc7aeeb28004467717146113e25df4805fd1480fc5dac8ee5",
+    "agentloopgate/experiment/__init__.py": "sha256:529505ef629b7fb7e4f39e76e19eaf06c4e5c6c7fc4876d95a7ad7d7b3c8bcd9",
+    "agentloopgate/cli.py": "sha256:648edc07349fd6057a22557272f74a18906875447baa33cb1e65adf9f619d180",
+    "tests/unit/test_formal_experiment.py": "sha256:8c7d76272baaec8454cb1af645ce8e7d74a8678bf6fa343d27b311ed0ebbd5a1",
+    "tests/unit/test_cli.py": "sha256:16d603fd0d8c2315d6968b64f0944df2bcc951010bddccbab4680eb8469860d4",
+    "configs/templates/formal_experiment_1_2.example.yaml": "sha256:0aa3f0cc36c96f5e774040152140bc78a70b71643178263088369f28af302603",
+    "SPEC.md": "sha256:dc1d87b366bbf9ec57e39604d5ef45a8e07dc432b00fa4fc6ee1536d019af5a9",
+    "README.md": "sha256:7eb331a3baaaf9d74edf8ccb473e4345958e71bb5f96e0d34c9b72d41718aa58",
+    "docs/research/paid-experiment-authorization.md": "sha256:b0461c750e5142c4beaa52787b410d7fc82895e78be3a17610bbe86a73c26615",
+    "docs/release-readiness.md": "sha256:fd5e3debf2edbc17315c96ed1df7d33983011f7861fdb14cf73afdaa60f32190"
+  },
+  "verified_guarantees": [
+    "formal config 1.2 requires an experiment-scoped private authorization root under runs/authorizations",
+    "formal config 1.0 and 1.1 cannot start new paid stages even if credentials and historical evidence exist",
+    "preflight requires current Protocol 1.8, Study 1.2, source identity, and a valid pre-Release Owner authorization",
+    "FormalExperimentService independently re-verifies authorization immediately before every new paid stage",
+    "pre_release_checkpoint authorizes exactly Update-Source, Update-Check, and Selection with the Study-derived 125 positions",
+    "release_tail requires a separate authorization for exactly Release-ID, Release-OOD, and Replay with the Study-derived 450 positions",
+    "Release authorization binds an immutable verified SELECT digest and governed Candidate ID",
+    "HOLD or selection_hold_outcome.json prevents Release authorization",
+    "wrong confirmation, experiment, protocol, study, source, scope, stage, Selection, digest, or task-position count fails closed; idempotent creation also rejects an actor change",
+    "existing-only verification bypasses no evidence check but makes no model call and requires no paid authorization",
+    "authorization creation is exclusive, content-addressed, idempotent on identical evidence, and reports paid_execution_started=false"
+  ],
+  "validation": {
+    "ruff": "passed",
+    "python_tests_passed": 180,
+    "typescript_tests_passed": 13,
+    "python_sdist_to_wheel_clean_install": "passed",
+    "deepseek_harness_headless_conformance": "passed",
+    "deepseek_harness_package_build": "passed",
+    "clean_room_public_tree_files_scanned": 261,
+    "post_artifact_public_tree_files_scanned": 261,
+    "public_tree_secret_or_pii_findings": 0,
+    "clean_room_real_seconds": "29.72",
+    "clean_room_user_cpu_seconds": "13.22",
+    "clean_room_system_cpu_seconds": "8.42",
+    "clean_room_maximum_resident_set_bytes": 350044160,
+    "clean_room_peak_memory_footprint_bytes": 1311056
+  },
+  "authorization_state": {
+    "paid_execution_authorization_artifact_count": 0,
+    "paid_execution_status": "paused_pending_explicit_owner_authorization",
+    "pre_release_checkpoint_started": false,
+    "release_tail_started": false
+  },
+  "cost": {
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "model_cost_status": "not_applicable",
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "limitations": [
+    "the authorization artifact records an explicit operator boundary but is not a cryptographic human identity signature",
+    "zero-model validation does not authorize or predict the outcome of the next paid experiment",
+    "the next Protocol, Study, Experiment, Baseline, and candidate plan remain to be frozen after Owner review"
+  ],
+  "artifact_digest": "sha256:e2331b52ad69d6ff597618de5d9e3758b7c9f1aa2fccff802b54360303b6ba8d"
+}

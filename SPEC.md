@@ -1,7 +1,7 @@
 # AgentLoopGate v1.0：Vibe Coding 执行规格
 
 > 文档类型：产品目标 + 工程合同 + 实验协议 + 开发任务单  
-> 版本：v1.0 Execution Core r35
+> 版本：v1.0 Execution Core r36
 > 日期：2026-08-23
 > 周期：8 周，单人项目  
 > 默认实验载体：τ³-bench `banking_knowledge`  
@@ -577,8 +577,22 @@ Integrity 与有效 Run 成本均通过。`partial` 运营下界本身不得冒�
 无模型 Fixture 强制覆盖：上游返回零但存在正 Token 时按冻结价格重算、缺单价时调用前失败、Raw
 与直接账本不一致时直接账本保持权威，以及伪造的“正 Token + exact 0”账本被拒绝。
 
-旧实验若未绑定 Protocol，只允许 existing-only 验真，不能继续产生新的正式运行。Banking R2
-显式使用 concurrency=1、max_retries=1、retry_delay=1s、agent max output tokens=4096、DSH turn
+旧实验或旧 Selection 设计只允许 existing-only 验真，不能继续产生新的正式运行。新的付费工作
+必须同时使用 Formal Config schema `1.2`、Protocol `1.8+`、Study `1.2+` 和新的 Baseline。
+Formal Config 必须绑定一个位于运行证据命名空间、不会改变执行源码身份的私有 Authorization Root。
+
+付费授权分为两个不可合并的内容寻址 Scope：`pre_release_checkpoint` 只允许
+Update-Source/Update-Check/Selection，并精确绑定 125 个位置；`release_tail` 只允许
+Release-ID/Release-OOD/Replay，并精确绑定 450 个位置、已验证的 `SELECT` Selection Digest 与
+governed Candidate ID。后者不得在 `HOLD/ABSTAIN` 或已有 `selection_hold_outcome.json` 时创建。
+CLI preflight 与 `FormalExperimentService` 必须在每个新付费 Stage 前分别验真适用授权；直接调用
+Service 不能绕过。`existing-only` 不要求付费授权且绝不能调用模型。
+
+`agentloopgate experiment authorize-paid` 只在 Owner 对精确 Scope 明确授权后使用，必须要求逐字
+确认语句，输出 `paid_execution_started=false`、`model_calls=0` 与 `cost_status=not_applicable`；它
+只封存授权，不能启动 Batch。仅存在 API Key、通过 preflight 的其他项目、过去授权、相邻 Scope
+授权或 Coding Agent 自行推断均不构成许可。
+
 ### 5.6 最小评估审计
 
 P0 不建设大型评估审计平台，但必须完成：
@@ -1372,12 +1386,17 @@ agentloopgate split verify
 agentloopgate eval reset-check --fixture tests/fixtures/reset
 agentloopgate pilot run --pricing-config configs/pilot_pricing.yaml
 
-# 正式实验：主入口覆盖 A0 → Decision，stage 只用于验真恢复单批
-agentloopgate experiment protocol-verify --config configs/experiment_protocol_banking_r2.yaml --json
-agentloopgate experiment study-verify --config configs/banking_r2_study.yaml --json
-agentloopgate experiment preflight --config configs/formal_experiment_r2.yaml --json
-agentloopgate experiment run --config configs/formal_experiment_r2.yaml --json
-agentloopgate experiment stage --stage release_id --snapshot SNAPSHOT_ID --json
+# 正式实验：先验真冻结输入；授权命令只在 Owner 明确批准后人工运行
+agentloopgate experiment protocol-verify --config FROZEN_PROTOCOL_1_8.yaml --json
+agentloopgate experiment study-verify --config FROZEN_STUDY_1_2.yaml --json
+agentloopgate experiment authorize-paid --config FORMAL_CONFIG_1_2.yaml \
+  --scope pre_release_checkpoint \
+  --confirm OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT --json
+agentloopgate experiment preflight --config FORMAL_CONFIG_1_2.yaml --json
+agentloopgate experiment run --config FORMAL_CONFIG_1_2.yaml --json
+# Release 只有 SELECT + 第二次 Owner 授权后才可运行；HOLD 时禁止创建此授权
+agentloopgate experiment authorize-paid --config FORMAL_CONFIG_1_2.yaml \
+  --scope release_tail --confirm OWNER_AUTHORIZED_RELEASE_TAIL --json
 agentloopgate snapshot promote SNAPSHOT_ID --decision DECISION.json --approval APPROVAL.json
 agentloopgate snapshot rollback PARENT_SNAPSHOT_ID --approval APPROVAL.json
 
@@ -2051,6 +2070,11 @@ C1 与 C2 在 Selection 都是 7/15，但成功任务发生互换，不能解释
 这属于 SPEC/Selection 设计缺口，不是通过继续跑 C3 或 Release 就能补救的随机波动。自 C2 完成起，
 所有新增付费实验进入 `PAID_HOLD`；禁止用旧 R10 Selector 生成 RC，禁止启动 C3/Release/OOD/Replay，
 也禁止修改 R10 Protocol、Study、Batch 或已有候选来事后满足新规则。
+
+该暂停必须由代码执行而非只靠文档提醒：schema 1.0/1.1 Formal Config 一律不能启动新的付费 Stage；
+schema 1.2 若缺少与当前 Experiment、Protocol、Study、Source Revision 和 125 个位置完全一致的
+`pre_release_checkpoint` Owner Authorization，preflight 与 Service 都必须失败。仓库当前不生成
+下一实验的 Authorization Artifact；因此即使凭证仍在当前进程中，也不能开始下一批付费调用。
 
 下一次付费实验必须使用新的 Experiment/Study/Baseline 身份，Study schema `1.2+` 的 Selection
 矩阵为 A0 + 3 个语义不同且通过 capability 绑定的候选，即 15 × 1 × 4 = 60 个 Selection 位置；

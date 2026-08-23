@@ -25,6 +25,7 @@ from agentloopgate.adapters import (
 from agentloopgate.candidates import CandidateRegistry
 from agentloopgate.contracts import (
     canonical_digest,
+    canonical_json_bytes,
     computed_contract_digest,
     file_digest,
     load_contract,
@@ -46,7 +47,7 @@ from agentloopgate.runtime import (
     verify_evaluator_overlay_sources,
 )
 from agentloopgate.schemas import Digest, PilotEvidenceJoin, Pool, RunRecord, RuntimeHost
-from agentloopgate.schemas.models import ArtifactId, NonEmpty, StrictModel
+from agentloopgate.schemas.models import ArtifactId, NonEmpty, StrictModel, UtcDateTime
 from agentloopgate.snapshots import SnapshotIntegrityError, SnapshotManager
 from agentloopgate.splits import SplitService
 from agentloopgate.splits.models import PoolManifest
@@ -67,6 +68,10 @@ from .protocol import (
     load_reply_lineage_calibration,
 )
 from .study import BankingStudyPlan, load_study_plan
+
+
+class PaidExecutionAuthorizationError(ValueError):
+    """A new paid stage lacks exact, current Owner authorization evidence."""
 
 
 class FormalExperimentConfig(StrictModel):
@@ -93,6 +98,7 @@ class FormalExperimentConfig(StrictModel):
     execution_protocol_config: NonEmpty | None = None
     study_plan_config: NonEmpty | None = None
     research_artifact_root: NonEmpty | None = None
+    paid_execution_authorization_root: NonEmpty | None = None
 
     @model_validator(mode="after")
     def reliability_is_possible(self) -> FormalExperimentConfig:
@@ -110,6 +116,79 @@ class FormalExperimentConfig(StrictModel):
             raise ValueError("execution protocol and study plan require formal config 1.1")
         if self.schema_version == "1.0" and self.research_artifact_root is not None:
             raise ValueError("research_artifact_root requires formal config 1.1")
+        if self.schema_version == "1.2" and self.paid_execution_authorization_root is None:
+            raise ValueError(
+                "formal config 1.2 requires paid_execution_authorization_root"
+            )
+        if self.schema_version == "1.2" and self.paid_execution_authorization_root != (
+            f"runs/authorizations/{self.experiment_id}"
+        ):
+            raise ValueError(
+                "paid_execution_authorization_root must be experiment-scoped"
+            )
+        if (
+            self.schema_version != "1.2"
+            and self.paid_execution_authorization_root is not None
+        ):
+            raise ValueError(
+                "paid_execution_authorization_root requires formal config 1.2"
+            )
+        return self
+
+
+class PaidExecutionAuthorization(StrictModel):
+    """Content-addressed human scope for one paid experiment checkpoint."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    authorization_id: ArtifactId
+    experiment_id: ArtifactId
+    scope: Literal["pre_release_checkpoint", "release_tail"]
+    protocol_digest: Digest
+    study_digest: Digest
+    source_revision: NonEmpty
+    authorized_stages: list[FormalStage] = Field(min_length=3, max_length=3)
+    authorized_task_positions: int = Field(ge=1)
+    selection_digest: Digest | None = None
+    governed_candidate_id: ArtifactId | None = None
+    authorized_by: NonEmpty
+    authorized_at: UtcDateTime
+    confirmation: Literal[
+        "OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT",
+        "OWNER_AUTHORIZED_RELEASE_TAIL",
+    ]
+    authorization_digest: Digest
+
+    @model_validator(mode="after")
+    def scope_is_exact(self) -> PaidExecutionAuthorization:
+        expected_stages = {
+            "pre_release_checkpoint": [
+                FormalStage.UPDATE_SOURCE,
+                FormalStage.UPDATE_CHECK,
+                FormalStage.SELECTION,
+            ],
+            "release_tail": [
+                FormalStage.RELEASE_ID,
+                FormalStage.RELEASE_OOD,
+                FormalStage.REPLAY,
+            ],
+        }[self.scope]
+        expected_confirmation = {
+            "pre_release_checkpoint": "OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT",
+            "release_tail": "OWNER_AUTHORIZED_RELEASE_TAIL",
+        }[self.scope]
+        if self.authorized_stages != expected_stages:
+            raise ValueError("paid authorization stages do not match its scope")
+        if self.confirmation != expected_confirmation:
+            raise ValueError("paid authorization confirmation does not match its scope")
+        release_bound = (
+            self.selection_digest is not None and self.governed_candidate_id is not None
+        )
+        if self.scope == "release_tail" and not release_bound:
+            raise ValueError("Release authorization must bind the Selection result")
+        if self.scope == "pre_release_checkpoint" and (
+            self.selection_digest is not None or self.governed_candidate_id is not None
+        ):
+            raise ValueError("pre-Release authorization cannot predict Selection")
         return self
 
 
@@ -127,6 +206,7 @@ class FormalPreflightReport(StrictModel):
     ahe_status: NonEmpty
     protocol_digest: Digest | None
     study_digest: Digest | None
+    paid_execution_authorization_digest: Digest | None = None
 
 
 def load_formal_config(path: Path) -> FormalExperimentConfig:
@@ -135,6 +215,207 @@ def load_formal_config(path: Path) -> FormalExperimentConfig:
     except (OSError, yaml.YAMLError) as exc:
         raise ValueError(f"cannot read formal experiment config: {path}") from exc
     return FormalExperimentConfig.model_validate(raw)
+
+
+def computed_paid_execution_authorization_digest(
+    authorization: PaidExecutionAuthorization,
+) -> str:
+    return canonical_digest(
+        authorization.model_dump(mode="python", exclude={"authorization_digest"})
+    )
+
+
+def load_paid_execution_authorization(path: Path) -> PaidExecutionAuthorization:
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"cannot read paid execution authorization: {path}") from exc
+    return PaidExecutionAuthorization.model_validate(raw)
+
+
+def verify_paid_execution_authorization(
+    path: Path,
+    *,
+    config: FormalExperimentConfig,
+    protocol: FormalExecutionProtocol,
+    study: BankingStudyPlan,
+    source_revision: str,
+    required_stage: FormalStage,
+    selection_path: Path | None = None,
+) -> PaidExecutionAuthorization:
+    authorization = load_paid_execution_authorization(path)
+    if (
+        computed_paid_execution_authorization_digest(authorization)
+        != authorization.authorization_digest
+    ):
+        raise ValueError("paid execution authorization digest mismatch")
+    expected_scope = (
+        "pre_release_checkpoint"
+        if required_stage
+        in {
+            FormalStage.UPDATE_SOURCE,
+            FormalStage.UPDATE_CHECK,
+            FormalStage.SELECTION,
+        }
+        else "release_tail"
+    )
+    if (
+        authorization.experiment_id != config.experiment_id
+        or authorization.protocol_digest != protocol.protocol_digest
+        or authorization.study_digest != study.study_digest
+        or authorization.source_revision != source_revision
+        or authorization.scope != expected_scope
+        or required_stage not in authorization.authorized_stages
+    ):
+        raise ValueError("paid execution authorization identity or scope mismatch")
+    expected_positions = sum(
+        row.target_trials
+        for row in study.matrix
+        if row.stage in authorization.authorized_stages
+    )
+    if authorization.authorized_task_positions != expected_positions:
+        raise ValueError("paid execution authorization task-position scope mismatch")
+    if expected_scope == "release_tail":
+        if selection_path is None:
+            raise ValueError("Release authorization requires Selection evidence")
+        selection_digest, governed_candidate_id = _verified_release_selection(
+            selection_path
+        )
+        if (
+            governed_candidate_id != authorization.governed_candidate_id
+            or selection_digest != authorization.selection_digest
+        ):
+            raise ValueError("Release authorization conflicts with Selection evidence")
+    return authorization
+
+
+def create_paid_execution_authorization(
+    project_root: Path,
+    *,
+    config_path: Path,
+    scope: Literal["pre_release_checkpoint", "release_tail"],
+    authorized_by: str,
+    confirmation: str,
+) -> tuple[PaidExecutionAuthorization, Path]:
+    root = project_root.resolve()
+    config = load_formal_config(_under(root, config_path))
+    if config.schema_version != "1.2":
+        raise ValueError("paid authorization requires formal config 1.2")
+    expected_confirmation = {
+        "pre_release_checkpoint": "OWNER_AUTHORIZED_PRE_RELEASE_CHECKPOINT",
+        "release_tail": "OWNER_AUTHORIZED_RELEASE_TAIL",
+    }[scope]
+    if confirmation != expected_confirmation:
+        raise ValueError(
+            f"paid authorization requires exact confirmation: {expected_confirmation}"
+        )
+    contract = load_contract(root / "configs/objective_contract.yaml")
+    verify_contract_digest(contract)
+    split = SplitService(root / "configs/splits.yaml").verify()
+    if split.split_digest is None:
+        raise ValueError("verified split is missing its digest")
+    pricing = load_pilot_pricing(_under(root, Path(config.pricing_config)))
+    protocol = _verified_protocol(
+        root,
+        config,
+        objective_digest=computed_contract_digest(contract),
+        split_digest=split.split_digest,
+        pricing=pricing,
+    )
+    if protocol is None or protocol.schema_version != "1.8":
+        raise ValueError("paid authorization requires frozen protocol 1.8")
+    study = _verified_study(root, config, protocol=protocol)
+    if study.schema_version != "1.2":
+        raise ValueError("paid authorization requires Study 1.2")
+    source_revision = _code_revision(root)
+    if source_revision is None:
+        raise ValueError("paid authorization requires a source revision")
+    stages = {
+        "pre_release_checkpoint": [
+            FormalStage.UPDATE_SOURCE,
+            FormalStage.UPDATE_CHECK,
+            FormalStage.SELECTION,
+        ],
+        "release_tail": [
+            FormalStage.RELEASE_ID,
+            FormalStage.RELEASE_OOD,
+            FormalStage.REPLAY,
+        ],
+    }[scope]
+    selection_digest = None
+    governed_candidate_id = None
+    selection_path = (
+        root / "runs/experiments" / config.experiment_id / "selection.json"
+    )
+    if scope == "release_tail":
+        hold_path = (
+            root
+            / "runs/experiments"
+            / config.experiment_id
+            / "selection_hold_outcome.json"
+        )
+        if hold_path.exists():
+            raise ValueError("Selection HOLD permanently blocks Release authorization")
+        selection_digest, governed_candidate_id = _verified_release_selection(
+            selection_path
+        )
+    path = _paid_authorization_path(root, config, scope=scope)
+    if path.exists():
+        existing = verify_paid_execution_authorization(
+            path,
+            config=config,
+            protocol=protocol,
+            study=study,
+            source_revision=source_revision,
+            required_stage=stages[0],
+            selection_path=selection_path if scope == "release_tail" else None,
+        )
+        if existing.authorized_by != authorized_by:
+            raise ValueError("existing paid authorization belongs to another actor")
+        return existing, path
+    positions = sum(
+        row.target_trials for row in study.matrix if row.stage in stages
+    )
+    identity = {
+        "experiment_id": config.experiment_id,
+        "scope": scope,
+        "protocol_digest": protocol.protocol_digest,
+        "study_digest": study.study_digest,
+        "source_revision": source_revision,
+    }
+    suffix = canonical_digest(identity).removeprefix("sha256:")[:20].upper()
+    authorization = PaidExecutionAuthorization(
+        authorization_id=f"AUTH_{suffix}",
+        experiment_id=config.experiment_id,
+        scope=scope,
+        protocol_digest=protocol.protocol_digest,
+        study_digest=study.study_digest,
+        source_revision=source_revision,
+        authorized_stages=stages,
+        authorized_task_positions=positions,
+        selection_digest=selection_digest,
+        governed_candidate_id=governed_candidate_id,
+        authorized_by=authorized_by,
+        authorized_at=datetime.now(UTC),
+        confirmation=confirmation,
+        authorization_digest="sha256:" + "0" * 64,
+    )
+    authorization = authorization.model_copy(
+        update={
+            "authorization_digest": computed_paid_execution_authorization_digest(
+                authorization
+            )
+        }
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("xb") as stream:
+            stream.write(canonical_json_bytes(authorization) + b"\n")
+    except FileExistsError as exc:
+        raise ValueError(
+            "paid authorization appeared concurrently; rerun to verify it"
+        ) from exc
+    return authorization, path
 
 
 def inspect_formal_preflight(
@@ -217,13 +498,49 @@ def inspect_formal_preflight(
     if protocol is not None:
         try:
             study = _verified_study(root, config, protocol=protocol)
-            checks["study_plan_frozen"] = True
+            checks["study_plan_frozen"] = study.schema_version == "1.2"
+            if study.schema_version != "1.2" or config.schema_version != "1.2":
+                missing.append(
+                    "study_plan_frozen:new paid work requires formal config and "
+                    "Study schema 1.2 with A0-bound Selection and abstention"
+                )
         except (OSError, ValueError, ValidationError) as exc:
             checks["study_plan_frozen"] = False
             missing.append(f"study_plan_frozen:{exc}")
     else:
         checks["study_plan_frozen"] = False
         missing.append("study_plan_frozen:execution protocol is unavailable")
+    paid_authorization = None
+    if (
+        protocol is not None
+        and study is not None
+        and code_revision is not None
+        and config.schema_version == "1.2"
+        and study.schema_version == "1.2"
+    ):
+        try:
+            paid_authorization = verify_paid_execution_authorization(
+                _paid_authorization_path(
+                    root,
+                    config,
+                    scope="pre_release_checkpoint",
+                ),
+                config=config,
+                protocol=protocol,
+                study=study,
+                source_revision=code_revision,
+                required_stage=FormalStage.UPDATE_SOURCE,
+            )
+            checks["paid_execution_authorized"] = True
+        except (OSError, ValueError, ValidationError) as exc:
+            checks["paid_execution_authorized"] = False
+            missing.append(f"paid_execution_authorized:{exc}")
+    else:
+        checks["paid_execution_authorized"] = False
+        missing.append(
+            "paid_execution_authorized:requires current Protocol, Study, source, "
+            "and an explicit Owner authorization artifact"
+        )
     pilot = DshTau3PilotConfig(
         dsh_executable=_under(root, Path(config.dsh_executable)),
         dsh_home=_under(root, Path(config.dsh_home)),
@@ -414,6 +731,9 @@ def inspect_formal_preflight(
         ahe_status=ahe_health.status,
         protocol_digest=protocol.protocol_digest if protocol else None,
         study_digest=study.study_digest if study else None,
+        paid_execution_authorization_digest=(
+            paid_authorization.authorization_digest if paid_authorization else None
+        ),
     )
 
 
@@ -530,17 +850,68 @@ class FormalExperimentService:
             split_digest=split.split_digest,
             pricing=pricing,
         )
-        if (
-            not existing_only
-            and (protocol is None or protocol.schema_version != "1.8")
+        if not existing_only and (
+            self.config.schema_version != "1.2"
+            or protocol is None
+            or protocol.schema_version != "1.8"
         ):
-            raise ValueError(
-                "new paid formal execution requires frozen protocol 1.8 with "
-                "Reply v5, direct lineage, frozen-price cost calibration, and "
-                "direct Agent+User Cost Gate input plus evaluator correction"
+            raise PaidExecutionAuthorizationError(
+                "new paid formal execution requires formal config 1.2 and frozen "
+                "protocol 1.8 with Reply v5, direct lineage, frozen-price cost "
+                "calibration, direct Agent+User Cost Gate input, and evaluator "
+                "correction"
             )
+        study = None
         if protocol is not None:
-            _verified_study(self.root, self.config, protocol=protocol)
+            study = _verified_study(self.root, self.config, protocol=protocol)
+        if not existing_only:
+            if study is None or study.schema_version != "1.2":
+                raise PaidExecutionAuthorizationError(
+                    "new paid formal execution requires Study 1.2 A0-bound Selection"
+                )
+            source_revision = _code_revision(self.root)
+            if source_revision is None or snapshot.code_revision != source_revision:
+                raise PaidExecutionAuthorizationError(
+                    "paid execution source differs from the frozen Snapshot"
+                )
+            scope = (
+                "pre_release_checkpoint"
+                if stage
+                in {
+                    FormalStage.UPDATE_SOURCE,
+                    FormalStage.UPDATE_CHECK,
+                    FormalStage.SELECTION,
+                }
+                else "release_tail"
+            )
+            if scope == "release_tail" and (
+                self.root
+                / "runs/experiments"
+                / self.config.experiment_id
+                / "selection_hold_outcome.json"
+            ).exists():
+                raise PaidExecutionAuthorizationError(
+                    "Selection HOLD permanently blocks paid Release stages"
+                )
+            try:
+                verify_paid_execution_authorization(
+                    _paid_authorization_path(self.root, self.config, scope=scope),
+                    config=self.config,
+                    protocol=protocol,
+                    study=study,
+                    source_revision=source_revision,
+                    required_stage=stage,
+                    selection_path=(
+                        self.root
+                        / "runs/experiments"
+                        / self.config.experiment_id
+                        / "selection.json"
+                        if scope == "release_tail"
+                        else None
+                    ),
+                )
+            except (OSError, ValueError, ValidationError) as exc:
+                raise PaidExecutionAuthorizationError(str(exc)) from exc
         spec_payload = dict(
             experiment_id=self.config.experiment_id,
             stage=stage,
@@ -1094,6 +1465,53 @@ def _is_execution_source(relative: str) -> bool:
     return nested in {"package.json", "pnpm-lock.yaml", "tsconfig.json"} or nested.startswith(
         ("src/", "test/")
     )
+
+
+def _paid_authorization_path(
+    root: Path,
+    config: FormalExperimentConfig,
+    *,
+    scope: Literal["pre_release_checkpoint", "release_tail"],
+) -> Path:
+    if config.paid_execution_authorization_root is None:
+        raise ValueError("formal config has no paid execution authorization root")
+    authorization_root = _under(
+        root,
+        Path(config.paid_execution_authorization_root),
+    )
+    expected_root = (root / "runs/authorizations" / config.experiment_id).resolve()
+    if authorization_root != expected_root:
+        raise ValueError(
+            "paid execution authorization root must be "
+            f"runs/authorizations/{config.experiment_id}"
+        )
+    filename = {
+        "pre_release_checkpoint": "pre_release_checkpoint.json",
+        "release_tail": "release_tail.json",
+    }[scope]
+    path = (authorization_root / filename).resolve()
+    if not path.is_relative_to(authorization_root):
+        raise ValueError("paid execution authorization path escapes its root")
+    return path
+
+
+def _verified_release_selection(path: Path) -> tuple[str, str]:
+    try:
+        selection = json.loads(path.read_text(encoding="utf-8"))
+        selection_digest = selection.pop("selection_digest")
+        decision = selection["selection"]
+        governed_candidate_id = decision["agentloopgate_candidate_id"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ValueError("cannot verify Selection for Release authorization") from exc
+    if (
+        not isinstance(selection_digest, str)
+        or canonical_digest(selection) != selection_digest
+        or decision.get("agentloopgate_decision") != "SELECT"
+        or not isinstance(governed_candidate_id, str)
+        or not governed_candidate_id
+    ):
+        raise ValueError("Release authorization requires a verified SELECT result")
+    return selection_digest, governed_candidate_id
 
 
 def _under(root: Path, path: Path) -> Path:
