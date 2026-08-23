@@ -22,14 +22,15 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCALLY | 176 Python tests, 13 TypeScript tests, sdist→wheel install, Bundle build/pack, DSH headless conformance | Require green private GitHub CI after final source commit |
-| Secret and direct-PII audit | PASS FOR CURRENT TREE | 256 files scanned, zero findings; paths/values withheld | Rerun after public result package is assembled |
+| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | Local: 176 Python and 13 TypeScript tests; private CI run `32615845655`: 175 Python passed, 1 macOS-only skip, 13 TypeScript passed; both built/installed sdist→wheel and passed Bundle build/pack plus DSH conformance | Rerun after the final public-result source change |
+| Secret and direct-PII audit | PASS FOR CURRENT TREE | Private CI scan of commit `5a0ec55`: 257 files; post-attestation local scan: 258 files; both zero findings with paths/values withheld | Rerun after public result package is assembled |
 | Corrected pre-Release paid checkpoint | NOT RUN / NOT AUTHORIZED | Planned 25 Update-Source + 40 Update-Check + 60 Selection = 125 positions, plus separately metered Updater | Freeze a new Protocol/Study/Experiment/Baseline and obtain explicit Owner authorization |
 | Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL | Integrity and plugin-coexistence ablations exist; corrected selector behavior is fixture-tested | Derive selector/diagnosis statistics from the next sealed evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Fail-closed builder/verifier and package contract | Build only from the next valid terminal result, including a valid Selection-HOLD if that is the outcome |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
+| Version-controlled private CI seal | PASS | Commit `5a0ec55`; clean-room run `32615845655`, job `97136316636`; machine record `private_ci_validation.json` | Preserve the run; require another green run for future execution-source changes |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves
