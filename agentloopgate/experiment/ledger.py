@@ -956,15 +956,35 @@ def _direct_cost_lineage(
     if any(event.get("schema_version") != "1.1" for event in task_events):
         raise ValueError("direct cost accounting requires task-attempt ledger 1.1")
     completed_by_simulation: dict[str, dict[str, Any]] = {}
+    failed_by_position: dict[tuple[str, int, int], dict[str, Any]] = {}
     for event in task_events:
-        if event.get("state") != "completed":
-            continue
-        simulation_id = event.get("simulation_id")
-        if not isinstance(simulation_id, str) or not simulation_id:
-            raise ValueError("completed task attempt lacks its simulation id")
-        if simulation_id in completed_by_simulation:
-            raise ValueError("multiple completed task attempts claim one simulation")
-        completed_by_simulation[simulation_id] = event
+        state = event.get("state")
+        if state == "completed":
+            simulation_id = event.get("simulation_id")
+            if not isinstance(simulation_id, str) or not simulation_id:
+                raise ValueError("completed task attempt lacks its simulation id")
+            if simulation_id in completed_by_simulation:
+                raise ValueError("multiple completed task attempts claim one simulation")
+            completed_by_simulation[simulation_id] = event
+        elif state == "failed":
+            task_id = event.get("task_id")
+            trial = event.get("trial")
+            seed = event.get("seed")
+            attempt_index = event.get("attempt_index")
+            if (
+                not isinstance(task_id, str)
+                or isinstance(trial, bool)
+                or not isinstance(trial, int)
+                or isinstance(seed, bool)
+                or not isinstance(seed, int)
+                or isinstance(attempt_index, bool)
+                or not isinstance(attempt_index, int)
+            ):
+                raise ValueError("failed task attempt has no valid identity")
+            position = (task_id, trial, seed)
+            prior = failed_by_position.get(position)
+            if prior is None or attempt_index > prior["attempt_index"]:
+                failed_by_position[position] = event
 
     retained: dict[_TaskIdentity, bool] = {}
     raw_costs: dict[_TaskIdentity, tuple[Decimal | None, Decimal | None]] = {}
@@ -987,7 +1007,10 @@ def _direct_cost_lineage(
             raise ValueError(
                 "direct cost accounting requires simulation id/task_id/trial/seed"
             )
+        is_infra = simulation.get("termination_reason") == "infrastructure_error"
         terminal = completed_by_simulation.get(simulation_id)
+        if terminal is None and is_infra:
+            terminal = failed_by_position.get((task_id, trial, seed))
         if terminal is None:
             raise ValueError("retained simulation has no completed task-attempt lineage")
         if (
@@ -1002,10 +1025,7 @@ def _direct_cost_lineage(
         identity = (task_id, trial, seed, attempt_index)
         if identity in retained:
             raise ValueError("retained results reuse one task-attempt identity")
-        is_infra = simulation.get("termination_reason") == "infrastructure_error"
-        terminal_infra = str(terminal.get("termination_reason", "")).lower().endswith(
-            "infrastructure_error"
-        )
+        terminal_infra = terminal.get("state") == "failed"
         if is_infra != terminal_infra:
             raise ValueError("task-attempt and retained termination reasons disagree")
         retained[identity] = is_infra

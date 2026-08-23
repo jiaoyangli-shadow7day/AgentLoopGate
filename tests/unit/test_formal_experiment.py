@@ -1436,6 +1436,85 @@ def test_direct_cost_rejects_positive_tokens_encoded_as_exact_zero(
         )
 
 
+def test_direct_cost_retains_infra_invalid_final_failed_task_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _formal_execution(tmp_path, infrastructure_error=True)
+
+    class _DirectExecutor(_FakeBatchExecutor):
+        cost_gate_scope = "valid_runs"
+
+        def model_usage_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/model_usage"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def user_model_usage_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/user_model_usage"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def task_attempt_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/task_attempts"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def frozen_token_prices(self):
+            return (Decimal("100"), Decimal("0"), Decimal("200"))
+
+    executor = _DirectExecutor(execution)
+    spec = _batch_spec().model_copy(update={"protocol_digest": DIGEST_C})
+    manifest = tmp_path / "snapshots/A0/manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps({"code_revision": "tree:sha256:" + "d" * 64}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AGENTLOOPGATE_TASK_ATTEMPT_LEDGER_SCHEMA_VERSION", "1.1")
+    task_path = executor.task_attempt_path(spec)
+    task_fields = {
+        "task_id": "task_001",
+        "trial": 0,
+        "seed": 300,
+        "attempt_index": 2,
+    }
+    _append_task_event(task_path, state="started", **task_fields)
+    _append_task_event(
+        task_path,
+        state="session_bound",
+        session_id_hash=DIGEST_A,
+        source_locator=f"dsh-session:{DIGEST_A}",
+        **task_fields,
+    )
+    _append_task_event(
+        task_path,
+        state="failed",
+        duration_ms=100,
+        error_type="Tau3PilotError",
+        error_message="fixture infrastructure failure",
+        session_binding_status="bound",
+        session_id_hash=DIGEST_A,
+        source_locator=f"dsh-session:{DIGEST_A}",
+        **task_fields,
+    )
+
+    result = FormalBatchRunner(tmp_path, executor).run(spec)
+
+    cost_path = tmp_path / f"runs/experiments/EXP_TEST/costs/{spec.batch_id}.json"
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    assert cost["infra_invalid_count"] == 1
+    assert cost["valid_run_count"] == 0
+    assert result.artifact.disposition == "hold"
+    assert "infra_invalid:1" in result.artifact.hold_reasons
+
+
 def test_protocol_bound_batch_failure_is_logged_with_unknown_cost(tmp_path: Path) -> None:
     class _FailingExecutor:
         def execute(self, spec):
