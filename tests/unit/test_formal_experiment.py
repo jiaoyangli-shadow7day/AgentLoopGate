@@ -1461,6 +1461,33 @@ def test_banking_r13_preregistration_binds_successor_integrity_and_cost() -> Non
     assert ci_validation["attempts"][0]["known_model_cost_usd"] == "0"
 
 
+def test_banking_r14_protocol_2_private_ci_validation_is_content_addressed() -> None:
+    validation = json.loads(
+        Path("artifacts/research/banking_r14/private_ci_validation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    declared_digest = validation.pop("artifact_digest")
+    assert declared_digest == (
+        "sha256:80bf6d9af63f4ae0cfb4bd53a64543c1feefb4541bdd60a8167c21d5e1c3a68a"
+    )
+    assert canonical_digest(validation) == declared_digest
+    assert validation["commit"] == "b34eb9b6d65c358bfb68ab12eb536ee5c4780aee"
+    assert validation["conclusion"] == "success"
+    assert validation["repository_visibility"] == "private"
+    assert validation["repository_remained_private"] is True
+    assert validation["acceptance"]["python_tests_passed"] == 204
+    assert validation["acceptance"]["python_tests_platform_skipped"] == 2
+    assert validation["acceptance"]["typescript_tests_passed"] == 13
+    assert validation["acceptance"]["secret_and_direct_pii_files_scanned"] == 307
+    assert validation["acceptance"]["secret_and_direct_pii_findings"] == 0
+    assert validation["external_model_calls"] == 0
+    assert validation["known_model_cost_usd"] == "0"
+    assert validation["ci_compute_monetary_cost"] == "unmetered_unknown"
+    assert validation["publication_or_submission_executed"] is False
+
+
 def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
     base = Path("artifacts/research/banking_r12/ablations")
     integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))
