@@ -1,18 +1,19 @@
-# Sanitized Banking R2 public result package contract
+# Sanitized Banking formal-result public package contract
 
-> Historical package contract. No R2 package may be presented as the current
-> AgentLoopGate result. Apply this fail-closed contract to the next valid
-> corrected terminal evidence, including a real Selection-HOLD outcome.
+> R2 is historical evidence only and must never be presented as the current
+> AgentLoopGate result. This configuration-driven, fail-closed contract applies
+> to the next valid corrected terminal evidence (currently Banking R11),
+> including a real Selection-HOLD outcome.
 
 The public result package is a derived, privacy-reviewed view of authoritative
-private evidence. It must not be assembled until the credentialed R2 Outcome is
+private evidence. It must not be assembled until the credentialed formal Outcome is
 terminal and verified. A template, partial directory, or synthetic demo must
 never be labeled as the Banking result package.
 
 ## Intended layout
 
 ```text
-artifacts/research/banking_r2/release/
+artifacts/research/<formal-experiment>/release/
   README.md
   manifest.json
   reproduction.json
@@ -102,13 +103,14 @@ replaced by package-local aliases rather than published as guessable hashes.
 
 ## Derivation and verification
 
-After the terminal private Outcome exists, run:
+After a terminal private Outcome exists, create its final publication freeze
+(which is distinct from the running pre-run preregistration) and run:
 
 ```sh
-uv run python scripts/build_public_r2_package.py \
-  --config configs/formal_experiment_r2_a4.yaml \
-  --freeze runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json \
-  --output artifacts/research/banking_r2/release
+uv run python scripts/build_public_result_package.py \
+  --config <formal-config.yaml> \
+  --freeze <terminal-publication-freeze.json> \
+  --output artifacts/research/<formal-experiment>/release
 ```
 
 The command writes a STARTED and terminal package Attempt. Before the core
@@ -122,8 +124,8 @@ verify its complete file set, Manifest and artifact digests, cross-artifact
 Decision/statistics bindings, cost-status invariants, and Secret/PII scan:
 
 ```sh
-uv run python scripts/verify_public_r2_package.py \
-  --package artifacts/research/banking_r2/release
+uv run python scripts/verify_public_result_package.py \
+  --package artifacts/research/<formal-experiment>/release
 ```
 
 1. Verify the existing private Outcome through the formal orchestrator without

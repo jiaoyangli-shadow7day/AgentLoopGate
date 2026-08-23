@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Build a fail-closed, sanitized public package from a verified Banking R2 outcome."""
+"""Build a fail-closed, sanitized public package from a verified formal outcome.
+
+The filename is retained as a compatibility entry point. The implementation is
+configuration-driven and supports the next corrected experiment identity, not
+only historical Banking R2.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ from agentloopgate.experiment.ledger import (
     _verify_event,
 )
 from agentloopgate.experiment.orchestrator import FormalExperimentOrchestrator
+from agentloopgate.experiment.service import load_formal_config
 from agentloopgate.runtime.usage import (
     AttemptState,
     CostStatus,
@@ -34,6 +40,8 @@ from agentloopgate.runtime.usage import (
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from audit_public_tree import ALLOWED_EMAILS, PII_RULES, SECRET_RULES  # noqa: E402
 
+# Legacy defaults retain the historical R2 command line, while every runtime
+# path is derived from the verified freeze and formal config.
 EXPERIMENT_ID = "EXP_BANKING_R2"
 PRIVATE_ROOT = Path("runs/experiments") / EXPERIMENT_ID
 DEFAULT_CONFIG = Path("configs/formal_experiment_r2_a4.yaml")
@@ -47,18 +55,44 @@ REPORT_NAMES = (
     "03_pool_comparison.svg",
     "04_gate_waterfall.svg",
 )
-ABLATIONS = {
-    "selector": Path("artifacts/research/banking_r2/ablations/selector_v2.json"),
-    "diagnosis_direction": Path(
-        "artifacts/research/banking_r2/ablations/diagnosis_direction_v2.json"
-    ),
-    "integrity_gate": Path(
-        "artifacts/research/banking_r2/ablations/integrity_gate_a4.json"
-    ),
-    "plugin_coexistence_overhead": Path(
-        "artifacts/research/banking_r2/ablations/plugin_coexistence_overhead_a4.json"
-    ),
-}
+def _ablation_paths(
+    root: Path, research_root: Path, freeze: dict[str, Any]
+) -> dict[str, Path]:
+    paths = {
+        "selector": research_root / "ablations/selector_v2.json",
+        "diagnosis_direction": research_root / "ablations/diagnosis_direction_v2.json",
+        "integrity_gate": research_root / "ablations/integrity_gate.json",
+        "plugin_coexistence_overhead": research_root
+        / "ablations/plugin_coexistence_overhead.json",
+    }
+    registered = freeze.get("pre_core_ablations")
+    if registered is None:
+        return paths
+    if not isinstance(registered, dict):
+        raise PublicPackageBlocked("freeze pre-core ablation register is invalid")
+    for public_name, register_name in {
+        "integrity_gate": "evidence_integrity_gate",
+        "plugin_coexistence_overhead": "plugin_trace_coexistence_and_overhead",
+    }.items():
+        record = registered.get(register_name)
+        if record is None:
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get("path"), str):
+            raise PublicPackageBlocked(
+                f"freeze pre-core ablation path is invalid: {register_name}"
+            )
+        relative = Path(record["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise PublicPackageBlocked(
+                f"freeze pre-core ablation path escapes project: {register_name}"
+            )
+        resolved = (root / relative).resolve()
+        if not resolved.is_relative_to(root):
+            raise PublicPackageBlocked(
+                f"freeze pre-core ablation path escapes project: {register_name}"
+            )
+        paths[public_name] = resolved
+    return paths
 
 
 class PublicPackageBlocked(RuntimeError):
@@ -96,30 +130,33 @@ def _verify_digest(value: dict[str, Any], field: str, *, expected: str | None = 
     return digest
 
 
-def _load_freeze(root: Path, relative: Path) -> dict[str, Any]:
-    freeze = _load_json(root / relative)
+def _load_freeze(path: Path) -> dict[str, Any]:
+    freeze = _load_json(path)
     _verify_digest(freeze, "freeze_manifest_digest")
-    if freeze.get("experiment_id") != EXPERIMENT_ID:
-        raise PublicPackageBlocked("freeze manifest experiment identity mismatch")
+    if not isinstance(freeze.get("experiment_id"), str) or not freeze["experiment_id"]:
+        raise PublicPackageBlocked("freeze manifest has no experiment identity")
     return freeze
 
 
-def _terminal_outcome(root: Path, config: Path):
-    path = root / PRIVATE_ROOT / "outcome.json"
+def _terminal_outcome(root: Path, config: Path, *, experiment_id: str, private_root: Path):
+    path = root / private_root / "outcome.json"
     if not path.is_file():
         raise PublicPackageBlocked(
-            "verified terminal Banking R2 outcome is unavailable; "
+            "verified terminal formal outcome is unavailable; "
             "credentialed core has not completed"
         )
+    formal_config = load_formal_config(config)
+    if formal_config.experiment_id != experiment_id:
+        raise PublicPackageBlocked("formal config conflicts with freeze experiment identity")
     orchestrator = FormalExperimentOrchestrator(root, config_path=config)
     # The public method would start paid work when outcome.json is absent. The
     # existence guard above makes this private verifier a strictly no-model path.
     return orchestrator._load_verified_outcome(path)  # noqa: SLF001
 
 
-def _outcome_seal_time(root: Path) -> datetime:
+def _outcome_seal_time(private_root: Path) -> datetime:
     terminals: list[ExperimentAttemptEvent] = []
-    ledger_root = root / PRIVATE_ROOT / "attempt_ledger"
+    ledger_root = private_root / "attempt_ledger"
     for path in sorted(ledger_root.glob("ATT_*/*.json")):
         event = ExperimentAttemptEvent.model_validate_json(path.read_text(encoding="utf-8"))
         _verify_event(event)
@@ -133,9 +170,9 @@ def _outcome_seal_time(root: Path) -> datetime:
     return terminals[0].recorded_at
 
 
-def _attempt_accounting(root: Path, *, cutoff: datetime) -> dict[str, Any]:
+def _attempt_accounting(private_root: Path, *, cutoff: datetime) -> dict[str, Any]:
     groups: dict[str, list[ExperimentAttemptEvent]] = defaultdict(list)
-    for path in sorted((root / PRIVATE_ROOT / "attempt_ledger").glob("ATT_*/*.json")):
+    for path in sorted((private_root / "attempt_ledger").glob("ATT_*/*.json")):
         event = ExperimentAttemptEvent.model_validate_json(path.read_text(encoding="utf-8"))
         _verify_event(event)
         if event.recorded_at <= cutoff:
@@ -196,9 +233,9 @@ def _attempt_accounting(root: Path, *, cutoff: datetime) -> dict[str, Any]:
     }
 
 
-def _model_usage_accounting(root: Path, *, cutoff: datetime) -> dict[str, Any]:
+def _model_usage_accounting(private_root: Path, *, cutoff: datetime) -> dict[str, Any]:
     groups: dict[str, list[ModelCallUsageEvent]] = defaultdict(list)
-    for path in sorted((root / PRIVATE_ROOT / "model_usage").glob("*.jsonl")):
+    for path in sorted((private_root / "model_usage").glob("*.jsonl")):
         for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -248,12 +285,12 @@ def _model_usage_accounting(root: Path, *, cutoff: datetime) -> dict[str, Any]:
     }
 
 
-def _cost_accounting(root: Path) -> dict[str, Any]:
+def _cost_accounting(private_root: Path) -> dict[str, Any]:
     batches: list[dict[str, Any]] = []
     status_counts: Counter[str] = Counter()
     known_lower_bound = Decimal(0)
     all_exact = True
-    for path in sorted((root / PRIVATE_ROOT / "costs").glob("B_*.json")):
+    for path in sorted((private_root / "costs").glob("B_*.json")):
         cost = FormalCostAccounting.model_validate_json(path.read_text(encoding="utf-8"))
         payload = cost.model_dump(mode="python", exclude={"cost_digest"})
         if canonical_digest(payload) != cost.cost_digest:
@@ -309,9 +346,9 @@ def _cost_accounting(root: Path) -> dict[str, Any]:
     }
 
 
-def _incident_summaries(root: Path) -> list[dict[str, Any]]:
+def _incident_summaries(private_root: Path) -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
-    for path in sorted((root / PRIVATE_ROOT / "incidents").glob("*.json")):
+    for path in sorted((private_root / "incidents").glob("*.json")):
         item = _load_json(path)
         summaries.append(
             {
@@ -329,7 +366,9 @@ def _incident_summaries(root: Path) -> list[dict[str, Any]]:
                 "github_actions_compute_cost_status": item.get(
                     "github_actions_compute_cost_status"
                 ),
-                "paid_r2_core_started": item.get("paid_r2_core_started"),
+                "paid_core_started": item.get(
+                    "paid_core_started", item.get("paid_r2_core_started")
+                ),
                 "source_file_sha256": file_digest(path),
             }
         )
@@ -345,11 +384,14 @@ def _canonical_artifact(path: Path, digest_field: str, expected: str | None = No
 def _collect_payloads(
     root: Path,
     *,
+    experiment_id: str,
+    private_root: Path,
+    research_root: Path,
     outcome: Any,
     freeze: dict[str, Any],
     cutoff: datetime,
 ) -> tuple[dict[str, bytes], dict[str, str], dict[str, Any]]:
-    private = root / PRIVATE_ROOT
+    private = root / private_root
     payloads: dict[str, bytes] = {}
     derivations: dict[str, str] = {}
 
@@ -381,10 +423,10 @@ def _collect_payloads(
         "integrity_gate": None,
         "plugin_coexistence_overhead": None,
     }
-    for name, relative in ABLATIONS.items():
+    for name, source in _ablation_paths(root, research_root, freeze).items():
         target = f"ablations/{name}.json"
         payloads[target] = _canonical_artifact(
-            root / relative, "artifact_digest", expected_ablations[name]
+            source, "artifact_digest", expected_ablations[name]
         )
         derivations[target] = f"verified {name} registered ablation"
 
@@ -406,7 +448,7 @@ def _collect_payloads(
         "aggregate counts and digest derived from verified private lineage"
     )
 
-    reports = root / "reports" / EXPERIMENT_ID
+    reports = root / "reports" / experiment_id
     for name in REPORT_NAMES:
         source = reports / name
         expected = outcome.report_file_digests.get(source.relative_to(root).as_posix())
@@ -416,8 +458,8 @@ def _collect_payloads(
         payloads[target] = source.read_bytes()
         derivations[target] = "exact report bytes authenticated by private outcome"
 
-    attempt_accounting = _attempt_accounting(root, cutoff=cutoff)
-    model_usage = _model_usage_accounting(root, cutoff=cutoff)
+    attempt_accounting = _attempt_accounting(private, cutoff=cutoff)
+    model_usage = _model_usage_accounting(private, cutoff=cutoff)
     if model_usage["unresolved_call_count"] and outcome.final_decision.value != "HOLD":
         raise PublicPackageBlocked(
             "unresolved model calls require an explicit final HOLD before publication"
@@ -425,7 +467,7 @@ def _collect_payloads(
     failure_accounting = {
         **attempt_accounting,
         "model_usage": model_usage,
-        "operational_incidents": _incident_summaries(root),
+        "operational_incidents": _incident_summaries(private),
     }
     payloads["failure_accounting.json"] = (
         canonical_json_bytes(failure_accounting) + b"\n"
@@ -434,7 +476,7 @@ def _collect_payloads(
         "sanitized lifecycle aggregates and retained failure metadata through outcome seal"
     )
 
-    cost_summary = _cost_accounting(root)
+    cost_summary = _cost_accounting(private)
     payloads["cost_summary.json"] = canonical_json_bytes(cost_summary) + b"\n"
     derivations["cost_summary.json"] = (
         "verified per-batch cost evidence with explicit unknown infrastructure scopes"
@@ -442,7 +484,7 @@ def _collect_payloads(
 
     reproduction = {
         "schema_version": "1.0",
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id,
         "evaluation_baseline": freeze["evaluation_baseline"],
         "source_revision": freeze["source_revision"],
         "objective": freeze["objective"],
@@ -461,11 +503,11 @@ def _collect_payloads(
     derivations["reproduction.json"] = "selected frozen identities and source CI evidence"
 
     readme = (
-        "# AgentLoopGate Banking R2 sanitized result package\n\n"
+        "# AgentLoopGate Banking sanitized result package\n\n"
         "This directory is a derived public view of verified private evidence. "
         "It excludes raw model and host traces, prompts, tool payloads, credentials, "
         "direct identifiers, and non-redistributable task content.\n\n"
-        f"- Experiment: `{EXPERIMENT_ID}`\n"
+        f"- Experiment: `{experiment_id}`\n"
         f"- Final decision: `{outcome.final_decision.value}`\n"
         f"- Private outcome digest: `{outcome.outcome_digest}`\n"
         f"- Evidence cutoff: `{cutoff.isoformat().replace('+00:00', 'Z')}`\n"
@@ -479,7 +521,7 @@ def _collect_payloads(
     metadata = {
         "schema_version": "1.0",
         "package_kind": "sanitized_derived_view",
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id,
         "created_at": cutoff,
         "private_outcome_digest": outcome.outcome_digest,
         "freeze_manifest_digest": freeze["freeze_manifest_digest"],
@@ -594,7 +636,7 @@ def _seal_payloads(
         return manifest, True
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="agentloopgate-public-r2-", dir=output.parent) as raw:
+    with TemporaryDirectory(prefix="agentloopgate-public-result-", dir=output.parent) as raw:
         staged = Path(raw)
         for relative, data in complete.items():
             target = staged / relative
@@ -627,8 +669,10 @@ def build_public_release(
     if not output.is_relative_to(root) or output in {root, root / "artifacts"}:
         raise PublicPackageConflict("public package output must be a narrow project subdirectory")
 
-    freeze = _load_freeze(root, freeze_path.relative_to(root))
-    ledger = ExperimentAttemptLedger(root, EXPERIMENT_ID)
+    freeze = _load_freeze(freeze_path)
+    experiment_id = freeze["experiment_id"]
+    private_root = Path("runs/experiments") / experiment_id
+    ledger = ExperimentAttemptLedger(root, experiment_id)
     handle = ledger.begin(
         operation="build_sanitized_public_result_package",
         protocol_digest=freeze["execution_protocol"]["digest"],
@@ -637,13 +681,33 @@ def build_public_release(
         stage="publication_package",
         snapshot_id=freeze["evaluation_baseline"]["snapshot_id"],
         spec_digest=freeze["freeze_manifest_digest"],
-        command=command or ["python", "scripts/build_public_r2_package.py"],
+        command=command or ["python", "scripts/build_public_result_package.py"],
     )
     try:
-        outcome = _terminal_outcome(root, config)
-        cutoff = _outcome_seal_time(root)
+        outcome = _terminal_outcome(
+            root, config, experiment_id=experiment_id, private_root=private_root
+        )
+        formal_config = load_formal_config(config)
+        configured_research_root_value = formal_config.research_artifact_root
+        if configured_research_root_value is None:
+            raise PublicPackageBlocked("formal config has no research artifact root")
+        configured_research_root = Path(configured_research_root_value)
+        research_root = (
+            configured_research_root
+            if configured_research_root.is_absolute()
+            else root / configured_research_root
+        ).resolve()
+        if not research_root.is_relative_to(root):
+            raise PublicPackageBlocked("research artifact root escapes project")
+        cutoff = _outcome_seal_time(root / private_root)
         payloads, derivations, metadata = _collect_payloads(
-            root, outcome=outcome, freeze=freeze, cutoff=cutoff
+            root,
+            experiment_id=experiment_id,
+            private_root=private_root,
+            research_root=research_root,
+            outcome=outcome,
+            freeze=freeze,
+            cutoff=cutoff,
         )
         manifest, reused = _seal_payloads(
             output,

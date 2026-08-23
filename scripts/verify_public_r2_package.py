@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify a sanitized Banking R2 package without access to private experiment data."""
+"""Verify a sanitized formal-result package without private experiment data."""
 
 from __future__ import annotations
 

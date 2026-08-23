@@ -152,6 +152,76 @@ def test_missing_outcome_records_failed_attempt_without_creating_package(
     assert events[-1].exit_code == 4
 
 
+def test_freeze_identity_selects_the_experiment_specific_ledger(
+    tmp_path: Path,
+) -> None:
+    freeze_payload = {
+        "schema_version": "1.0",
+        "experiment_id": "EXP_BANKING_R11",
+        "source_revision": "tree:sha256:" + "1" * 64,
+        "execution_protocol": {"digest": "sha256:" + "2" * 64},
+        "study": {"digest": "sha256:" + "3" * 64},
+        "evaluation_baseline": {"snapshot_id": "R11_A2"},
+    }
+    freeze_path = tmp_path / "r11-freeze.json"
+    freeze_path.write_text(
+        json.dumps(
+            {
+                **freeze_payload,
+                "freeze_manifest_digest": canonical_digest(freeze_payload),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(builder.PublicPackageBlocked, match="outcome is unavailable"):
+        builder.build_public_release(
+            tmp_path,
+            config=Path("missing-r11.yaml"),
+            freeze_path=freeze_path,
+            output=Path("artifacts/r11-release"),
+        )
+
+    assert not (tmp_path / "artifacts/r11-release").exists()
+    r11_events = sorted(
+        (tmp_path / "runs/experiments/EXP_BANKING_R11/attempt_ledger").glob(
+            "ATT_*/*.json"
+        )
+    )
+    assert len(r11_events) == 2
+    assert not (tmp_path / "runs/experiments/EXP_BANKING_R2").exists()
+
+
+def test_registered_pre_core_ablation_paths_preserve_frozen_identity(
+    tmp_path: Path,
+) -> None:
+    paths = builder._ablation_paths(
+        tmp_path,
+        tmp_path / "artifacts/research/banking_r2",
+        {
+            "pre_core_ablations": {
+                "evidence_integrity_gate": {
+                    "path": "artifacts/research/banking_r2/ablations/integrity_gate_a4.json"
+                },
+                "plugin_trace_coexistence_and_overhead": {
+                    "path": (
+                        "artifacts/research/banking_r2/ablations/"
+                        "plugin_coexistence_overhead_a4.json"
+                    )
+                },
+            }
+        },
+    )
+
+    assert paths["integrity_gate"] == (
+        tmp_path / "artifacts/research/banking_r2/ablations/integrity_gate_a4.json"
+    )
+    assert paths["plugin_coexistence_overhead"] == (
+        tmp_path
+        / "artifacts/research/banking_r2/ablations/plugin_coexistence_overhead_a4.json"
+    )
+
+
 def _artifact(payload: dict[str, object], digest_field: str) -> dict[str, object]:
     return {**payload, digest_field: canonical_digest(payload)}
 
