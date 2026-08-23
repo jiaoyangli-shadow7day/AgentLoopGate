@@ -24,7 +24,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
 | Explicit paid-execution authorization | IMPLEMENTED / PAID_HOLD | Formal config 1.2 authorization root; preflight + Service double-check; first scope covers 125 formal positions and separately metered external Updater; Selection-bound 450-position Release scope is separate; HOLD blocks Release | No authorization artifact exists; wait for explicit Owner scope approval |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | R11 final-source `R11-NM-008`: 183 Python and 13 TypeScript tests in 17.11 s; prior authorization-gate source commit `be5f2e8` passed private CI run `32616830515`, job `97138822393`, in 59 s; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed | Seal the current R11 freeze commit in private CI; rerun after any later execution-source change |
+| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | R11 local `R11-NM-008`: 183 Python and 13 TypeScript tests in 17.11 s; source commit `f6bd641` passed private CI run `32619543235`, job `97145466866`, in 60 s; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed | Rerun after any later execution-source change |
 | Secret and direct-PII audit | PASS FOR CURRENT TREE | `R11-NM-008` scanned 269 files with zero findings and withheld paths/values | Rerun for the final public result package |
 | Corrected pre-Release paid checkpoint | FROZEN / NOT AUTHORIZED | `EXP_BANKING_R11`; Protocol `68b03d…63ea`; Study `97de7e…5ebb`; source `c392a3…bee0`; Evaluation Baseline `R11_A2`; 25 + 40 + 60 = 125 positions plus separately metered Updater; machine preregistration `pre_run_preregistration.json` | Obtain explicit Owner authorization before Updater or any formal position |
 | Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
@@ -32,7 +32,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Fail-closed builder/verifier and package contract | Build only from the next valid terminal result, including a valid Selection-HOLD if that is the outcome |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | PASS FOR PRIOR SOURCE | Commit `be5f2e8`; clean-room run `32616830515`, job `97138822393`; repository remained private | Seal the final R11 freeze commit next; preserve both runs |
+| Version-controlled private CI seal | PASS | Commit `f6bd641`; clean-room run `32619543235`, job `97145466866`; machine record `banking_r11/private_ci_validation.json`; repository remained private | Preserve the run; require another green run for future execution-source changes |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves
@@ -57,9 +57,9 @@ A0.
 
 ## Required completion order
 
-1. Keep R10 and every prior failure immutable; finish the R11 no-model
-   documentation, artifact, and private-CI seal.
-2. Treat the content-addressed R11 Protocol, Study, Experiment, `R11_A1`,
+1. Keep R10 and every prior failure immutable; preserve the completed R11
+   no-model documentation, artifact, and private-CI seal.
+2. Treat the content-addressed R11 Protocol, Study, Experiment, `R11_A2`,
    semantic candidate plan, and paid-scope estimate as frozen. Do not start it
    without explicit Owner authorization.
 3. If authorized, run only the 125-position pre-Release checkpoint plus the

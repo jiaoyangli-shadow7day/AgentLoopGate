@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "private_ci_validation",
+  "recorded_at": "2026-08-23T05:08:00Z",
+  "repository": "jiaoyangli-shadow7day/AgentLoopGate",
+  "repository_visibility": "PRIVATE",
+  "branch": "codex/r2-a2-pre-core",
+  "git_commit": "f6bd6418644a606785ae84f6256cc11e4d26d1f9",
+  "source_revision": "tree:sha256:c392a3af0afadd566bd21169d11e63684312921c1e1fbab24f13cefb88bebee0",
+  "workflow": {
+    "name": "clean-room",
+    "run_id": 32619543235,
+    "job_id": 97145466866,
+    "run_url": "https://github.com/jiaoyangli-shadow7day/AgentLoopGate/actions/runs/32619543235",
+    "trigger": "push",
+    "created_at": "2026-08-23T05:06:55Z",
+    "job_started_at": "2026-08-23T05:06:58Z",
+    "job_completed_at": "2026-08-23T05:07:58Z",
+    "status": "completed",
+    "conclusion": "success",
+    "job_wall_time_seconds": 60,
+    "clean_room_step_wall_time_seconds": 45
+  },
+  "verified_results": {
+    "ruff": "passed",
+    "python_tests_passed": 182,
+    "python_tests_skipped": 1,
+    "python_skip_reason": "macOS-only AHE keychain boundary test on Linux",
+    "typescript_test_files_passed": 5,
+    "typescript_tests_passed": 13,
+    "python_sdist_built": true,
+    "python_sdist_runtime_evidence_guard": "passed",
+    "python_wheel_built_from_sdist": true,
+    "python_wheel_clean_install": true,
+    "deepseek_harness_headless_conformance": "passed",
+    "deepseek_harness_package_build": "passed",
+    "public_tree_files_scanned": 269,
+    "public_tree_secret_or_pii_findings": 0
+  },
+  "cost": {
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "model_cost_status": "not_applicable",
+    "github_actions_monetary_cost": "unavailable_unknown"
+  },
+  "authorization_state": {
+    "paid_experiment_started": false,
+    "repository_visibility_changed": false,
+    "release_published": false,
+    "snapshot_promoted": false,
+    "paper_submitted": false
+  },
+  "limitations": [
+    "the Linux CI skip is covered by the local macOS test pass but was not executed on Linux",
+    "CI validates software and packaging behavior; it does not establish a positive self-evolution effect",
+    "GitHub Actions monetary billing was not available to the experiment process"
+  ],
+  "artifact_digest": "sha256:59b190d970e710678f97addb410d107eb42758b30adc74a7e97c38d49e41d0bd"
+}
