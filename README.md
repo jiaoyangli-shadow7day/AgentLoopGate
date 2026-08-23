@@ -51,7 +51,9 @@ Update-Check、Selection、Release 和 Promote 均为零。全部已观测 Provi
 [`docs/research/banking-r12-successor-plan.md`](docs/research/banking-r12-successor-plan.md)。
 终态机器记录见
 [`artifacts/research/banking_r12/formal_execution_seal.json`](artifacts/research/banking_r12/formal_execution_seal.json)。
-计划中的 `EXP_BANKING_R13` 只会在新 Protocol、源码、Baseline 与机器预注册全部冻结后运行。当前
+`EXP_BANKING_R13` 的新 Protocol、Study、源码、`R13_A0` Baseline、隔离 Harness Profile 与机器预注册
+现已冻结；预注册摘要为 `sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961`。
+精确付费机器授权尚未创建，所以外部 Updater 和正式付费批次仍为 fail-closed、调用数为零。当前
 零模型修复已为 User Simulator 空最终消息限定一次独立记账的 final-only repair，并把 AHE/NexAU
 全部临时输出限制到当前 Attempt 根；199 个 Python、13 个 TypeScript 测试、sdist→wheel、DSH
 conformance/build/pack 与 295 文件 Secret/PII 扫描均已通过。这只证明后继执行前提，不是候选效果

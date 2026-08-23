@@ -99,7 +99,15 @@ preparation attempt made zero external model calls and known Provider cost was
 USD `0`; local compute monetary cost remains `unmetered_unknown`. The current
 calibration digest is
 `sha256:671567a3abd4061b9766ac385568062e5d66f929280ef985e90706a70620eea6`.
-No R13 paid identity or authorization exists yet.
+R13 is now frozen as `EXP_BANKING_R13` / `BANKING_R13_PROTOCOL_1` /
+`BANKING_R13_STUDY_1`, with execution source
+`tree:sha256:acf909334915b3dde4a8fc5dd7df4adc4d2fa1db4cb0e77fc801715a70ac9c1a`
+and fresh Evaluation Baseline `R13_A0`, digest
+`sha256:166954514197e3010dcb97de2034d0ae81eb24c8ee46a078ba2fe654b72ead2c`.
+Its preregistration digest is
+`sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961`.
+The exact machine authorization has not yet been created, so preflight remains
+fail-closed and no R13 paid work or Updater call has started.
 
 The new configuration must reject reuse of R11 task results as decision-grade
 R12 evidence. Existing-only recovery may only seal already retained evidence;

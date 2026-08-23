@@ -1278,6 +1278,68 @@ def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline(
     assert verified == protocol
 
 
+def test_banking_r13_preregistration_binds_successor_integrity_and_cost() -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r13.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    study = load_study_plan(Path(config.study_plan_config or "missing"))
+    successor = load_successor_integrity_calibration(
+        Path(protocol.successor_integrity_calibration_artifact or "missing")
+    )
+    preregistration = json.loads(
+        Path("artifacts/research/banking_r13/pre_run_preregistration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert config.experiment_id == protocol.experiment_id == "EXP_BANKING_R13"
+    assert config.baseline_snapshot_id == "R13_A0"
+    assert config.paid_execution_authorization_root == (
+        "runs/authorizations/EXP_BANKING_R13"
+    )
+    assert protocol.protocol_digest == (
+        "sha256:645374c2e757564efcdf97f7f03820526821d711a2a6919cd8b51020a7234848"
+    )
+    assert study.study_digest == (
+        "sha256:5a629b98bd876000ef3b0e12cd80358af4dd285cf7fe19e535fed5f4cc19f011"
+    )
+    assert successor.artifact_digest == (
+        protocol.successor_integrity_calibration_digest
+    )
+    assert successor.runtime_bindings
+    assert all(
+        digest.startswith("sha256:")
+        for digest in successor.runtime_bindings.values()
+    )
+    assert preregistration["status"] == "frozen_paid_hold"
+    assert preregistration["frozen_identity"]["baseline_snapshot_id"] == "R13_A0"
+    assert preregistration["frozen_identity"]["source_revision"] == (
+        "tree:sha256:acf909334915b3dde4a8fc5dd7df4adc4d2fa1db4cb0e77fc801715a70ac9c1a"
+    )
+    assert preregistration["frozen_identity"]["baseline_snapshot_digest"] == (
+        "sha256:166954514197e3010dcb97de2034d0ae81eb24c8ee46a078ba2fe654b72ead2c"
+    )
+    declared_digest = preregistration.pop("artifact_digest")
+    assert declared_digest == (
+        "sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961"
+    )
+    assert canonical_digest(preregistration) == declared_digest
+    assert preregistration["cost"]["r13_paid_work_started"] is False
+    assert preregistration["cost"]["r13_preparation_external_model_calls"] == 0
+    assert preregistration["cost"]["r13_preparation_known_model_cost_usd"] == "0"
+    assert preregistration["cost"]["local_compute_monetary_cost"] == (
+        "unmetered_unknown"
+    )
+    assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
+    assert preregistration["pre_release_checkpoint"]["formal_positions"] == 125
+    assert preregistration["pre_release_checkpoint"]["stages"] == {
+        "update_source": 25,
+        "update_check": 40,
+        "selection": 60,
+    }
+
+
 def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
     base = Path("artifacts/research/banking_r12/ablations")
     integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))
