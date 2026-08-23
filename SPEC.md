@@ -2118,7 +2118,7 @@ R11 的第一段 Owner 付费 Scope 必须同时、逐项授权：25 个 Update-
 编排器必须在首次 AHE 调用前再次验证 `external_updater_generation_authorized=true`。凭证存在、输入
 已冻结或 preflight 通过都不能替代 Owner 授权。
 
-截至本修订，R11 已通过 `R11-NM-007` 零模型 Clean-room（183 个 Python、13 个 TypeScript 测试，
+截至本修订，R11 已通过 `R11-NM-008` 零模型 Clean-room（183 个 Python、13 个 TypeScript 测试，
 269 文件 Secret/PII 扫描零发现），并故意停在 `PAID_HOLD`：当前进程无 API Key，授权目录中也没有
 Artifact，外部 Updater 与 125 个正式位置均未开始，已知 R11 模型成本为 USD `0`；本地计算货币成本
 为 `unmetered_unknown`。顺序执行时间 15–25 小时、中心成本约 USD 4.05、工作范围 USD 3.5–6.5

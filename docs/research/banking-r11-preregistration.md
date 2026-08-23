@@ -70,10 +70,10 @@ unknown scope. Local compute monetary cost remains `unmetered_unknown`.
 
 ## Zero-model readiness
 
-The final-source `R11-NM-007` clean-room passed 183 Python and 13 TypeScript tests,
+The final-source `R11-NM-008` clean-room passed 183 Python and 13 TypeScript tests,
 sdist-to-wheel installation, DeepSeek Harness headless conformance, plugin
-build/pack, and a 269-file Secret/PII scan with zero findings. It took 18.51 s
-real, 12.33 s user CPU, and 3.43 s system CPU; maximum RSS was 348,913,664
+build/pack, and a 269-file Secret/PII scan with zero findings. It took 17.11 s
+real, 13.14 s user CPU, and 3.69 s system CPU; maximum RSS was 350,109,696
 bytes and peak measured footprint was 1,327,440 bytes.
 
 The first post-preregistration clean-room was deliberately interrupted after

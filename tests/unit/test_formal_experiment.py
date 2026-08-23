@@ -1062,14 +1062,12 @@ def test_banking_r11_freezes_corrected_selection_and_paid_scope() -> None:
     assert study.selection_max_retry_increase == 0
     assert study.selection_max_timeout_increase == 0
 
-    pricing = load_pilot_pricing(Path(config.pricing_config))
-    assert _verified_protocol(
-        Path(".").resolve(),
-        config,
-        objective_digest=protocol.objective_digest,
-        split_digest=protocol.split_digest,
-        pricing=pricing,
-    ) == protocol
+    assert protocol.protocol_digest == (
+        "sha256:68b03d74f7195b80928c61fdd79f713fe3bcbba0c0df3b054763c4d88bb663ea"
+    )
+    assert study.study_digest == (
+        "sha256:97de7e47fd2328f568b74b70f23cc6347adae477d9bc1db81984ec641ca05ebb"
+    )
 
 
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:

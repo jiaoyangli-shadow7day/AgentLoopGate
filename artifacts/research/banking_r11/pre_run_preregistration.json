@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "artifact_id": "BANKING_R11_PRE_RUN_PREREGISTRATION",
   "experiment_id": "EXP_BANKING_R11",
-  "recorded_at": "2026-08-23T05:01:28Z",
+  "recorded_at": "2026-08-23T05:05:14Z",
   "status": "frozen_paid_hold",
   "contains_raw_customer_data": false,
   "frozen_identity": {
@@ -90,7 +90,7 @@
     "local_compute_monetary_cost": "unmetered_unknown"
   },
   "zero_model_validation": {
-    "attempt_id": "R11-NM-007",
+    "attempt_id": "R11-NM-008",
     "python_tests_passed": 183,
     "typescript_tests_passed": 13,
     "ruff": "passed",
@@ -99,10 +99,10 @@
     "plugin_build_and_pack": "passed",
     "secret_pii_files_scanned": 269,
     "secret_pii_findings": 0,
-    "real_seconds": "18.51",
-    "user_cpu_seconds": "12.33",
-    "system_cpu_seconds": "3.43",
-    "maximum_resident_set_bytes": 348913664,
+    "real_seconds": "17.11",
+    "user_cpu_seconds": "13.14",
+    "system_cpu_seconds": "3.69",
+    "maximum_resident_set_bytes": 350109696,
     "peak_memory_footprint_bytes": 1327440,
     "external_model_calls": 0,
     "known_model_cost_usd": "0"
@@ -237,7 +237,7 @@
       },
       {
         "attempt_id": "R11-NM-007",
-        "state": "passed_final_source_and_archive_guard",
+        "state": "passed_before_ci_portability_correction",
         "python_tests_passed": 183,
         "typescript_tests_passed": 13,
         "secret_pii_files_scanned": 269,
@@ -245,6 +245,20 @@
         "user_cpu_seconds": "12.33",
         "system_cpu_seconds": "3.43",
         "maximum_resident_set_bytes": 348913664,
+        "peak_memory_footprint_bytes": 1327440,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R11-NM-008",
+        "state": "passed_final_source_and_ci_portability_correction",
+        "python_tests_passed": 183,
+        "typescript_tests_passed": 13,
+        "secret_pii_files_scanned": 269,
+        "real_seconds": "17.11",
+        "user_cpu_seconds": "13.14",
+        "system_cpu_seconds": "3.69",
+        "maximum_resident_set_bytes": 350109696,
         "peak_memory_footprint_bytes": 1327440,
         "external_model_calls": 0,
         "known_model_cost_usd": "0"
@@ -312,5 +326,5 @@
     "publish_release",
     "submit_report_or_paper"
   ],
-  "artifact_digest": "sha256:c3c3288506af5ebdb93e4c6c61a5305caafdd4a279ab974b2e46d5069477d9a1"
+  "artifact_digest": "sha256:a65a4255886a40ddeebd52a3fd6af8d3d22a5a17ff0e9d3e9bc64008014fd605"
 }
