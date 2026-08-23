@@ -222,6 +222,75 @@ def test_registered_pre_core_ablation_paths_preserve_frozen_identity(
     )
 
 
+def test_independent_verifier_accepts_selection_hold_package(tmp_path: Path) -> None:
+    selection = _artifact(
+        {"schema_version": "1.0", "selection": {"agentloopgate_decision": "HOLD"}},
+        "selection_digest",
+    )
+    outcome_payload = {
+        "schema_version": "1.0",
+        "outcome_kind": "selection_hold",
+        "experiment_id": "EXP_BANKING_R11",
+        "baseline_snapshot_id": "R11_A2",
+        "final_decision": "HOLD",
+        "release_batch_count": 0,
+        "model_calls_after_selection": 0,
+        "lineage_digest": "sha256:" + "1" * 64,
+        "selection_digest": selection["selection_digest"],
+        "report_digest": "sha256:" + "2" * 64,
+    }
+    outcome = _artifact(outcome_payload, "outcome_digest")
+    ablation = {
+        name: _artifact({"schema_version": "1.0", "ablation_id": name}, "artifact_digest")
+        for name in ("integrity_gate", "plugin_coexistence_overhead")
+    }
+    payloads = {
+        "selection_hold_outcome.json": builder.canonical_json_bytes(outcome) + b"\n",
+        "selection.json": builder.canonical_json_bytes(selection) + b"\n",
+        "lineage_summary.json": json.dumps(
+            {"private_lineage_digest": outcome["lineage_digest"]}
+        ).encode(),
+        "failure_accounting.json": json.dumps(
+            {"unresolved_attempt_count": 0, "model_usage": {"unresolved_call_count": 0}}
+        ).encode(),
+        "cost_summary.json": json.dumps(
+            {"local_compute_monetary_cost_status": "unmetered_unknown"}
+        ).encode(),
+        "reproduction.json": b"{}\n",
+        "ablations/integrity_gate.json": builder.canonical_json_bytes(
+            ablation["integrity_gate"]
+        )
+        + b"\n",
+        "ablations/plugin_coexistence_overhead.json": builder.canonical_json_bytes(
+            ablation["plugin_coexistence_overhead"]
+        )
+        + b"\n",
+        "reports/selection_hold.json": b"{}\n",
+        "reports/selection_hold.md": b"# HOLD\n",
+    }
+    payloads["README.md"] = (
+        f"# HOLD\n\nOutcome: `{outcome['outcome_digest']}`\n"
+    ).encode()
+    derivations = {path: "unit fixture" for path in payloads}
+    metadata = {
+        **_metadata(),
+        "experiment_id": "EXP_BANKING_R11",
+        "terminal_kind": "selection_hold",
+        "private_outcome_digest": outcome["outcome_digest"],
+        "baseline_snapshot_id": "R11_A2",
+        "final_decision": "HOLD",
+        "lineage_digest": outcome["lineage_digest"],
+        "selection_digest": selection["selection_digest"],
+        "report_digest": outcome["report_digest"],
+    }
+    output = tmp_path / "selection-hold"
+    builder._seal_payloads(output, payloads=payloads, derivations=derivations, metadata=metadata)
+
+    verified = verifier.verify_public_release(output)
+    assert verified["status"] == "verified"
+    assert verified["experiment_id"] == "EXP_BANKING_R11"
+
+
 def _artifact(payload: dict[str, object], digest_field: str) -> dict[str, object]:
     return {**payload, digest_field: canonical_digest(payload)}
 

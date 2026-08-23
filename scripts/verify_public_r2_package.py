@@ -15,7 +15,7 @@ from agentloopgate.contracts import canonical_digest, file_digest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from audit_public_tree import ALLOWED_EMAILS, PII_RULES, SECRET_RULES  # noqa: E402
 
-REQUIRED_FILES = {
+REQUIRED_FULL_OUTCOME_FILES = {
     "README.md",
     "outcome.json",
     "lineage_summary.json",
@@ -36,6 +36,20 @@ REQUIRED_FILES = {
     "reports/02_failure_funnel.svg",
     "reports/03_pool_comparison.svg",
     "reports/04_gate_waterfall.svg",
+}
+
+REQUIRED_SELECTION_HOLD_FILES = {
+    "README.md",
+    "selection_hold_outcome.json",
+    "selection.json",
+    "lineage_summary.json",
+    "failure_accounting.json",
+    "cost_summary.json",
+    "reproduction.json",
+    "ablations/integrity_gate.json",
+    "ablations/plugin_coexistence_overhead.json",
+    "reports/selection_hold.json",
+    "reports/selection_hold.md",
 }
 
 
@@ -132,9 +146,19 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
         if relative in entries:
             raise PublicPackageVerificationError("Manifest contains a duplicate path")
         entries[relative] = raw
-    if set(entries) != REQUIRED_FILES:
-        missing = sorted(REQUIRED_FILES - set(entries))
-        extra = sorted(set(entries) - REQUIRED_FILES)
+    terminal_kind = manifest.get("terminal_kind", "formal_outcome")
+    required_files = (
+        REQUIRED_SELECTION_HOLD_FILES
+        if terminal_kind == "selection_hold"
+        else REQUIRED_FULL_OUTCOME_FILES
+        if terminal_kind == "formal_outcome"
+        else None
+    )
+    if required_files is None:
+        raise PublicPackageVerificationError("unknown public package terminal kind")
+    if set(entries) != required_files:
+        missing = sorted(required_files - set(entries))
+        extra = sorted(set(entries) - required_files)
         raise PublicPackageVerificationError(
             f"package file contract mismatch: missing={missing}, extra={extra}"
         )
@@ -163,6 +187,11 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
             )
         raw_files[relative] = path.read_bytes()
     scan = _scan(raw_files)
+
+    if terminal_kind == "selection_hold":
+        return _verify_selection_hold_release(
+            directory, manifest, manifest_digest, scan, entries
+        )
 
     outcome = _load_json(directory / "outcome.json")
     outcome_digest = _semantic_digest(
@@ -260,6 +289,63 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
     if manifest_digest in readme:
         raise PublicPackageVerificationError("README creates a Manifest digest cycle")
 
+    return {
+        "status": "verified",
+        "experiment_id": manifest.get("experiment_id"),
+        "manifest_digest": manifest_digest,
+        "private_outcome_digest": outcome_digest,
+        "file_count": len(entries) + 1,
+        "secret_pii_scan": scan,
+        "publication_authorized": False,
+    }
+
+
+def _verify_selection_hold_release(
+    directory: Path,
+    manifest: dict[str, Any],
+    manifest_digest: str,
+    scan: dict[str, Any],
+    entries: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    outcome = _load_json(directory / "selection_hold_outcome.json")
+    outcome_digest = _semantic_digest(
+        outcome, "outcome_digest", expected=manifest.get("private_outcome_digest")
+    )
+    if (
+        outcome.get("outcome_kind") != "selection_hold"
+        or outcome.get("final_decision") != "HOLD"
+        or outcome.get("release_batch_count") != 0
+        or outcome.get("model_calls_after_selection") != 0
+    ):
+        raise PublicPackageVerificationError("Selection-HOLD terminal invariants conflict")
+    for field in (
+        "experiment_id",
+        "baseline_snapshot_id",
+        "lineage_digest",
+        "selection_digest",
+        "report_digest",
+    ):
+        if outcome.get(field) != manifest.get(field):
+            raise PublicPackageVerificationError(f"Selection-HOLD {field} conflicts")
+    selection = _load_json(directory / "selection.json")
+    _semantic_digest(selection, "selection_digest", expected=outcome.get("selection_digest"))
+    lineage = _load_json(directory / "lineage_summary.json")
+    if lineage.get("private_lineage_digest") != outcome.get("lineage_digest"):
+        raise PublicPackageVerificationError("Selection-HOLD Lineage summary conflicts")
+    for name in ("integrity_gate", "plugin_coexistence_overhead"):
+        _semantic_digest(
+            _load_json(directory / "ablations" / f"{name}.json"), "artifact_digest"
+        )
+    failure = _load_json(directory / "failure_accounting.json")
+    model_usage = failure.get("model_usage")
+    if failure.get("unresolved_attempt_count") != 0 or not isinstance(model_usage, dict):
+        raise PublicPackageVerificationError("Selection-HOLD attempt accounting is incomplete")
+    costs = _load_json(directory / "cost_summary.json")
+    if costs.get("local_compute_monetary_cost_status") != "unmetered_unknown":
+        raise PublicPackageVerificationError("local compute cost status is invalid")
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    if outcome_digest not in readme or manifest_digest in readme:
+        raise PublicPackageVerificationError("Selection-HOLD README binding is invalid")
     return {
         "status": "verified",
         "experiment_id": manifest.get("experiment_id"),

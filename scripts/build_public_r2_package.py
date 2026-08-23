@@ -28,7 +28,10 @@ from agentloopgate.experiment.ledger import (
     FormalCostAccounting,
     _verify_event,
 )
-from agentloopgate.experiment.orchestrator import FormalExperimentOrchestrator
+from agentloopgate.experiment.orchestrator import (
+    FormalExperimentOrchestrator,
+    FormalSelectionHoldOutcome,
+)
 from agentloopgate.experiment.service import load_formal_config
 from agentloopgate.runtime.usage import (
     AttemptState,
@@ -138,9 +141,14 @@ def _load_freeze(path: Path) -> dict[str, Any]:
     return freeze
 
 
-def _terminal_outcome(root: Path, config: Path, *, experiment_id: str, private_root: Path):
-    path = root / private_root / "outcome.json"
-    if not path.is_file():
+def _terminal_outcome(
+    root: Path, config: Path, *, experiment_id: str, private_root: Path
+) -> tuple[str, Any]:
+    outcome_path = root / private_root / "outcome.json"
+    hold_path = root / private_root / "selection_hold_outcome.json"
+    if outcome_path.is_file() and hold_path.is_file():
+        raise PublicPackageBlocked("multiple incompatible terminal outcomes exist")
+    if not outcome_path.is_file() and not hold_path.is_file():
         raise PublicPackageBlocked(
             "verified terminal formal outcome is unavailable; "
             "credentialed core has not completed"
@@ -151,7 +159,9 @@ def _terminal_outcome(root: Path, config: Path, *, experiment_id: str, private_r
     orchestrator = FormalExperimentOrchestrator(root, config_path=config)
     # The public method would start paid work when outcome.json is absent. The
     # existence guard above makes this private verifier a strictly no-model path.
-    return orchestrator._load_verified_outcome(path)  # noqa: SLF001
+    if outcome_path.is_file():
+        return "formal_outcome", orchestrator._load_verified_outcome(outcome_path)  # noqa: SLF001
+    return "selection_hold", orchestrator._load_verified_selection_hold(hold_path)  # noqa: SLF001
 
 
 def _outcome_seal_time(private_root: Path) -> datetime:
@@ -548,6 +558,126 @@ def _collect_payloads(
     return payloads, derivations, metadata
 
 
+def _collect_selection_hold_payloads(
+    root: Path,
+    *,
+    experiment_id: str,
+    private_root: Path,
+    research_root: Path,
+    outcome: FormalSelectionHoldOutcome,
+    freeze: dict[str, Any],
+    cutoff: datetime,
+) -> tuple[dict[str, bytes], dict[str, str], dict[str, Any]]:
+    """Create the smaller public view for a valid pre-Release HOLD terminal."""
+    private = root / private_root
+    payloads: dict[str, bytes] = {}
+    derivations: dict[str, str] = {}
+    payloads["selection_hold_outcome.json"] = canonical_json_bytes(
+        outcome.model_dump(mode="json")
+    ) + b"\n"
+    derivations["selection_hold_outcome.json"] = "canonical verified Selection-HOLD outcome"
+
+    selection = private / "selection.json"
+    payloads["selection.json"] = _canonical_artifact(
+        selection, "selection_digest", outcome.selection_digest
+    )
+    derivations["selection.json"] = "verified A0-bound Selection evidence"
+
+    lineage = _load_json(private / "lineage.json")
+    lineage_digest = _verify_digest(
+        lineage, "lineage_digest", expected=outcome.lineage_digest
+    )
+    payloads["lineage_summary.json"] = canonical_json_bytes(
+        {
+            "schema_version": "1.0",
+            "experiment_id": lineage["experiment_id"],
+            "batch_count": len(lineage["batch_ids"]),
+            "candidate_count": len(lineage["candidate_ids"]),
+            "snapshot_count": len(lineage["snapshot_ids"]),
+            "private_lineage_digest": lineage_digest,
+        }
+    ) + b"\n"
+    derivations["lineage_summary.json"] = "aggregate counts from verified private lineage"
+
+    for name in ("integrity_gate", "plugin_coexistence_overhead"):
+        source = _ablation_paths(root, research_root, freeze)[name]
+        target = f"ablations/{name}.json"
+        payloads[target] = _canonical_artifact(source, "artifact_digest")
+        derivations[target] = f"verified {name} registered ablation"
+
+    for relative, expected in outcome.report_file_digests.items():
+        source = root / relative
+        if not source.is_file() or file_digest(source) != expected:
+            raise PublicPackageBlocked("sealed Selection-HOLD report is unavailable or drifted")
+        target = f"reports/{source.name}"
+        payloads[target] = source.read_bytes()
+        derivations[target] = "exact Selection-HOLD report bytes authenticated by outcome"
+
+    attempt_accounting = _attempt_accounting(private, cutoff=cutoff)
+    model_usage = _model_usage_accounting(private, cutoff=cutoff)
+    failure_accounting = {
+        **attempt_accounting,
+        "model_usage": model_usage,
+        "operational_incidents": _incident_summaries(private),
+    }
+    payloads["failure_accounting.json"] = canonical_json_bytes(failure_accounting) + b"\n"
+    derivations["failure_accounting.json"] = "sanitized lifecycle accounting through outcome seal"
+    payloads["cost_summary.json"] = canonical_json_bytes(_cost_accounting(private)) + b"\n"
+    derivations["cost_summary.json"] = (
+        "verified per-batch cost evidence with unknown scopes disclosed"
+    )
+
+    reproduction = {
+        "schema_version": "1.0",
+        "experiment_id": experiment_id,
+        "evaluation_baseline": freeze["evaluation_baseline"],
+        "source_revision": freeze["source_revision"],
+        "objective": freeze["objective"],
+        "split": freeze["split"],
+        "pricing": freeze["pricing"],
+        "asset_manifest": freeze["asset_manifest"],
+        "execution_protocol": freeze["execution_protocol"],
+        "study": freeze["study"],
+        "benchmark_runtime": freeze["benchmark_runtime"],
+        "p0_immutability": freeze["p0_immutability"],
+        "freeze_manifest_digest": freeze["freeze_manifest_digest"],
+    }
+    payloads["reproduction.json"] = canonical_json_bytes(reproduction) + b"\n"
+    derivations["reproduction.json"] = "selected frozen identities and source CI evidence"
+    payloads["README.md"] = (
+        "# AgentLoopGate Banking Selection-HOLD sanitized result package\n\n"
+        "This derived public view records a verified governance abstention. It does not "
+        "include raw Trace, prompts, payloads, credentials, or task content.\n\n"
+        f"- Experiment: `{experiment_id}`\n"
+        f"- Final decision: `{outcome.final_decision.value}`\n"
+        f"- Private outcome digest: `{outcome.outcome_digest}`\n"
+        f"- Evidence cutoff: `{cutoff.isoformat().replace('+00:00', 'Z')}`\n"
+        "- Publication authorization: not granted by package creation\n\n"
+        "A HOLD is not a deployment and means no Release tail was executed.\n"
+    ).encode()
+    derivations["README.md"] = "generated package scope and Selection-HOLD binding"
+    return payloads, derivations, {
+        "schema_version": "1.0",
+        "package_kind": "sanitized_derived_view",
+        "terminal_kind": "selection_hold",
+        "experiment_id": experiment_id,
+        "created_at": cutoff,
+        "private_outcome_digest": outcome.outcome_digest,
+        "freeze_manifest_digest": freeze["freeze_manifest_digest"],
+        "source_revision": freeze["source_revision"],
+        "baseline_snapshot_id": outcome.baseline_snapshot_id,
+        "final_decision": outcome.final_decision.value,
+        "lineage_digest": outcome.lineage_digest,
+        "selection_digest": outcome.selection_digest,
+        "report_digest": outcome.report_digest,
+        "scientific_protocol_deviations": [],
+        "operational_incident_count": len(failure_accounting["operational_incidents"]),
+        "package_content_verification_status": "verified",
+        "publication_authorized": False,
+        "package_commit_ci_attestation": "external_required_after_commit",
+    }
+
+
 def _scan_payloads(payloads: dict[str, bytes]) -> dict[str, Any]:
     findings: Counter[str] = Counter()
     for data in payloads.values():
@@ -684,7 +814,7 @@ def build_public_release(
         command=command or ["python", "scripts/build_public_result_package.py"],
     )
     try:
-        outcome = _terminal_outcome(
+        terminal_kind, outcome = _terminal_outcome(
             root, config, experiment_id=experiment_id, private_root=private_root
         )
         formal_config = load_formal_config(config)
@@ -700,15 +830,26 @@ def build_public_release(
         if not research_root.is_relative_to(root):
             raise PublicPackageBlocked("research artifact root escapes project")
         cutoff = _outcome_seal_time(root / private_root)
-        payloads, derivations, metadata = _collect_payloads(
-            root,
-            experiment_id=experiment_id,
-            private_root=private_root,
-            research_root=research_root,
-            outcome=outcome,
-            freeze=freeze,
-            cutoff=cutoff,
-        )
+        if terminal_kind == "selection_hold":
+            payloads, derivations, metadata = _collect_selection_hold_payloads(
+                root,
+                experiment_id=experiment_id,
+                private_root=private_root,
+                research_root=research_root,
+                outcome=outcome,
+                freeze=freeze,
+                cutoff=cutoff,
+            )
+        else:
+            payloads, derivations, metadata = _collect_payloads(
+                root,
+                experiment_id=experiment_id,
+                private_root=private_root,
+                research_root=research_root,
+                outcome=outcome,
+                freeze=freeze,
+                cutoff=cutoff,
+            )
         manifest, reused = _seal_payloads(
             output,
             payloads=payloads,

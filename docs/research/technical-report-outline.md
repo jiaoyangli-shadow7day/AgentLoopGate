@@ -1,12 +1,13 @@
 # AgentLoopGate technical report outline
 
-> Historical R2 outline. Its placeholder matrix and 560-trial language are not
-> current results. The report must be rewritten against the next corrected,
-> baseline-bound Selection terminal evidence and the current readiness matrix.
+> Result-free R11 report plan. Bracketed fields may be populated only from a
+> verified `EXP_BANKING_R11` terminal outcome and its sanitized manifest. R10
+> remains historical engineering evidence, not the current evaluation or a
+> source of R11 result values.
 
 This outline is ready for a workshop paper, systems paper draft, or open-source
-technical report. Bracketed result fields must be populated only from verified
-Banking R2 artifacts. Until then they mean “not available,” not zero.
+technical report. Until terminal evidence exists, every bracketed result field
+means “not available,” not zero.
 
 ## Working title and claim
 
@@ -32,9 +33,10 @@ automatically transfer to other domains.
    integrity.
 3. Integration: a DeepSeek Harness plugin coexists with native JSONL/SQLite and
    OTel Trace while the Python core remains the governance fact source.
-4. Evaluation: frozen Banking R2 compares A0, updater-native, and AgentLoopGate
-   roles over 560 logical task-trials with task-paired bootstrap uncertainty and
-   four registered ablations.
+4. Evaluation: frozen Banking R11 first evaluates A0 plus three bounded
+   candidates over 125 pre-Release positions. A `HOLD` is a valid terminal;
+   the 450-position Release-ID/OOD/Replay tail is conditional on `SELECT` and
+   a second Owner authorization.
 5. Result: `[populate from outcome/statistics/decisions only]`.
 6. Limitation: one domain, one updater, one primary agent/runtime family, small
    candidate set, and system-fixture—not production-load—plugin overhead.
@@ -79,23 +81,34 @@ automatically transfer to other domains.
 
 ### 5. Experimental method
 
-- Frozen identities and the A4 supersession history before paid execution.
-- 97-task six-pool split and 560-logical-trial matrix.
-- A0, updater-native, and AgentLoopGate role definitions.
+- Frozen R11 identities, `R11_A2`, and the R10/R11 supersession chronology.
+- The 25-position Update-Source, 40-position Update-Check, and 60-position
+  A0-bound Selection checkpoint.
+- A0 and three semantically distinct, runtime-capability-bound candidates;
+  updater-native versus AgentLoopGate roles are reported only when independent
+  selection evidence exists.
 - Task-level stable success, Pass^1, critical violations, latency, and cost.
-- Paired task bootstrap: 10,000 resamples, seed `20260821`, six comparisons.
-- Infra Invalid, retries, evidence gaps, role aliasing, and HOLD policy.
+- Paired task bootstrap: 10,000 resamples, frozen seed, and only the
+  comparisons whose registered pools actually completed.
+- Infra Invalid, retries, evidence gaps, semantic de-duplication, capability
+  binding, role aliasing, and HOLD policy.
 - Four pre-registered minimal ablations.
 
 ### 6. Results
 
 #### RQ1: Does independent selection change the chosen candidate?
 
-Report both candidate IDs/aliases, whether roles alias, selection inputs, and
-the three updater-native versus AgentLoopGate comparisons. If identical, report
-a null contrast and evidence reuse—not two independent variants.
+Report candidate aliases, semantic fingerprints, runtime-capability bindings,
+A0 comparison inputs, and the exact selector disposition. If no candidate
+meets the strict gain/non-regression/cost/retry/latency gates, report the sealed
+`HOLD` and that no Release model calls occurred. If roles alias, report a null
+contrast and evidence reuse—not two independent variants.
 
-#### RQ2: Does the selected change improve reliable task outcomes?
+#### RQ2: Does a selected change improve reliable task outcomes?
+
+Populate this table only if R11 reaches `SELECT`, receives the separately
+authorized Release tail, and seals the required pools. On a terminal `HOLD`,
+the table is intentionally absent and the report must not substitute R10 data.
 
 | Role | Pool | Stable tasks / tasks | Pass^1 | Infra Invalid | Critical violations | p50 latency | Exact valid cost |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -152,7 +165,8 @@ recovery paths. Unknown infrastructure cost remains unknown.
 
 ### 8. Reproducibility and ethics
 
-- Exact frozen identities and commands.
+- Exact frozen identities and commands, including the separate paid-scope
+  authorizations.
 - Failure/supersession chronology and no outcome-driven protocol edits.
 - Secret, direct-PII, raw Trace, and benchmark-content handling.
 - Artifact availability tiers: public aggregates versus controlled raw evidence.
