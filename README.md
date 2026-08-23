@@ -51,13 +51,16 @@ Update-Check、Selection、Release 和 Promote 均为零。全部已观测 Provi
 [`docs/research/banking-r12-successor-plan.md`](docs/research/banking-r12-successor-plan.md)。
 终态机器记录见
 [`artifacts/research/banking_r12/formal_execution_seal.json`](artifacts/research/banking_r12/formal_execution_seal.json)。
-`EXP_BANKING_R13` 的新 Protocol、Study、源码、`R13_A0` Baseline、隔离 Harness Profile 与机器预注册
-现已冻结；预注册摘要为 `sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961`。
-精确付费机器授权尚未创建，所以外部 Updater 和正式付费批次仍为 fail-closed、调用数为零。当前
-零模型修复已为 User Simulator 空最终消息限定一次独立记账的 final-only repair，并把 AHE/NexAU
-全部临时输出限制到当前 Attempt 根；199 个 Python、13 个 TypeScript 测试、sdist→wheel、DSH
-conformance/build/pack 与 295 文件 Secret/PII 扫描均已通过。这只证明后继执行前提，不是候选效果
-或正向自进化结论。
+`EXP_BANKING_R13` 也已不可变 `HOLD`：其 25 个 Update-Source 位置全部执行，24 个有效，
+`task_048` 在冻结重试后因 Provider DNS 故障成为 Infra Invalid，故外部 Updater、Update-Check、
+Selection、Release 和 Promote 均未启动。24 个有效位置 Pass@1 为 `4/24`；有效调用精确成本为
+USD `0.6636430192`，全 Attempt 已知成本下界为 USD `0.6692124248000000062`，且明确保留一次
+Provider 失败的未知成本范围。25 个 DeepSeek Harness 原生 Trace 引用均已验真。R13 同时暴露出
+批次内部的效率缺口：永久 Infra Invalid 后又运行了 12 个位置，耗时约 1 小时 45 分、588 次模型
+调用、精确已知成本 USD `0.4686327800`。终态与事故证据见
+[`docs/research/banking-r13-terminal.md`](docs/research/banking-r13-terminal.md)；同一身份禁止重跑，
+后继付费实验必须先通过位置级 fail-fast 的无模型验收。这些结果证明证据保全和下游 fail-closed
+有效，但仍不证明候选效果或正向自进化方向。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 

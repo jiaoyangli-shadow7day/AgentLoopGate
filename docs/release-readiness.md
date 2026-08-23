@@ -2,15 +2,16 @@
 
 Status date: 2026-08-23
 
-Current paid-evidence checkpoint: immutable `EXP_BANKING_R12`, stopped after
-25 valid Update-Source positions, three external AHE candidates, and a 9/10-valid
-A0 Update-Check anchor. It is terminal `HOLD` and cannot advance. The R13
-successor integrity repair and local clean-room are complete. Its Protocol,
-Study, source, `R13_A0` baseline, isolated Harness profile, and machine
-preregistration (`2e6ed6…1961`) are frozen; only its exact paid machine
-authorization remains absent, so paid execution remains fail-closed. The standing private-experiment
-mandate permits the delegated operator to create the exact machine authorization
-after every frozen input verifies; it does not permit publication or Promote.
+Current paid-evidence checkpoint: immutable `EXP_BANKING_R13`. It executed all
+25 Update-Source positions, retained 24 valid positions, and sealed terminal
+`HOLD` because `task_048` remained Infra Invalid after its frozen retry. The
+external Updater, Update-Check, Selection, Release, and Promote all remained at
+zero. R13 also exposed a batch-internal fail-fast defect: 12 later positions ran
+after the permanent failure. No successor paid identity may be frozen until the
+position-level stop control passes no-model fault injection. The standing
+private-experiment mandate permits bounded private experiments after all exact
+machine gates pass; it does not permit publication, repository visibility
+changes, or Promote.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -28,11 +29,11 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | A0-bound Selection with abstention | IMPLEMENTED / ZERO-MODEL VERIFIED | Study schema 1.2; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Run only under a new frozen paid identity and exact machine authorization |
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
-| Exact paid-execution authorization | IMPLEMENTED / NOT YET CREATED FOR R13 | Frozen R13 preregistration `2e6ed6…1961`; Formal config 1.2 authorization root; preflight + Service double-check; first scope covers 125 formal positions and separately metered external Updater; Selection-bound Release scope is separate; HOLD blocks Release; standing mandate governs delegated creation | Verify final private CI, then create the exact capability artifact |
+| Exact paid-execution authorization | IMPLEMENTED / CONSUMED BY TERMINAL R13 | R13 authorization `AUTH_6B5EFF560128F606EEE3`, digest `6fe233…17bfa`; bound only to Updater plus 25/40/60 pre-Release scope; HOLD blocked every downstream stage | Create no successor capability until the fail-fast repair and new frozen identity pass all no-model gates |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
 | Full source/release-artifact clean-room | PASS LOCAL FOR R13 REPAIR SOURCE | 199 Python and 13 TypeScript tests; Ruff; sdist→wheel; Bundle tests/build/pack and DSH conformance passed in 22.38 s | Rerun after the final frozen R13 source and in private Linux CI |
 | Secret and direct-PII audit | PASS FOR CURRENT TREE | 295 files scanned with zero findings and withheld paths/values | Rerun for frozen R13 and the final public result package |
-| Corrected pre-Release paid checkpoint | R12 TERMINAL HOLD / R13 FROZEN PAID HOLD | R12 terminal seal `73457f…383e`; R13 incident `552d0c…ab65`; Protocol `645374…8488`, Study `5a629b…f011`, source `acf909…9c1a`, baseline `166954…ad2c`, preregistration `2e6ed6…1961` | Run final private CI, create exact authorization, then execute the bounded checkpoint |
+| Corrected pre-Release paid checkpoint | R12 AND R13 TERMINAL HOLD | R13 terminal seal `a7d431…3454`; 25 executed, 24 valid, one Infra Invalid; Updater/Check/Selection/Release zero; fail-fast incident `9c57bc…d653` | Implement and no-model verify the position-level fail-fast control, then freeze a new successor identity |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL / TWO NO-MODEL ABLATIONS SEALED | R12 integrity fixture proves an unsupported `SHIP_RECOMMENDED` is converted to `HOLD`; DSH fixture preserves JSONL/SQLite event hashes, persistence and OTel, with measured local p95 overhead 4.110417/0.740291 ms | Derive selector/diagnosis statistics and uncertainty from sealed R12 paid evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
@@ -51,6 +52,13 @@ claim that an observed candidate found the correct self-evolution direction.
 The corrected selector exists precisely because continuing the old experiment
 would have manufactured a winner without showing improvement over A0.
 
+R13 strengthens the engineering evidence: all 25 native DeepSeek Harness trace
+references verified, independent attempt/cost ledgers retained an incomplete
+Provider-cost scope, and the incomplete Source denominator blocked every
+downstream stage. It still does not establish candidate effectiveness or a
+positive self-evolution direction because no R13 candidate was generated or
+evaluated.
+
 ## Cost interpretation
 
 - Known provider/model cost through R10 C2: exact USD `3.0651904832`.
@@ -60,6 +68,11 @@ would have manufactured a winner without showing improvement over A0.
   cross-stage result or an effectiveness claim.
 - Model cost for the Selection correction, evidence sealing, and clean-room work:
   USD `0`; those operations made zero external model calls.
+- R13 valid-run exact Provider cost: USD `0.6636430192`; whole-attempt observed
+  lower bound: USD `0.6692124248000000062`, with one named unavailable
+  `task_048` User Provider scope. Of the known amount, USD `0.4686327800` was
+  spent by 12 positions after the permanent Infra Invalid had already made the
+  Source batch ineligible for completion.
 - Local CPU, filesystem, package, and wall-clock monetary cost:
   `unmetered_unknown`, never represented as zero.
 - Any future partial or unavailable cost must remain a lower bound with named
@@ -69,17 +82,21 @@ would have manufactured a winner without showing improvement over A0.
 
 1. Keep R10, R11, and every prior failure immutable; preserve their artifacts,
    cost records, recovery records, and private-CI seals.
-2. Do not rerun or extend R11 or R12. Preserve their terminal identities and
-   all retained evidence. R13 is the only frozen successor execution identity;
-   any execution-source change supersedes it rather than editing it.
-3. After its exact machine capability verifies, run only the R13 125-position pre-Release checkpoint plus the
-   separately metered external Updater. Current sequential estimate is 15–25
-   hours; actual token, retry, time, path, and cost records remain mandatory.
-4. Review the corrected Selection result. On `HOLD`, seal the normal terminal
+2. Do not rerun or extend R11, R12, or R13. Preserve their terminal identities
+   and all retained evidence.
+3. Implement Protocol-bound position-level fail-fast, experiment-scoped
+   candidate diagnostics, and a no-model Provider-connectivity precheck. Prove
+   by fault injection that no position starts after a permanent Infra Invalid
+   and that all prior evidence remains sealed.
+4. Freeze a new successor Protocol, Study, source, baseline, preregistration,
+   clean-room/CI seal, and exact machine capability before any paid call. Run
+   only its bounded pre-Release checkpoint with complete token, cost, retry,
+   time, path, trace, and lineage evidence.
+5. Review the corrected Selection result. On `HOLD`, seal the normal terminal
    result and stop. On `SELECT`, audit evidence first and request separate
    authorization for the 450-position Release-ID/OOD/Replay tail.
-5. Generate the minimum ablations, uncertainty, four figures, limitations, and
+6. Generate the minimum ablations, uncertainty, four figures, limitations, and
    the terminal-kind-appropriate sanitized result package from sealed artifacts
    only; rerun clean-room, Secret/PII audit, and private CI.
-6. Ask the Owner separately before changing repository visibility, publishing
+7. Ask the Owner separately before changing repository visibility, publishing
    a Release, or submitting a paper/report.

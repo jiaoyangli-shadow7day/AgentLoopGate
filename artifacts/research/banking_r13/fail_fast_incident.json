@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R13_POSITION_FAIL_FAST_INCIDENT",
+  "experiment_id": "EXP_BANKING_R13",
+  "recorded_at": "2026-08-23T18:19:25Z",
+  "contains_raw_customer_data": false,
+  "terminal_batch_id": "B_283F2CDCA978213E1AE7",
+  "terminal_batch_digest": "sha256:757843c7277d6b12d91babc12fa1c299a1b142c33c99bfd8e74020e5b3a69b8d",
+  "incident": {
+    "task_id": "task_048",
+    "position_in_execution_order": 13,
+    "attempts_consumed": 2,
+    "retry_budget_exhausted": true,
+    "first_attempt": {
+      "attempt_index": 1,
+      "state": "failed",
+      "duration_ms": 44680,
+      "error_type": "Tau3PilotError",
+      "error": "DeepSeek Harness turn did not complete: error"
+    },
+    "terminal_attempt": {
+      "attempt_index": 2,
+      "state": "failed",
+      "recorded_at": "2026-08-23T16:26:14.279807Z",
+      "duration_ms": 30249,
+      "error_type": "InternalServerError",
+      "error": "DeepSeek Provider DNS resolution failure: [Errno 8] nodename nor servname provided, or not known"
+    },
+    "classification": "infra_invalid",
+    "batch_effect": [
+      "infra_invalid:1",
+      "missing_valid_trials"
+    ],
+    "cost_effect": "the terminal User Provider failure has unavailable token and cost evidence; total batch cost is a lower bound with a named unknown scope"
+  },
+  "observed_tail_after_terminal_failure": {
+    "positions_started": 12,
+    "positions_completed": 12,
+    "task_ids": [
+      "task_053",
+      "task_063",
+      "task_066",
+      "task_067",
+      "task_068",
+      "task_069",
+      "task_074",
+      "task_078",
+      "task_079",
+      "task_080",
+      "task_082",
+      "task_093"
+    ],
+    "task_duration_ms_sum": 6329212,
+    "terminal_failure_to_last_task_terminal_elapsed_ms": 6329906,
+    "agent_terminal_model_calls": 495,
+    "user_terminal_model_calls": 93,
+    "total_terminal_model_calls": 588,
+    "agent_input_tokens": 1216065,
+    "agent_cache_read_tokens": 31110400,
+    "agent_output_tokens": 600370,
+    "user_input_tokens": 256076,
+    "user_cache_read_tokens": 0,
+    "user_output_tokens": 26144,
+    "agent_exact_cost_usd": "0.4254618200",
+    "user_exact_cost_usd": "0.04317096",
+    "total_exact_cost_usd": "0.4686327800",
+    "unknown_terminal_call_count": 0,
+    "interpretation": "these calls occurred after the frozen retry budget had already made the Source batch ineligible for decision-grade completion; they quantify the upper observed tail removable by a position-level fail-fast control, not a causal effect estimate"
+  },
+  "current_gate_behavior": {
+    "downstream_updater_started": false,
+    "downstream_candidate_count": 0,
+    "update_check_positions_started": 0,
+    "selection_positions_started": 0,
+    "release_positions_started": 0,
+    "same_identity_rerun_permitted": false,
+    "batch_internal_fail_fast_present": false
+  },
+  "required_successor_control": {
+    "policy": "stop_before_next_position_after_permanent_infra_invalid_v1",
+    "trigger": "a formal position remains infrastructure-invalid after its frozen retry budget is exhausted",
+    "actions": [
+      "do not start any later task position in the same batch",
+      "append a terminal position and batch HOLD event without deleting prior attempts",
+      "seal exact known cost plus every named unknown cost scope",
+      "prove post-trigger external model calls are zero",
+      "block Updater and every downstream formal stage",
+      "require a newly frozen successor identity for new paid work"
+    ],
+    "no_model_acceptance": [
+      "inject a permanent infrastructure failure at a non-final position",
+      "assert the next position is never invoked",
+      "assert the failed attempt and all prior cost/trace/lineage evidence remain verifiable",
+      "assert the terminal batch is HOLD and cannot resume or extend"
+    ]
+  },
+  "non_fixes": [
+    "do not delete task_048",
+    "do not refill the denominator with a replacement task",
+    "do not rerun or extend EXP_BANKING_R13",
+    "do not classify the DNS failure as a business failure",
+    "do not represent unavailable Provider cost as zero"
+  ],
+  "artifact_digest": "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653"
+}

@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R13_FORMAL_EXECUTION_SEAL",
+  "experiment_id": "EXP_BANKING_R13",
+  "recorded_at": "2026-08-23T18:19:25Z",
+  "terminal_state": "immutable_hold",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "protocol_digest": "sha256:645374c2e757564efcdf97f7f03820526821d711a2a6919cd8b51020a7234848",
+    "study_digest": "sha256:5a629b98bd876000ef3b0e12cd80358af4dd285cf7fe19e535fed5f4cc19f011",
+    "source_revision": "tree:sha256:acf909334915b3dde4a8fc5dd7df4adc4d2fa1db4cb0e77fc801715a70ac9c1a",
+    "baseline_snapshot_id": "R13_A0",
+    "baseline_snapshot_digest": "sha256:166954514197e3010dcb97de2034d0ae81eb24c8ee46a078ba2fe654b72ead2c",
+    "baseline_manifest_file_sha256": "9d08dbea656e2bcdc55195aff5f442ad65ab91ad5904c1ddf92ff87209b0491c",
+    "pre_run_preregistration_digest": "sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961",
+    "private_ci_validation_digest": "sha256:6c486256fbbd89b471706c012453259d2d7173edb139dd9f7268aaa04e3ece5d",
+    "paid_authorization_digest": "sha256:6fe2335238f7fc79a74f646c8ff7c8b7bb39bda5f72b191596fee03dbca17bfa"
+  },
+  "execution_scope": {
+    "planned_formal_positions": 125,
+    "executed_formal_positions": 25,
+    "valid_formal_positions": 24,
+    "infra_invalid_positions": 1,
+    "update_source": {
+      "planned": 25,
+      "executed": 25,
+      "valid": 24,
+      "infra_invalid": 1,
+      "pass_1": "4/24"
+    },
+    "external_updater": {
+      "started": false,
+      "model_calls": 0,
+      "candidate_count": 0
+    },
+    "update_check": {
+      "planned": 40,
+      "executed": 0
+    },
+    "selection": {
+      "planned": 60,
+      "executed": 0
+    },
+    "release_id_ood_replay_executed": 0,
+    "promotion_executed": false,
+    "repository_visibility_changed": false,
+    "publication_or_submission_executed": false
+  },
+  "terminal_batch": {
+    "batch_id": "B_283F2CDCA978213E1AE7",
+    "stage": "update_source",
+    "subject_snapshot_id": "R13_A0",
+    "disposition": "hold",
+    "hold_reasons": [
+      "infra_invalid:1",
+      "missing_valid_trials"
+    ],
+    "batch_digest": "sha256:757843c7277d6b12d91babc12fa1c299a1b142c33c99bfd8e74020e5b3a69b8d",
+    "cost_digest": "sha256:d05154c3d93ff0fc55eaa7637c705b832131f1f6e5d7f9b47a9b9497b9372d5a",
+    "formal_attempt_id": "ATT_E975EB5FD242429A8543C8A7E03639D5",
+    "formal_attempt_duration_ms": 8827992,
+    "expected_runs": 25,
+    "valid_runs": 24,
+    "infra_invalid_runs": 1,
+    "stable_success_runs": 4,
+    "pass_1": "4/24",
+    "p50_latency_ms": 325204,
+    "valid_mean_total_cost_usd": "0.02765179246666666666666666667",
+    "task_attempt_count": 27,
+    "task_retry_count": 2,
+    "task_retry_recovered_count": 1,
+    "task_retry_exhausted_count": 1,
+    "agent_model_calls": 742,
+    "user_model_calls": 192,
+    "agent_tokens": {
+      "input": 1762079,
+      "cache_read": 37693696,
+      "output": 801629
+    },
+    "user_tokens": {
+      "input": 549492,
+      "cache_read": 0,
+      "output": 47925
+    },
+    "notable_attempts": [
+      {
+        "task_id": "task_020",
+        "attempt_index": 1,
+        "state": "completed",
+        "duration_ms": 633894,
+        "outcome": "business_failure_not_infra_invalid",
+        "significance": "the R11 infrastructure-failure task completed under the R13 repaired source without altering R11 history"
+      },
+      {
+        "task_id": "task_047",
+        "attempt_index": 1,
+        "state": "failed",
+        "duration_ms": 33646,
+        "error": "DeepSeek Harness turn did not complete: error"
+      },
+      {
+        "task_id": "task_047",
+        "attempt_index": 2,
+        "state": "completed",
+        "duration_ms": 176054,
+        "outcome": "business_failure_after_infrastructure_retry"
+      },
+      {
+        "task_id": "task_048",
+        "attempt_index": 1,
+        "state": "failed",
+        "duration_ms": 44680,
+        "error": "DeepSeek Harness turn did not complete: error"
+      },
+      {
+        "task_id": "task_048",
+        "attempt_index": 2,
+        "state": "failed",
+        "duration_ms": 30249,
+        "error": "DeepSeek Provider DNS resolution failure: [Errno 8] nodename nor servname provided, or not known"
+      },
+      {
+        "task_id": "task_074",
+        "attempt_index": 1,
+        "state": "completed",
+        "duration_ms": 1307677,
+        "outcome": "business_failure_and_observed_latency_maximum"
+      }
+    ]
+  },
+  "aggregate_cost": {
+    "currency": "USD",
+    "accounting_status": "partial",
+    "valid_agent_cost_usd": "0.5747094192",
+    "valid_user_cost_usd": "0.08893360",
+    "valid_total_exact_cost_usd": "0.6636430192",
+    "observed_agent_attempt_cost_usd": "0.5766895288",
+    "observed_whole_attempt_cost_lower_bound_usd": "0.6692124248000000062",
+    "unknown_cost_scope": "task_048 terminal User Provider DNS failure returned no token or billing evidence",
+    "unknown_cost_scope_count_at_least": 1,
+    "unretained_agent_call_count": 14,
+    "unretained_user_call_count": 5,
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "native_trace_verification": {
+    "deepseek_harness_version": "0.1.0-rc.8",
+    "deepseek_harness_commit": "141eb6fef83422698aef7a981029e843e8161534",
+    "persistence_kind": "jsonl",
+    "dsh_run_count": 25,
+    "unique_final_trace_ref_count": 25,
+    "verified_final_trace_ref_count": 25,
+    "total_final_trace_event_count": 811695,
+    "minimum_final_trace_event_count": 905,
+    "median_final_trace_event_count": 25183,
+    "maximum_final_trace_event_count": 162209,
+    "agentloopgate_ingest_mode": "reference",
+    "host_trace_replaced_or_deleted": false
+  },
+  "fail_fast_finding": {
+    "incident_digest": "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653",
+    "positions_executed_after_terminal_infra_failure": 12,
+    "task_duration_ms_after_terminal_infra_failure": 6329212,
+    "terminal_model_calls_after_terminal_infra_failure": 588,
+    "exact_known_cost_usd_after_terminal_infra_failure": "0.4686327800",
+    "interpretation": "the current runner blocks every downstream stage but does not fail fast inside a batch after a permanent infrastructure-invalid position"
+  },
+  "retained_evidence": {
+    "batch_file_sha256": "efb69a093063a7ee90a078bbc4d7a13b164b291c0715d0263897d690b8379073",
+    "cost_file_sha256": "225816c048acb634afbd11a72cf48312335cdda81738025a5a6ffa35da90810a",
+    "raw_file_sha256": "91ad298a472c4ebdbda46b552d2093c7a081fcf0ab2ba909a4effdae1ba82297",
+    "task_attempt_ledger_sha256": "ca5bd13238700dc3f86987a058e4c411ca53399d823e461ed9bc9fa930557c4e",
+    "agent_usage_ledger_sha256": "4ae3c6c7f8d2a542e13abd228cab6d302d27cbd964f543d76c4d2e9216ced547",
+    "user_usage_ledger_sha256": "d93396d7656590eca600cc59b3b2bdf2ba4d18e01229f42c75e5f880600a7f94",
+    "authorization_file_sha256": "bc9e2d62a1e60f33e3f8bbac5a32177dd8138996209b7f55347e1697c4302304"
+  },
+  "governance_findings": {
+    "deepseek_native_trace_preserved_and_verified": true,
+    "agentloopgate_independent_attempt_and_cost_ledgers_present": true,
+    "incomplete_source_evidence_blocked_updater": true,
+    "same_identity_rerun_permitted": false,
+    "candidate_effectiveness_established": false,
+    "self_evolution_direction_established": false,
+    "selection_decision_created": false,
+    "release_started": false
+  },
+  "allowed_claims": [
+    "AgentLoopGate retained and verified native DeepSeek Harness JSONL trace references for all 25 executed R13 positions",
+    "AgentLoopGate preserved exact valid-run cost and a whole-attempt lower bound while naming the unavailable Provider cost scope",
+    "AgentLoopGate stopped the external Updater and every downstream stage because one Source position remained infrastructure-invalid after the frozen retry budget",
+    "R13 observed task_020 complete normally under the repaired successor source, but does not isolate a causal repair effect",
+    "R13 exposes a batch-internal efficiency defect: 12 later positions ran after the permanent infrastructure failure"
+  ],
+  "prohibited_claims": [
+    "R13 establishes that an external Updater candidate improves A0",
+    "R13 establishes a correct self-evolution direction",
+    "the total R13 Provider cost is exactly USD 0.6692124248000000062",
+    "the 24 valid runs form a complete 25-position decision-grade Source batch"
+  ],
+  "required_successor_repairs": [
+    "implement and no-model verify stop_before_next_position_after_permanent_infra_invalid_v1",
+    "freeze an explicit per-position wall-clock policy or a documented justification for no such limit using the observed R13 long-tail distribution",
+    "make preflight candidate diagnostics experiment-scoped so historical registry entries cannot be mistaken for successor candidates",
+    "run a no-model DNS resolution/connectivity precheck while retaining runtime failure handling for mid-task outages",
+    "freeze a new experiment identity before any new paid work"
+  ],
+  "artifact_digest": "sha256:a7d4315026af1dfc79e51f770432ba8cbc5b7bf86f04488993e669dcf5823454"
+}

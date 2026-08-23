@@ -1406,6 +1406,66 @@ def test_banking_r12_terminal_seal_is_content_addressed_and_fail_closed() -> Non
     assert seal["governance_findings"]["release_started"] is False
 
 
+def test_banking_r13_terminal_seal_and_fail_fast_incident_are_content_addressed() -> None:
+    incident = json.loads(
+        Path("artifacts/research/banking_r13/fail_fast_incident.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    incident_digest = incident.pop("artifact_digest")
+    assert canonical_digest(incident) == incident_digest
+    assert incident_digest == (
+        "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653"
+    )
+    assert incident["incident"]["classification"] == "infra_invalid"
+    assert incident["observed_tail_after_terminal_failure"]["positions_started"] == 12
+    assert incident["observed_tail_after_terminal_failure"][
+        "total_terminal_model_calls"
+    ] == 588
+    assert incident["observed_tail_after_terminal_failure"][
+        "total_exact_cost_usd"
+    ] == "0.4686327800"
+    assert incident["required_successor_control"]["policy"] == (
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    )
+
+    seal = json.loads(
+        Path("artifacts/research/banking_r13/formal_execution_seal.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    seal_digest = seal.pop("artifact_digest")
+    assert canonical_digest(seal) == seal_digest
+    assert seal_digest == (
+        "sha256:a7d4315026af1dfc79e51f770432ba8cbc5b7bf86f04488993e669dcf5823454"
+    )
+    assert seal["terminal_state"] == "immutable_hold"
+    assert seal["execution_scope"]["executed_formal_positions"] == 25
+    assert seal["execution_scope"]["valid_formal_positions"] == 24
+    assert seal["execution_scope"]["infra_invalid_positions"] == 1
+    assert seal["execution_scope"]["external_updater"] == {
+        "started": False,
+        "model_calls": 0,
+        "candidate_count": 0,
+    }
+    assert seal["execution_scope"]["update_check"]["executed"] == 0
+    assert seal["execution_scope"]["selection"]["executed"] == 0
+    assert seal["execution_scope"]["release_id_ood_replay_executed"] == 0
+    assert seal["aggregate_cost"]["accounting_status"] == "partial"
+    assert seal["aggregate_cost"]["observed_whole_attempt_cost_lower_bound_usd"] == (
+        "0.6692124248000000062"
+    )
+    assert seal["aggregate_cost"]["unknown_cost_scope_count_at_least"] == 1
+    assert seal["native_trace_verification"]["dsh_run_count"] == 25
+    assert seal["native_trace_verification"]["verified_final_trace_ref_count"] == 25
+    assert seal["fail_fast_finding"][
+        "positions_executed_after_terminal_infra_failure"
+    ] == 12
+    assert seal["governance_findings"]["candidate_effectiveness_established"] is False
+    assert seal["governance_findings"]["self_evolution_direction_established"] is False
+    assert seal["governance_findings"]["release_started"] is False
+
+
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
     orchestrator = FormalExperimentOrchestrator(
         Path("."),

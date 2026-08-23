@@ -2215,6 +2215,31 @@ Protocol Digest 与后继冻结源码逐字匹配后，才可创建新的付费�
 模型调用前失败。后继实验仍须从 25 个 Update-Source 全池开始，禁止只补跑 `task_073`、复用 R12
 候选或把 R12 的 34 个有效位置拼入新决策分母。
 
+### 16.15 R13 后的位置级 Fail-Fast 与成本止损边界
+
+R13 的 25 个 Update-Source 位置中有 24 个有效；`task_048` 在两次冻结 Attempt 后仍为
+Infra Invalid，批次最终正确 `HOLD`，且外部 Updater、Update-Check、Selection、Release 与 Promote
+均未启动。这证明跨 Stage 的 fail-closed 有效，但 pinned τ³ Batch 会预先提交所有位置，即使
+`max_concurrency=1`，永久 Infra Invalid 后仍继续执行队列。R13 因而又运行了后续 12 个位置：任务
+时长合计 6,329,212 ms，588 次 Agent/User 模型调用，精确已知成本 USD `0.4686327800`。该数值是
+冻结执行中实际观测到的可移除尾部上界，不是因果效果估计。
+
+R13 的原始证据、24 个有效分母、未知 Provider 成本范围、25 个原生 DeepSeek Harness Trace 引用和
+`HOLD` 均保持不可变；禁止重跑、补齐或扩展同一身份。任何新的付费后继必须提升 Protocol，并冻结
+`stop_before_next_position_after_permanent_infra_invalid_v1`：当某位置耗尽冻结重试预算且仍为
+`infrastructure_error` 时，必须在启动下一位置之前停止队列，保留失败位置及此前所有 Trace、Usage、
+Cost、Attempt 和 Raw Checkpoint，封存 Batch `HOLD`，并保证触发后的外部模型调用数为 0。该控制
+不得删除失败任务、替换分母、把未知成本记为 0，或把 Infra Invalid 改写为业务失败。
+
+新付费身份创建前，必须使用无模型故障注入证明：非末位位置永久失败；下一位置从未被调用；失败
+Attempt 与此前证据仍可验真；Batch 不可恢复或扩展；Updater 及所有下游 Stage 调用为 0。同时必须
+把候选诊断限定到当前 Experiment，并在首个模型调用前执行 DNS/Provider 可达性预检；预检不能
+替代运行中断线的 fail-closed 处理。R13 事故 Artifact 为
+`artifacts/research/banking_r13/fail_fast_incident.json`（Digest
+`sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653`），终态封存为
+`artifacts/research/banking_r13/formal_execution_seal.json`（Digest
+`sha256:a7d4315026af1dfc79e51f770432ba8cbc5b7bf86f04488993e669dcf5823454`）。
+
 ---
 
 ## 17. 旧 SPEC 核心保留映射

@@ -106,8 +106,14 @@ and fresh Evaluation Baseline `R13_A0`, digest
 `sha256:166954514197e3010dcb97de2034d0ae81eb24c8ee46a078ba2fe654b72ead2c`.
 Its preregistration digest is
 `sha256:2e6ed6360b8664241de08d9f6778951fe847b13e2abdee077cedad99f3471961`.
-The exact machine authorization has not yet been created, so preflight remains
-fail-closed and no R13 paid work or Updater call has started.
+R13 subsequently received exact machine authorization
+`AUTH_6B5EFF560128F606EEE3` and executed its 25-position Update-Source pool. It
+sealed immutable `HOLD` with 24 valid positions and one permanent Infra Invalid
+(`task_048`) before the external Updater. Update-Check, Selection, Release, and
+Promote therefore remained at zero. The complete terminal record and the newly
+observed position-level fail-fast defect are documented in
+[`banking-r13-terminal.md`](banking-r13-terminal.md). This historical plan must
+not be read as authorization to resume or extend R13.
 
 The new configuration must reject reuse of R11 task results as decision-grade
 R12 evidence. Existing-only recovery may only seal already retained evidence;
