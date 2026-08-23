@@ -37,6 +37,8 @@ from agentloopgate.runtime import (
     DSH_TAU3_PROTOCOL_CURRENT,
     DSH_TAU3_REPLY_POLICY_CURRENT,
     DSH_TAU3_SUPPORTED_PROTOCOLS,
+    USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
+    USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT,
     DshTau3TurnClient,
     load_evaluator_overlay,
     verify_evaluator_overlay_sources,
@@ -83,6 +85,8 @@ class DshTau3PilotConfig:
     runner_failure_usage_policy: str = DSH_TAU3_FAILURE_USAGE_POLICY_CURRENT
     empty_final_repair_policy: str = DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT
     empty_final_repair_limit: int = DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT
+    user_empty_final_repair_policy: str | None = None
+    user_empty_final_repair_limit: int = 0
     network_route_policy: Literal["inherit", "direct_no_proxy"] = "inherit"
     global_task_attempt_limit: int | None = None
     task_attempt_ledger_schema_version: Literal["1.0", "1.1"] = "1.0"
@@ -149,6 +153,20 @@ class DshTau3Adapter(Tau3Adapter):
         pilot: DshTau3PilotConfig,
     ) -> None:
         super().__init__(project_root, checkout=checkout)
+        valid_user_empty_final = (
+            pilot.user_empty_final_repair_policy is None
+            and pilot.user_empty_final_repair_limit == 0
+        ) or (
+            pilot.user_empty_final_repair_policy
+            == USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT
+            and pilot.user_empty_final_repair_limit
+            == USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT
+        )
+        if not valid_user_empty_final:
+            raise ValueError(
+                "User Simulator empty-final repair requires disabled/0 or "
+                f"{USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT}/1"
+            )
         self.pilot = pilot
 
     def doctor(self) -> AdapterHealth:
@@ -351,6 +369,13 @@ class DshTau3Adapter(Tau3Adapter):
                 "AGENTLOOPGATE_TAU3_CHECKOUT": str(self.checkout.resolve()),
             }
         )
+        if self.pilot.user_empty_final_repair_policy is not None:
+            environment["AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY"] = (
+                self.pilot.user_empty_final_repair_policy
+            )
+            environment["AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT"] = str(
+                self.pilot.user_empty_final_repair_limit
+            )
         if self.pilot.evaluator_overlay_path is not None:
             environment["AGENTLOOPGATE_TAU3_EVALUATOR_OVERLAY"] = str(
                 self.pilot.evaluator_overlay_path.resolve()
@@ -446,6 +471,12 @@ class DshTau3Adapter(Tau3Adapter):
                 "runner_failure_usage_policy": self.pilot.runner_failure_usage_policy,
                 "empty_final_repair_policy": self.pilot.empty_final_repair_policy,
                 "empty_final_repair_limit": self.pilot.empty_final_repair_limit,
+                "user_empty_final_repair_policy": (
+                    self.pilot.user_empty_final_repair_policy
+                ),
+                "user_empty_final_repair_limit": (
+                    self.pilot.user_empty_final_repair_limit
+                ),
                 "network_route_policy": self.pilot.network_route_policy,
                 "global_task_attempt_limit": self.pilot.global_task_attempt_limit,
                 "task_attempt_ledger_schema_version": (
@@ -744,6 +775,12 @@ class DshTau3EvidenceLinker:
                 "runner_failure_usage_policy": self.pilot.runner_failure_usage_policy,
                 "empty_final_repair_policy": self.pilot.empty_final_repair_policy,
                 "empty_final_repair_limit": self.pilot.empty_final_repair_limit,
+                "user_empty_final_repair_policy": (
+                    self.pilot.user_empty_final_repair_policy
+                ),
+                "user_empty_final_repair_limit": (
+                    self.pilot.user_empty_final_repair_limit
+                ),
                 "network_route_policy": self.pilot.network_route_policy,
                 "global_task_attempt_limit": self.pilot.global_task_attempt_limit,
                 "evaluator_overlay_digest": (

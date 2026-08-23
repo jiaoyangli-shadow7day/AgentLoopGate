@@ -124,6 +124,142 @@ def test_user_ledger_rejects_missing_frozen_price_before_model_call(
     assert calls == 0
 
 
+def test_user_empty_final_gets_one_ledgered_repair_with_aggregate_usage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger = tmp_path / "user-usage.jsonl"
+    calls = 0
+
+    def generate(**_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return SimpleNamespace(
+                content="",
+                tool_calls=None,
+                usage={"prompt_tokens": 100, "completion_tokens": 2},
+                cost=0.1,
+                raw_data={"call": 1},
+            )
+        return SimpleNamespace(
+            content="The missing user reply.",
+            tool_calls=None,
+            usage={"prompt_tokens": 120, "completion_tokens": 8},
+            cost=0.2,
+            raw_data={"call": 2},
+        )
+
+    user_simulator = ModuleType("tau2.user.user_simulator")
+    user_simulator.generate = generate
+    message_module = ModuleType("tau2.data_model.message")
+    message_module.UserMessage = lambda **kwargs: SimpleNamespace(**kwargs)
+    tau2 = ModuleType("tau2")
+    tau2_user = ModuleType("tau2.user")
+    tau2_data_model = ModuleType("tau2.data_model")
+    tau2_user.user_simulator = user_simulator
+    monkeypatch.setitem(sys.modules, "tau2", tau2)
+    monkeypatch.setitem(sys.modules, "tau2.user", tau2_user)
+    monkeypatch.setitem(sys.modules, "tau2.user.user_simulator", user_simulator)
+    monkeypatch.setitem(sys.modules, "tau2.data_model", tau2_data_model)
+    monkeypatch.setitem(sys.modules, "tau2.data_model.message", message_module)
+    monkeypatch.setenv("AGENTLOOPGATE_USER_MODEL_USAGE_LEDGER", str(ledger))
+    monkeypatch.setenv("AGENTLOOPGATE_INPUT_PRICE_PER_MILLION", "0.14")
+    monkeypatch.setenv("AGENTLOOPGATE_CACHE_READ_PRICE_PER_MILLION", "0.014")
+    monkeypatch.setenv("AGENTLOOPGATE_OUTPUT_PRICE_PER_MILLION", "0.28")
+    monkeypatch.setenv(
+        "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY",
+        "bounded_same_call_context_final_only_v1",
+    )
+    monkeypatch.setenv("AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT", "1")
+
+    _install_user_model_ledger()
+    result = user_simulator.generate(
+        model="fixture",
+        messages=[],
+        call_name="user_simulator_response",
+    )
+
+    assert calls == 2
+    assert result.content == "The missing user reply."
+    assert result.usage == {"prompt_tokens": 220, "completion_tokens": 10}
+    assert result.cost == pytest.approx(0.3)
+    assert result.raw_data["call"] == 2
+    assert result.raw_data["agentloopgate_user_empty_final_repair"][
+        "repair_count"
+    ] == 1
+    events = [
+        ModelCallUsageEvent.model_validate_json(line)
+        for line in ledger.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event.state.value for event in events] == [
+        "started",
+        "completed",
+        "started",
+        "completed",
+    ]
+    assert [event.input_tokens for event in events if event.state is AttemptState.COMPLETED] == [
+        100,
+        120,
+    ]
+
+
+def test_user_empty_final_repair_is_bounded_when_second_response_is_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def generate(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return SimpleNamespace(
+            content="",
+            tool_calls=None,
+            usage={"prompt_tokens": 10, "completion_tokens": 1},
+            cost=0.01,
+            raw_data={},
+        )
+
+    user_simulator = ModuleType("tau2.user.user_simulator")
+    user_simulator.generate = generate
+    message_module = ModuleType("tau2.data_model.message")
+    message_module.UserMessage = lambda **kwargs: SimpleNamespace(**kwargs)
+    tau2 = ModuleType("tau2")
+    tau2_user = ModuleType("tau2.user")
+    tau2_data_model = ModuleType("tau2.data_model")
+    tau2_user.user_simulator = user_simulator
+    monkeypatch.setitem(sys.modules, "tau2", tau2)
+    monkeypatch.setitem(sys.modules, "tau2.user", tau2_user)
+    monkeypatch.setitem(sys.modules, "tau2.user.user_simulator", user_simulator)
+    monkeypatch.setitem(sys.modules, "tau2.data_model", tau2_data_model)
+    monkeypatch.setitem(sys.modules, "tau2.data_model.message", message_module)
+    monkeypatch.setenv(
+        "AGENTLOOPGATE_USER_MODEL_USAGE_LEDGER",
+        str(tmp_path / "user-usage.jsonl"),
+    )
+    monkeypatch.setenv("AGENTLOOPGATE_INPUT_PRICE_PER_MILLION", "0.14")
+    monkeypatch.setenv("AGENTLOOPGATE_CACHE_READ_PRICE_PER_MILLION", "0.014")
+    monkeypatch.setenv("AGENTLOOPGATE_OUTPUT_PRICE_PER_MILLION", "0.28")
+    monkeypatch.setenv(
+        "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY",
+        "bounded_same_call_context_final_only_v1",
+    )
+    monkeypatch.setenv("AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT", "1")
+
+    _install_user_model_ledger()
+    result = user_simulator.generate(
+        model="fixture",
+        messages=[],
+        call_name="user_simulator_response",
+    )
+
+    assert calls == 2
+    assert result.content == ""
+    assert result.tool_calls is None
+    assert result.usage == {"prompt_tokens": 20, "completion_tokens": 2}
+
+
 def test_task_attempt_ledger_counts_started_attempts_and_rejects_tampering(
     tmp_path: Path,
 ) -> None:

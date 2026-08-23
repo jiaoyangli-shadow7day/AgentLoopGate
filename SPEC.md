@@ -551,6 +551,12 @@ finish reason 和耗时；可验证值进入 Attempt 的已知费用，无法验
 运行成本、Raw 对照值与不一致计数、全 Attempt 已知下界、未知费用范围和本地计算时间。
 User Simulator 必须另写进程级 append-only 调用账本，使被 τ³ 重试、替换或中断的运行仍保留
 `STARTED/COMPLETED/FAILED`、Token、费用、耗时与错误终态；不得只依赖最终 Raw Result。
+若 User Simulator Provider 调用返回的整条回复既没有非空最终文本也没有 Tool Call，协议可以冻结
+一次 `bounded_same_call_context_final_only_v1` 修复：只在原对话后追加“补交缺失用户回复”的指令，
+不得读取 Formal Gold、引入新事实、改变用户目标、推断工具或补全参数。原调用与修复调用必须分别
+写入账本，保留各自 Token、费用和终态；修复成功时，τ³ 保留结果必须聚合两次 Usage，直接冻结价格
+逐调用账本仍为成本权威。第二次仍为空、坏结构或不合法 Tool Call 必须按原 Attempt fail closed，
+不得发起第三次调用。该能力只恢复 User Simulator 消息完整性，不能把业务失败改写为成功。
 
 协议冻结的输入、缓存命中与输出单价必须在任何付费 User Simulator 调用之前可读且为非负有限
 Decimal；缺失或非法必须在调用前失败。每个 `exact` 调用必须同时具有三个可验证 Token 计数，其
@@ -751,6 +757,12 @@ AHE 必须在与 Core 隔离的 Python 3.13+ 环境运行；只把 FailureBundle
 复制进临时 Workspace，并通过 OS Sandbox 将写权限限制在该 Workspace。AHE 原始 Trace、版本、
 输入 Hash、Token/成本与文件 Diff 回收后仍须经过 Core Candidate Check。API Key 只从进程环境继承，
 不得写入 AHE 配置快照。未触发第 7.6 节 Tripwire 时，ACE 保持禁用。
+
+AHE 及其 NexAU 依赖产生的 bash stdout/stderr、长工具输出、缓存、`TMPDIR` 与其他中间文件必须全部
+路由到当前内容寻址 Attempt 的 `.runtime` 子目录，禁止依赖进程全局 `/tmp` 默认路径。`doctor` 必须
+在与正式 Updater 相同的 OS Sandbox Profile 中真实执行一次零模型 NexAU bash 命令，验证命令、输出
+与错误证据均落在该 Attempt 根内；此预检失败时必须在首次 Updater 模型调用前停止。只检查 Python
+import、只改 `TMPDIR` 或允许整个 `/tmp` 写入均不能满足本项。
 
 ### 7.3 AHE 可见范围
 
@@ -1834,6 +1846,8 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 - OOD 工作流族；
 - Asset Manifest、Mutation Policy、Risk 与 Diff Budget；
 - AHE/ACE 选择状态；
+- 外部 Updater 的临时文件、工具输出、缓存与子进程结果目录策略，以及在正式 OS Sandbox 内执行的
+  零模型写入预检；
 - Trial 数、Infra Invalid 与重试规则；
 - 跨进程 Resume 的全局 Task Attempt 上限与网络路由策略；
 - Task Attempt、Agent/User Model Usage Ledger 的 Schema 版本、逐调用任务身份与 DSH Session
@@ -2169,6 +2183,37 @@ Attempt 中均因空 `UserMessage` 结构错误成为 Infra Invalid，批次因 
 本地计算仍为 `unmetered_unknown`。终态封存 Digest 为
 `sha256:73457f10b7a7f8e2347b7d06cf24680ff46805546290b3ba89432bbca5ad383e`；同一 R12 身份禁止
 重跑、补齐或扩展，修复后必须冻结后继身份。
+
+### 16.14 R12 后的 User Simulator 与 AHE 沙箱完整性边界
+
+R12 `task_073` 的两次终态来自 pinned τ³ User Simulator 将“无最终文本且无 Tool Call”的 Provider
+回复直接构造成非法 `UserMessage`；这不是 Agent Reply v5 能处理的路径，也不得从 reasoning 推断
+用户内容。R12 三个 AHE Attempt 的 stderr 同时记录了对 `/tmp/nexau_bash_tool_results` 的
+`Operation not permitted`：AgentLoopGate 正确地只允许 Attempt 根写入，但 NexAU LocalSandbox 与
+AHE LongToolOutputMiddleware 仍使用进程全局 `/tmp` 默认目录。三个进程虽退出 0 并产生候选，候选
+从未进入 Update-Check，故既不能认定候选无效，也不能把该警告忽略为不影响正式执行。
+
+这两项同时属于实现与 Protocol/SPEC 完整性缺口。R12 原始证据、成本下界 USD `1.1970712488`、
+`HOLD` 和未评测候选保持不可变；修复、诊断与 clean-room 均为零外部模型调用，已知 Provider 成本
+为 USD `0`，本地计算货币成本为 `unmetered_unknown`。后继正式实验必须使用 Protocol `1.9+` 和
+全新的 Experiment/Study/Source/Evaluation Baseline 身份，并冻结：
+
+1. User Simulator `bounded_same_call_context_final_only_v1`，每 Turn 最多一次，双调用独立账本且
+   retained Usage 聚合，第二次为空继续 fail closed；
+2. Updater `attempt_local_runtime_only_v1`，NexAU bash、长输出、cache 与 TMPDIR 全部位于 Attempt 根；
+3. 在正式 macOS Sandbox 中实际执行 NexAU bash 的无模型 doctor，而不是只做 import 检查；
+4. 内容寻址的 R12 根因 Artifact、后继完整性 Calibration、所有相关运行时代码 Hash、反例测试和
+   完整 clean-room；
+5. 原 Objective、97 任务 Split、Evaluator Overlay、Pricing、Reply v5、Trace 共存、A0-bound
+   Selection、成本/延迟/重试 Gate 与人工 Promotion 边界不变。
+
+机器根因与校准证据分别为
+`artifacts/research/banking_r13/r12_successor_integrity_incident.json`（Digest
+`sha256:552d0cd210f96ee23de5cb2516eff3e90337fdb716d78988677df7e8a0a4ab65`）和
+`artifacts/research/banking_r13/successor_integrity_calibration.json`。只有后者的 Runtime Binding、
+Protocol Digest 与后继冻结源码逐字匹配后，才可创建新的付费机器授权；任何不匹配都必须在首次
+模型调用前失败。后继实验仍须从 25 个 Update-Source 全池开始，禁止只补跑 `task_073`、复用 R12
+候选或把 R12 的 34 个有效位置拼入新决策分母。
 
 ---
 

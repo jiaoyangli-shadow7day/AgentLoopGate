@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+import yaml
 
 from agentloopgate.candidates import CandidateRegistry
 from agentloopgate.contracts import file_digest
@@ -108,6 +109,82 @@ def test_ahe_direct_environment_binds_checkout_import_and_removes_proxies(
             "all_proxy",
         )
     )
+
+
+def test_ahe_routes_all_runtime_output_under_attempt_root(tmp_path: Path) -> None:
+    checkout = tmp_path / "ahe"
+    evolve_agent = checkout / "agents/evolve_agent"
+    evolve_agent.mkdir(parents=True)
+    config_path = evolve_agent / "evolve_agent.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "max_iterations": 1,
+                "retry_attempts": 1,
+                "llm_config": {"max_tokens": 1, "temperature": 0},
+                "middlewares": [
+                    {
+                        "import": (
+                            "middleware.long_tool_output:LongToolOutputMiddleware"
+                        ),
+                        "params": {"temp_dir": "/tmp/nexau_tool_outputs"},
+                    },
+                    {
+                        "import": (
+                            "middleware.context_compaction:ContextCompactionMiddleware"
+                        ),
+                        "params": {"retry_attempts": 99},
+                    },
+                ],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    experiment_root = tmp_path / "formal-attempt"
+    experiment_root.mkdir()
+    runner = AheExternalRunner(
+        checkout,
+        project_root=tmp_path,
+        max_retries=0,
+    )
+
+    runtime_paths = runner._prepare_runtime_paths(experiment_root)
+    runner._install_evolve_agent(experiment_root)
+    installed = yaml.safe_load(
+        (experiment_root / "evolve_agent/evolve_agent.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    middlewares = {item["import"]: item["params"] for item in installed["middlewares"]}
+
+    assert set(runtime_paths) == {"root", "bash_results", "tool_outputs", "cache"}
+    assert all(path.is_dir() for path in runtime_paths.values())
+    assert middlewares[
+        "middleware.long_tool_output:LongToolOutputMiddleware"
+    ]["temp_dir"] == str(runtime_paths["tool_outputs"])
+    assert middlewares[
+        "middleware.context_compaction:ContextCompactionMiddleware"
+    ]["retry_attempts"] == 1
+
+
+@pytest.mark.skipif(
+    not Path(".cache/agentic-harness-engineering/.venv/bin/python").is_file()
+    or not Path("/usr/bin/sandbox-exec").is_file(),
+    reason="requires the pinned local AHE checkout on macOS",
+)
+def test_ahe_doctor_executes_nexau_bash_inside_formal_sandbox(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fixture-doctor-only")
+    runner = AheExternalRunner(
+        Path(".cache/agentic-harness-engineering"),
+        project_root=Path.cwd(),
+    )
+
+    health = runner.doctor()
+
+    assert health.ready, health.remediation
 
 
 def asset_manifest() -> HarnessAssetManifest:

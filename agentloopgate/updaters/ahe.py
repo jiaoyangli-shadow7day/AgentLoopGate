@@ -202,15 +202,50 @@ class AheExternalRunner:
             )
         try:
             with TemporaryDirectory(prefix="agentloopgate-ahe-doctor-") as directory:
+                doctor_root = Path(directory).resolve()
+                runtime_paths = self._prepare_runtime_paths(doctor_root)
+                environment = self._base_environment()
+                environment["AGENTLOOPGATE_AHE_NEXAU_BASH_RESULTS"] = str(
+                    runtime_paths["bash_results"]
+                )
                 subprocess.run(
-                    [str(python), "-c", "import evolve"],
+                    [str(python), "-c", _AHE_SANDBOX_PREFLIGHT],
                     cwd=directory,
-                    env=self._base_environment(),
+                    env=environment,
                     check=True,
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    stdin=subprocess.DEVNULL,
                 )
+                sandboxed = subprocess.run(
+                    [
+                        "/usr/bin/sandbox-exec",
+                        "-p",
+                        AheSandbox(
+                            doctor_root,
+                            protected_root=self.project_root,
+                            runtime_roots=(self.checkout,),
+                        ).profile(),
+                        str(python),
+                        "-c",
+                        _AHE_SANDBOX_PREFLIGHT,
+                    ],
+                    cwd=directory,
+                    env=environment,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    stdin=subprocess.DEVNULL,
+                )
+                if "agentloopgate-ahe-sandbox-ready" not in sandboxed.stdout.splitlines():
+                    raise subprocess.CalledProcessError(
+                        sandboxed.returncode,
+                        sandboxed.args,
+                        output=sandboxed.stdout,
+                        stderr=sandboxed.stderr,
+                    )
         except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return self._health(
                 "unavailable",
@@ -249,6 +284,8 @@ class AheExternalRunner:
         if not health.ready:
             raise UpdaterError(health.remediation)
         started = time.monotonic()
+        runtime_paths = self._prepare_runtime_paths(request.experiment_root)
+        runtime_dir = runtime_paths["root"]
         self._install_evolve_agent(request.experiment_root)
         (request.experiment_root / "query.txt").write_text(
             request.query,
@@ -256,8 +293,6 @@ class AheExternalRunner:
         )
         driver = request.experiment_root / "run_ahe.py"
         driver.write_text(_AHE_DRIVER, encoding="utf-8")
-        runtime_dir = request.experiment_root / ".runtime"
-        runtime_dir.mkdir()
         env = self._base_environment()
         env.update(
             {
@@ -277,6 +312,9 @@ class AheExternalRunner:
                 ),
                 "AGENTLOOPGATE_AHE_RETRY_DELAY_SECONDS": str(
                     self.retry_delay_seconds
+                ),
+                "AGENTLOOPGATE_AHE_NEXAU_BASH_RESULTS": str(
+                    runtime_paths["bash_results"]
                 ),
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "TMPDIR": str(runtime_dir),
@@ -413,7 +451,26 @@ class AheExternalRunner:
                 middleware.setdefault("params", {})["retry_attempts"] = (
                     self.max_retries + 1
                 )
+            if middleware.get("import") == (
+                "middleware.long_tool_output:LongToolOutputMiddleware"
+            ):
+                middleware.setdefault("params", {})["temp_dir"] = str(
+                    experiment_root / ".runtime/tool_outputs"
+                )
         config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    @staticmethod
+    def _prepare_runtime_paths(experiment_root: Path) -> dict[str, Path]:
+        runtime_root = (experiment_root / ".runtime").resolve()
+        paths = {
+            "root": runtime_root,
+            "bash_results": runtime_root / "bash_results",
+            "tool_outputs": runtime_root / "tool_outputs",
+            "cache": runtime_root / "cache",
+        }
+        for path in paths.values():
+            path.mkdir(parents=True, exist_ok=True)
+        return paths
 
     @staticmethod
     def _usage_accounting(
@@ -994,6 +1051,29 @@ def _sandbox_path(path: Path) -> str:
     return str(path).replace("\\", "\\\\").replace('"', '\\"')
 
 
+_AHE_SANDBOX_PREFLIGHT = r'''from __future__ import annotations
+import os
+from pathlib import Path
+
+import evolve
+from nexau.archs.sandbox import base_sandbox as nexau_base_sandbox
+from nexau.archs.sandbox import local_sandbox as nexau_local_sandbox
+
+output_root = Path(os.environ["AGENTLOOPGATE_AHE_NEXAU_BASH_RESULTS"]).resolve()
+nexau_base_sandbox.BASH_TOOL_RESULTS_BASE_PATH = str(output_root)
+nexau_local_sandbox.BASH_TOOL_RESULTS_BASE_PATH = str(output_root)
+sandbox = nexau_local_sandbox.LocalSandbox(work_dir=output_root.parent)
+result = sandbox.execute_bash("/bin/pwd", timeout=5000)
+if result.exit_code != 0 or result.output_dir is None:
+    raise RuntimeError("NexAU LocalSandbox bash probe failed")
+result_root = Path(result.output_dir).resolve()
+result_root.relative_to(output_root)
+if not (result_root / "command.txt").is_file():
+    raise RuntimeError("NexAU LocalSandbox did not persist command evidence")
+print("agentloopgate-ahe-sandbox-ready")
+'''
+
+
 _AHE_DRIVER = r'''from __future__ import annotations
 import hashlib
 import json
@@ -1005,6 +1085,13 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+
+from nexau.archs.sandbox import base_sandbox as nexau_base_sandbox
+from nexau.archs.sandbox import local_sandbox as nexau_local_sandbox
+
+nexau_bash_results = os.environ["AGENTLOOPGATE_AHE_NEXAU_BASH_RESULTS"]
+nexau_base_sandbox.BASH_TOOL_RESULTS_BASE_PATH = nexau_bash_results
+nexau_local_sandbox.BASH_TOOL_RESULTS_BASE_PATH = nexau_bash_results
 
 import evolve
 import openai

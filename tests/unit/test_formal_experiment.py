@@ -34,18 +34,21 @@ from agentloopgate.experiment import (
     PaidExecutionAuthorization,
     PaidExecutionAuthorizationError,
     ReplyLineageCalibration,
+    SuccessorIntegrityCalibration,
     computed_cost_lineage_calibration_digest,
     computed_evaluator_correction_calibration_digest,
     computed_paid_execution_authorization_digest,
     computed_protocol_digest,
     computed_reply_lineage_calibration_digest,
     computed_study_digest,
+    computed_successor_integrity_calibration_digest,
     diagnose_formal_records,
     load_cost_lineage_calibration,
     load_evaluator_correction_calibration,
     load_execution_protocol,
     load_reply_lineage_calibration,
     load_study_plan,
+    load_successor_integrity_calibration,
     verify_paid_execution_authorization,
 )
 from agentloopgate.experiment import ledger as ledger_module
@@ -496,6 +499,64 @@ def test_protocol_1_4_requires_timeout_ordering_and_bounded_empty_final_repair(
     missing_repair.pop("empty_final_repair_policy")
     with pytest.raises(ValidationError, match="bounded empty-final repair"):
         FormalExecutionProtocol.model_validate(missing_repair)
+
+
+def test_protocol_1_9_requires_bounded_user_simulator_empty_final_repair() -> None:
+    payload = yaml.safe_load(
+        Path("configs/experiment_protocol_banking_r12_v1.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload.update(
+        {
+            "schema_version": "1.9",
+            "user_empty_final_repair_policy": (
+                "bounded_same_call_context_final_only_v1"
+            ),
+            "user_empty_final_repair_limit": 1,
+            "updater_sandbox_output_policy": "attempt_local_runtime_only_v1",
+            "successor_integrity_calibration_artifact": (
+                "artifacts/research/banking_r13/successor_integrity_calibration.json"
+            ),
+            "successor_integrity_calibration_digest": (
+                "sha256:671567a3abd4061b9766ac385568062e5d66f929280ef985e90706a70620eea6"
+            ),
+        }
+    )
+
+    protocol = FormalExecutionProtocol.model_validate(payload)
+
+    assert protocol.user_empty_final_repair_policy == (
+        "bounded_same_call_context_final_only_v1"
+    )
+    assert protocol.user_empty_final_repair_limit == 1
+    assert protocol.updater_sandbox_output_policy == "attempt_local_runtime_only_v1"
+
+    missing_policy = dict(payload)
+    missing_policy.pop("user_empty_final_repair_policy")
+    with pytest.raises(ValidationError, match="User Simulator empty-final repair"):
+        FormalExecutionProtocol.model_validate(missing_policy)
+
+    missing_sandbox_policy = dict(payload)
+    missing_sandbox_policy.pop("updater_sandbox_output_policy")
+    with pytest.raises(ValidationError, match="Updater sandbox output"):
+        FormalExecutionProtocol.model_validate(missing_sandbox_policy)
+
+
+def test_successor_integrity_calibration_is_content_addressed_and_no_model() -> None:
+    path = Path(
+        "artifacts/research/banking_r13/successor_integrity_calibration.json"
+    )
+
+    calibration = load_successor_integrity_calibration(path)
+
+    assert isinstance(calibration, SuccessorIntegrityCalibration)
+    assert (
+        computed_successor_integrity_calibration_digest(calibration)
+        == calibration.artifact_digest
+    )
+    assert calibration.no_model_acceptance["external_model_calls"] == 0
+    assert calibration.no_model_acceptance["known_model_cost_usd"] == "0"
 
 
 def test_banking_r6_freezes_empty_final_and_timeout_integrity_protocol() -> None:
@@ -1198,12 +1259,21 @@ def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline(
         "verify_evaluator_overlay_sources",
         lambda *_args, **_kwargs: None,
     )
+    with pytest.raises(ValueError, match="runtime binding mismatch"):
+        _verified_protocol(
+            Path(".").resolve(),
+            config,
+            objective_digest=protocol.objective_digest,
+            split_digest=protocol.split_digest,
+            pricing=pricing,
+        )
     verified = _verified_protocol(
         Path(".").resolve(),
         config,
         objective_digest=protocol.objective_digest,
         split_digest=protocol.split_digest,
         pricing=pricing,
+        allow_runtime_binding_mismatch=True,
     )
     assert verified == protocol
 

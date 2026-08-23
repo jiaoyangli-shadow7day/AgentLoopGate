@@ -2,11 +2,14 @@
 
 Status date: 2026-08-23
 
-Current paid-evidence checkpoint: immutable `EXP_BANKING_R10`, stopped after
-candidate C2 Selection, plus immutable `EXP_BANKING_R11` Update-Source evidence.
-R11 has 24 valid runs and one Infra Invalid and is sealed as a batch `HOLD`;
-it cannot advance to Update-Check or Selection. Current execution policy:
-`PAID_HOLD` pending a new successor identity and explicit Owner authorization.
+Current paid-evidence checkpoint: immutable `EXP_BANKING_R12`, stopped after
+25 valid Update-Source positions, three external AHE candidates, and a 9/10-valid
+A0 Update-Check anchor. It is terminal `HOLD` and cannot advance. The R13
+successor integrity repair and local clean-room are complete, but no R13
+Protocol, source, baseline, preregistration, or machine authorization is frozen;
+therefore paid execution remains fail-closed. The standing private-experiment
+mandate permits the delegated operator to create the exact machine authorization
+after every frozen input verifies; it does not permit publication or Promote.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -17,19 +20,19 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 
 | Requirement | State | Authoritative evidence | Remaining work |
 |---|---|---|---|
-| Preserve all historical attempts and incidents | PASS | R2–R11 immutable Snapshot/Batch/Raw/Trace/Attempt/Cost artifacts and append-only journals | Recheck hashes in the final publication seal |
+| Preserve all historical attempts and incidents | PASS | R2–R12 immutable Snapshot/Batch/Raw/Trace/Attempt/Cost artifacts and append-only journals | Recheck hashes in the final publication seal |
 | R10 execution through C2 Selection | SEALED HISTORICAL EVIDENCE | 25 Update-Source + 40 Update-Check + 30 Selection positions; C3 Selection and all Release stages absent | Never rewrite or resume under the corrected selector identity |
 | Complete cost accounting through R10 C2 | PASS | Exact known model cost USD `3.0651904832`; batch, updater, task-attempt, Agent/User usage and retry evidence retained | Local compute monetary cost remains `unmetered_unknown` |
 | Positive self-evolution direction | NOT ESTABLISHED | C1 and C2 both 7/15 with different success sets; C1/C3 semantic duplicate; C2 unbound capability | A new corrected experiment is required before any positive claim |
-| A0-bound Selection with abstention | IMPLEMENTED / ZERO-MODEL VERIFIED | Study schema 1.2; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Run only under a new frozen paid identity after Owner authorization |
+| A0-bound Selection with abstention | IMPLEMENTED / ZERO-MODEL VERIFIED | Study schema 1.2; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Run only under a new frozen paid identity and exact machine authorization |
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
-| Explicit paid-execution authorization | IMPLEMENTED / PAID_HOLD | Formal config 1.2 authorization root; preflight + Service double-check; first scope covers 125 formal positions and separately metered external Updater; Selection-bound 450-position Release scope is separate; HOLD blocks Release | No authorization artifact exists; wait for explicit Owner scope approval |
+| Exact paid-execution authorization | IMPLEMENTED / NOT YET CREATED FOR R13 | Formal config 1.2 authorization root; preflight + Service double-check; first scope covers 125 formal positions and separately metered external Updater; Selection-bound Release scope is separate; HOLD blocks Release; standing mandate governs delegated creation | Freeze and verify R13 before creating its exact capability artifact |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | Post-result-package local check: 185 Python and 13 TypeScript tests; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed. Commit `9a48956` passed private CI run `32620190226`, job `97147090957`, in 58 s | Rerun after any later execution-source change |
-| Secret and direct-PII audit | PASS FOR CURRENT TREE | Post-result-package audit scanned 272 files with zero findings and withheld paths/values | Rerun for the final public result package |
-| Corrected pre-Release paid checkpoint | R12 FROZEN / PAID_HOLD | R12 Protocol `6c86b4…d3f2`, Study `423ca8…32a4`, source `d7f8e3…65bd`, Evaluation Baseline `R12_A0`; Cost-Lineage Calibration 1.2 binds the R11 incident and repair | Obtain explicit Owner authorization before the R12 Updater or any formal position |
-| Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
+| Full source/release-artifact clean-room | PASS LOCAL FOR R13 REPAIR SOURCE | 199 Python and 13 TypeScript tests; Ruff; sdist→wheel; Bundle tests/build/pack and DSH conformance passed in 22.38 s | Rerun after the final frozen R13 source and in private Linux CI |
+| Secret and direct-PII audit | PASS FOR CURRENT TREE | 295 files scanned with zero findings and withheld paths/values | Rerun for frozen R13 and the final public result package |
+| Corrected pre-Release paid checkpoint | R12 TERMINAL HOLD / R13 PREFREEZE | R12 terminal seal `73457f…383e`; R13 incident `552d0c…ab65`; Protocol 1.9 code binds one User repair, attempt-local AHE outputs, and successor calibration | Freeze R13 Protocol/Study/source/baseline/preregistration, then create exact authorization |
+| Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL / TWO NO-MODEL ABLATIONS SEALED | R12 integrity fixture proves an unsupported `SHIP_RECOMMENDED` is converted to `HOLD`; DSH fixture preserves JSONL/SQLite event hashes, persistence and OTel, with measured local p95 overhead 4.110417/0.740291 ms | Derive selector/diagnosis statistics and uncertainty from sealed R12 paid evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |

@@ -66,6 +66,7 @@ from .protocol import (
     load_evaluator_correction_calibration,
     load_execution_protocol,
     load_reply_lineage_calibration,
+    load_successor_integrity_calibration,
 )
 from .study import BankingStudyPlan, load_study_plan
 
@@ -330,8 +331,8 @@ def create_paid_execution_authorization(
         split_digest=split.split_digest,
         pricing=pricing,
     )
-    if protocol is None or protocol.schema_version != "1.8":
-        raise ValueError("paid authorization requires frozen protocol 1.8")
+    if protocol is None or protocol.schema_version != "1.9":
+        raise ValueError("paid authorization requires frozen protocol 1.9")
     study = _verified_study(root, config, protocol=protocol)
     if study.schema_version != "1.2":
         raise ValueError("paid authorization requires Study 1.2")
@@ -487,17 +488,18 @@ def inspect_formal_preflight(
                 pricing=pricing,
             )
             checks["execution_protocol_frozen"] = (
-                protocol is not None and protocol.schema_version == "1.8"
+                protocol is not None and protocol.schema_version == "1.9"
             )
             if protocol is None:
                 missing.append(
                     "execution_protocol_frozen:legacy config cannot start a new paid run"
                 )
-            elif protocol.schema_version != "1.8":
+            elif protocol.schema_version != "1.9":
                 missing.append(
-                    "execution_protocol_frozen:new paid work requires protocol 1.8 "
+                    "execution_protocol_frozen:new paid work requires protocol 1.9 "
                     "with Reply v5, direct task/session lineage, and frozen-price "
-                    "cost-authority, Cost Gate input, and evaluator-correction pins"
+                    "cost-authority, Cost Gate input, evaluator-correction, and "
+                    "bounded User Simulator empty-final repair pins"
                 )
         except (OSError, ValueError, ValidationError) as exc:
             checks["execution_protocol_frozen"] = False
@@ -566,7 +568,7 @@ def inspect_formal_preflight(
         dsh_stream_idle_timeout_ms=(
             protocol.dsh_stream_idle_timeout_ms
             if protocol
-            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
             and protocol.dsh_stream_idle_timeout_ms is not None
             else 300_000
         ),
@@ -608,47 +610,61 @@ def inspect_formal_preflight(
         empty_final_repair_policy=(
             protocol.empty_final_repair_policy
             if protocol
-            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
             and protocol.empty_final_repair_policy is not None
             else DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT
         ),
         empty_final_repair_limit=(
             protocol.empty_final_repair_limit
             if protocol
-            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
             and protocol.empty_final_repair_limit is not None
             else DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT
+        ),
+        user_empty_final_repair_policy=(
+            protocol.user_empty_final_repair_policy
+            if protocol
+            and protocol.schema_version == "1.9"
+            and protocol.user_empty_final_repair_policy is not None
+            else None
+        ),
+        user_empty_final_repair_limit=(
+            protocol.user_empty_final_repair_limit
+            if protocol
+            and protocol.schema_version == "1.9"
+            and protocol.user_empty_final_repair_limit is not None
+            else 0
         ),
         network_route_policy=(
             protocol.network_route_policy
             if protocol
-            and protocol.schema_version in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
             else "inherit"
         ),
         global_task_attempt_limit=(
             protocol.global_task_attempt_limit
             if protocol
-            and protocol.schema_version in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
             else None
         ),
         task_attempt_ledger_schema_version=(
             protocol.task_attempt_ledger_schema_version
             if protocol
-            and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}
             and protocol.task_attempt_ledger_schema_version is not None
             else "1.0"
         ),
         model_usage_ledger_schema_version=(
             protocol.model_usage_ledger_schema_version
             if protocol
-            and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8"}
+            and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}
             and protocol.model_usage_ledger_schema_version is not None
             else "1.1"
         ),
         evaluator_overlay_path=(
             _under(root, Path(protocol.evaluator_overlay_artifact))
             if protocol
-            and protocol.schema_version == "1.8"
+            and protocol.schema_version in {"1.8", "1.9"}
             and protocol.evaluator_overlay_artifact is not None
             else None
         ),
@@ -875,13 +891,13 @@ class FormalExperimentService:
         if not existing_only and (
             self.config.schema_version != "1.2"
             or protocol is None
-            or protocol.schema_version != "1.8"
+            or protocol.schema_version != "1.9"
         ):
             raise PaidExecutionAuthorizationError(
                 "new paid formal execution requires formal config 1.2 and frozen "
-                "protocol 1.8 with Reply v5, direct lineage, frozen-price cost "
+                "protocol 1.9 with Reply v5, direct lineage, frozen-price cost "
                 "calibration, direct Agent+User Cost Gate input, and evaluator "
-                "correction"
+                "correction plus bounded User Simulator empty-final repair"
             )
         study = None
         if protocol is not None:
@@ -973,7 +989,7 @@ class FormalExperimentService:
             dsh_stream_idle_timeout_ms=(
                 protocol.dsh_stream_idle_timeout_ms
                 if protocol
-                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 and protocol.dsh_stream_idle_timeout_ms is not None
                 else min(300_000, turn_timeout_seconds * 1000 - 1_000)
             ),
@@ -1015,49 +1031,63 @@ class FormalExperimentService:
             empty_final_repair_policy=(
                 protocol.empty_final_repair_policy
                 if protocol
-                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 and protocol.empty_final_repair_policy is not None
                 else DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT
             ),
             empty_final_repair_limit=(
                 protocol.empty_final_repair_limit
                 if protocol
-                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8"}
+                and protocol.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 and protocol.empty_final_repair_limit is not None
                 else DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT
+            ),
+            user_empty_final_repair_policy=(
+                protocol.user_empty_final_repair_policy
+                if protocol
+                and protocol.schema_version == "1.9"
+                and protocol.user_empty_final_repair_policy is not None
+                else None
+            ),
+            user_empty_final_repair_limit=(
+                protocol.user_empty_final_repair_limit
+                if protocol
+                and protocol.schema_version == "1.9"
+                and protocol.user_empty_final_repair_limit is not None
+                else 0
             ),
             network_route_policy=(
                 protocol.network_route_policy
                 if protocol
                 and protocol.schema_version
-                in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+                in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 else "inherit"
             ),
             global_task_attempt_limit=(
                 protocol.global_task_attempt_limit
                 if protocol
                 and protocol.schema_version
-                in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+                in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 else None
             ),
             task_attempt_ledger_schema_version=(
                 protocol.task_attempt_ledger_schema_version
                 if protocol
-                and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8"}
+                and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}
                 and protocol.task_attempt_ledger_schema_version is not None
                 else "1.0"
             ),
             model_usage_ledger_schema_version=(
                 protocol.model_usage_ledger_schema_version
                 if protocol
-                and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8"}
+                and protocol.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}
                 and protocol.model_usage_ledger_schema_version is not None
                 else "1.1"
             ),
             evaluator_overlay_path=(
                 _under(self.root, Path(protocol.evaluator_overlay_artifact))
                 if protocol
-                and protocol.schema_version == "1.8"
+                and protocol.schema_version in {"1.8", "1.9"}
                 and protocol.evaluator_overlay_artifact is not None
                 else None
             ),
@@ -1097,20 +1127,20 @@ class FormalExperimentService:
                 capture_user_attempt_usage=bool(
                     protocol
                     and protocol.schema_version
-                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                 ),
                 global_task_attempt_limit=(
                     protocol.global_task_attempt_limit
                     if protocol
                     and protocol.schema_version
-                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                     else None
                 ),
                 cost_gate_scope=(
                     "valid_runs"
                     if protocol
                     and protocol.schema_version
-                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8"}
+                    in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}
                     else "whole_attempt"
                 ),
             ),
@@ -1142,11 +1172,11 @@ class FormalExperimentService:
         if (
             self.config.schema_version != "1.2"
             or protocol is None
-            or protocol.schema_version != "1.8"
+            or protocol.schema_version != "1.9"
         ):
             raise PaidExecutionAuthorizationError(
                 "external Updater generation requires formal config 1.2 and "
-                "frozen protocol 1.8"
+                "frozen protocol 1.9"
             )
         study = _verified_study(self.root, self.config, protocol=protocol)
         if study.schema_version != "1.2":
@@ -1313,6 +1343,7 @@ def _verified_protocol(
         "1.6",
         "1.7",
         "1.8",
+        "1.9",
     }:
         calibration_path = _under(
             root,
@@ -1331,7 +1362,7 @@ def _verified_protocol(
             or computed != protocol.execution_calibration_digest
         ):
             raise ValueError("execution calibration evidence digest mismatch")
-    if protocol.schema_version in {"1.5", "1.6", "1.7", "1.8"}:
+    if protocol.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}:
         lineage_path = _under(
             root,
             Path(protocol.reply_lineage_calibration_artifact or "missing"),
@@ -1382,7 +1413,7 @@ def _verified_protocol(
                 raise ValueError(
                     f"reply-lineage runtime binding mismatch: {relative}"
                 )
-    if protocol.schema_version in {"1.6", "1.7", "1.8"}:
+    if protocol.schema_version in {"1.6", "1.7", "1.8", "1.9"}:
         cost_path = _under(
             root,
             Path(protocol.cost_lineage_calibration_artifact or "missing"),
@@ -1399,7 +1430,7 @@ def _verified_protocol(
                 protocol.positive_token_zero_cost_policy
             ),
         }
-        if protocol.schema_version in {"1.7", "1.8"}:
+        if protocol.schema_version in {"1.7", "1.8", "1.9"}:
             expected_cost_pins["cost_gate_input_policy"] = (
                 protocol.cost_gate_input_policy
             )
@@ -1433,7 +1464,7 @@ def _verified_protocol(
                 raise ValueError(
                     f"cost-lineage runtime binding mismatch: {relative}"
                 )
-    if protocol.schema_version == "1.8":
+    if protocol.schema_version in {"1.8", "1.9"}:
         overlay_path = _under(
             root,
             Path(protocol.evaluator_overlay_artifact or "missing"),
@@ -1511,6 +1542,54 @@ def _verified_protocol(
             ):
                 raise ValueError(
                     f"evaluator correction runtime binding mismatch: {relative}"
+                )
+    if protocol.schema_version == "1.9":
+        successor_path = _under(
+            root,
+            Path(protocol.successor_integrity_calibration_artifact or "missing"),
+        )
+        successor = load_successor_integrity_calibration(successor_path)
+        if (
+            successor.artifact_digest
+            != protocol.successor_integrity_calibration_digest
+        ):
+            raise ValueError("successor integrity calibration digest mismatch")
+        expected_successor_pins = {
+            "user_empty_final_repair_policy": (
+                protocol.user_empty_final_repair_policy
+            ),
+            "user_empty_final_repair_limit": protocol.user_empty_final_repair_limit,
+            "updater_sandbox_output_policy": protocol.updater_sandbox_output_policy,
+        }
+        actual_successor_pins = {
+            key: getattr(successor, key) for key in expected_successor_pins
+        }
+        if actual_successor_pins != expected_successor_pins:
+            raise ValueError("successor integrity calibration conflicts with protocol pins")
+        source_path = _under(root, Path(successor.source_incident_artifact))
+        try:
+            source_incident = json.loads(source_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("cannot read successor integrity incident") from exc
+        if not isinstance(source_incident, dict):
+            raise ValueError("successor integrity incident must be a JSON object")
+        declared_source = source_incident.pop("artifact_digest", None)
+        if (
+            declared_source != successor.source_incident_digest
+            or canonical_digest(source_incident) != successor.source_incident_digest
+        ):
+            raise ValueError("successor integrity incident digest mismatch")
+        for relative, expected_digest in successor.runtime_bindings.items():
+            runtime_path = _under(root, Path(relative))
+            if (
+                not allow_runtime_binding_mismatch
+                and (
+                    not runtime_path.is_file()
+                    or file_digest(runtime_path) != expected_digest
+                )
+            ):
+                raise ValueError(
+                    f"successor integrity runtime binding mismatch: {relative}"
                 )
     return protocol
 

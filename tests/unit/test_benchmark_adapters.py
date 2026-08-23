@@ -300,6 +300,8 @@ def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
         pilot_config(tmp_path),
         network_route_policy="direct_no_proxy",
         global_task_attempt_limit=2,
+        user_empty_final_repair_policy="bounded_same_call_context_final_only_v1",
+        user_empty_final_repair_limit=1,
     )
     adapter = DshTau3Adapter(tmp_path, checkout=checkout, pilot=config)
     request = BenchmarkRunRequest(
@@ -338,6 +340,10 @@ def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
         "bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias"
     )
     assert captured["AGENTLOOPGATE_DSH_TURN_TIMEOUT_SECONDS"] == "360"
+    assert captured["AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY"] == (
+        "bounded_same_call_context_final_only_v1"
+    )
+    assert captured["AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT"] == "1"
     assert captured["AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS"] == "300000"
     assert captured["AGENTLOOPGATE_EMPTY_FINAL_REPAIR_POLICY"] == (
         "bounded_same_session_final_only_v1"

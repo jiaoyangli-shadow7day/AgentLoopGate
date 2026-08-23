@@ -1,4 +1,4 @@
-# Banking R12 successor plan
+# Banking R12 terminal and R13 successor plan
 
 Status: terminal immutable `HOLD`. Protocol, Study, Evaluation Baseline,
 calibrations, isolated DeepSeek Harness profile, preregistration, paid scope,
@@ -64,10 +64,10 @@ The content-addressed terminal record is
 R12 supports a fail-closed and independent-cost-governance claim. It does not
 support candidate-effectiveness or positive self-evolution claims.
 
-## Frozen inputs required before execution
+## Frozen inputs required for the R13 successor
 
-Before any model call, create a fresh experiment identity (provisionally
-`EXP_BANKING_R12`) that content-addresses all of the following:
+Before any future model call, create the fresh experiment identity
+`EXP_BANKING_R13` that content-addresses all of the following:
 
 1. The execution tree containing the two R11 recovery fixes, including
    `763597c` and `5d8fd86`, plus its clean working-tree digest.
@@ -82,6 +82,24 @@ Before any model call, create a fresh experiment identity (provisionally
    price table, cost-lineage policy, and trace-redaction policy.
 5. A machine-readable preregistration and a no-key clean-room record produced
    from the exact frozen execution source.
+6. Protocol `1.9+` pins for the bounded one-call User Simulator empty-final
+   repair and attempt-local AHE/NexAU output routing, plus the content-addressed
+   R12 incident and successor-integrity calibration. The AHE doctor must execute
+   a real NexAU bash write inside the formal sandbox before any Updater model
+   call.
+
+R13 preparation has completed this no-model integrity layer. The first focused
+attempt passed 92 tests and failed one exact-stdout assertion because pinned AHE
+printed non-secret environment-status lines before its readiness marker. The
+corrected focused attempt passed 93 tests. The final exact-source clean-room
+passed 199 Python and 13 TypeScript tests, Ruff, sdist→wheel, DSH conformance,
+plugin build/pack, and a 295-file Secret/direct-PII scan with zero findings in
+22.38 s real (15.87 s user, 3.76 s sys; maximum RSS 358,989,824 bytes). Every
+preparation attempt made zero external model calls and known Provider cost was
+USD `0`; local compute monetary cost remains `unmetered_unknown`. The current
+calibration digest is
+`sha256:671567a3abd4061b9766ac385568062e5d66f929280ef985e90706a70620eea6`.
+No R13 paid identity or authorization exists yet.
 
 The new configuration must reject reuse of R11 task results as decision-grade
 R12 evidence. Existing-only recovery may only seal already retained evidence;
@@ -99,7 +117,8 @@ The first paid scope is intentionally complete and bounded:
 | Selection | 60 | A0 plus the same three candidates, decisions, full cost/latency/retry/integrity inputs |
 
 No stage may begin until the preceding evidence is sealed and verifies as
-complete. R12 ran under its exact content-addressed machine authorization.
+complete. R12 ran under its exact content-addressed machine authorization and
+cannot be reused; R13 requires a new exact authorization artifact.
 Future private experiments use the standing Owner mandate while retaining an
 exact per-scope authorization artifact; credentials, a frozen config, or a
 green preflight alone remain insufficient.

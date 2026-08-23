@@ -18,6 +18,8 @@ from .tau3_evaluator_overlay import (
     verify_evaluator_overlay_sources,
 )
 from .tau3_evidence import (
+    USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
+    USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT,
     GlobalTaskAttemptBudgetExhausted,
     bind_current_task_attempt_session,
     current_task_attempt_identity_fields,
@@ -60,6 +62,8 @@ __all__ = [
     "Tau3PilotError",
     "Tau3TurnEnvelope",
     "Tau3TurnResult",
+    "USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT",
+    "USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT",
     "bind_current_task_attempt_session",
     "apply_evaluator_overlay",
     "bootstrap_deepseek_harness",

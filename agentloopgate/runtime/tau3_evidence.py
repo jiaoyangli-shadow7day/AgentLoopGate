@@ -40,6 +40,15 @@ _MODEL_USAGE_SCHEMA_ENV = "AGENTLOOPGATE_MODEL_USAGE_LEDGER_SCHEMA_VERSION"
 _INPUT_PRICE_ENV = "AGENTLOOPGATE_INPUT_PRICE_PER_MILLION"
 _CACHE_READ_PRICE_ENV = "AGENTLOOPGATE_CACHE_READ_PRICE_PER_MILLION"
 _OUTPUT_PRICE_ENV = "AGENTLOOPGATE_OUTPUT_PRICE_PER_MILLION"
+_USER_EMPTY_FINAL_POLICY_ENV = "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY"
+_USER_EMPTY_FINAL_LIMIT_ENV = "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT"
+USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT = "bounded_same_call_context_final_only_v1"
+USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT = 1
+_USER_EMPTY_FINAL_REPAIR_PROMPT = (
+    "Your preceding simulated-user response contained neither text nor a tool call. "
+    "Using the unchanged conversation and user goal, emit only the missing final user "
+    "response. Do not introduce new facts or alter the simulated user's intent."
+)
 _SECRET = re.compile(r"(?i)(?:sk|api[_-]?key|token)[=: ]+[A-Za-z0-9._-]{12,}")
 _INVOCATION_ID = f"INV_{uuid4().hex.upper()}"
 _INSTALLED = False
@@ -91,8 +100,9 @@ def _install_user_model_ledger() -> None:
     original = user_simulator.generate
     ledger = Path(os.environ[_USER_LEDGER_ENV]).resolve()
     pricing = _frozen_token_pricing()
+    repair_limit = _user_empty_final_repair_limit()
 
-    def recorded_generate(
+    def record_one_generate(
         model: str,
         messages: list[Any],
         tools: list[Any] | None = None,
@@ -183,7 +193,121 @@ def _install_user_model_ledger() -> None:
         )
         return result
 
+    def recorded_generate(
+        model: str,
+        messages: list[Any],
+        tools: list[Any] | None = None,
+        tool_choice: str | None = None,
+        call_name: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        first = record_one_generate(
+            model=model,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            call_name=call_name,
+            **kwargs,
+        )
+        if (
+            repair_limit == 0
+            or call_name != "user_simulator_response"
+            or not _is_empty_user_model_response(first)
+        ):
+            return first
+
+        from tau2.data_model.message import UserMessage
+
+        repair_messages = [
+            *messages,
+            UserMessage(role="user", content=_USER_EMPTY_FINAL_REPAIR_PROMPT),
+        ]
+        repaired = record_one_generate(
+            model=model,
+            messages=repair_messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            call_name="user_simulator_response_empty_final_repair",
+            **kwargs,
+        )
+        return _aggregate_user_empty_final_repair(first, repaired)
+
     user_simulator.generate = recorded_generate
+
+
+def _user_empty_final_repair_limit() -> int:
+    policy = os.environ.get(_USER_EMPTY_FINAL_POLICY_ENV)
+    raw_limit = os.environ.get(_USER_EMPTY_FINAL_LIMIT_ENV)
+    if policy is None and raw_limit is None:
+        return 0
+    if policy != USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT:
+        raise RuntimeError(
+            "unsupported User Simulator empty-final repair policy: "
+            f"{policy!r}"
+        )
+    try:
+        limit = int(raw_limit or "")
+    except ValueError as exc:
+        raise RuntimeError(
+            "User Simulator empty-final repair limit must be exactly 1"
+        ) from exc
+    if limit != USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT:
+        raise RuntimeError("User Simulator empty-final repair limit must be exactly 1")
+    return limit
+
+
+def _is_empty_user_model_response(result: Any) -> bool:
+    content = getattr(result, "content", None)
+    has_content = isinstance(content, str) and bool(content.strip())
+    return not has_content and not bool(getattr(result, "tool_calls", None))
+
+
+def _aggregate_user_empty_final_repair(first: Any, repaired: Any) -> Any:
+    first_usage = first.usage if isinstance(getattr(first, "usage", None), dict) else {}
+    repaired_usage = (
+        repaired.usage if isinstance(getattr(repaired, "usage", None), dict) else {}
+    )
+    usage: dict[str, Any] = {}
+    for key in set(first_usage) | set(repaired_usage):
+        first_value = first_usage.get(key)
+        repaired_value = repaired_usage.get(key)
+        if (
+            isinstance(first_value, int)
+            and not isinstance(first_value, bool)
+            and isinstance(repaired_value, int)
+            and not isinstance(repaired_value, bool)
+        ):
+            usage[key] = first_value + repaired_value
+        else:
+            usage[key] = repaired_value if key in repaired_usage else first_value
+
+    first_cost = _decimal(getattr(first, "cost", None))
+    repaired_cost = _decimal(getattr(repaired, "cost", None))
+    aggregate_cost = (
+        float(first_cost + repaired_cost)
+        if first_cost is not None and repaired_cost is not None
+        else None
+    )
+    raw_data = getattr(repaired, "raw_data", None)
+    raw_payload = dict(raw_data) if isinstance(raw_data, dict) else {}
+    raw_payload["agentloopgate_user_empty_final_repair"] = {
+        "policy": USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT,
+        "repair_count": 1,
+        "usage_digest": canonical_digest(
+            {"empty_call": first_usage, "repair_call": repaired_usage}
+        ),
+    }
+    updates = {
+        "usage": usage,
+        "cost": aggregate_cost,
+        "raw_data": raw_payload,
+    }
+    model_copy = getattr(repaired, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update=updates)
+    for key, value in updates.items():
+        setattr(repaired, key, value)
+    return repaired
 
 
 def _install_global_attempt_budget() -> None:

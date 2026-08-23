@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R13_R12_SUCCESSOR_INTEGRITY_INCIDENT",
+  "source_experiment_id": "EXP_BANKING_R12",
+  "recorded_at": "2026-08-23T15:21:51Z",
+  "contains_raw_customer_data": false,
+  "source_terminal_seal": "artifacts/research/banking_r12/formal_execution_seal.json",
+  "source_terminal_seal_digest": "sha256:73457f10b7a7f8e2347b7d06cf24680ff46805546290b3ba89432bbca5ad383e",
+  "incidents": [
+    {
+      "incident_class": "user_simulator_empty_final_message",
+      "affected_positions": [
+        {
+          "task_id": "task_073",
+          "stage": "update_check",
+          "attempt_index": 1,
+          "terminal_error": "UserMessage must have either content or tool_calls"
+        },
+        {
+          "task_id": "task_073",
+          "stage": "update_check",
+          "attempt_index": 2,
+          "terminal_error": "UserMessage must have either content or tool_calls"
+        }
+      ],
+      "root_cause": "The pinned tau user simulator converted a provider response with neither final text nor tool calls into an invalid UserMessage without a bounded repair opportunity.",
+      "upstream_source_digest": "sha256:bfe1defe73bce25450b2be697c249d6cec2f3ba25a70e32e2452ba75a53a630c",
+      "disposition": "R12 remains immutable HOLD; a successor may make one separately ledgered same-context final-only User Simulator repair and must fail closed if the second response is still empty."
+    },
+    {
+      "incident_class": "ahe_sandbox_output_path_outside_attempt_root",
+      "affected_attempt_scope": "all three R12 external AHE candidate attempts",
+      "observed_path": "/tmp/nexau_bash_tool_results",
+      "observed_terminal_effect": "AHE stderr contained repeated Operation not permitted diagnostics; all three processes nevertheless exited zero and emitted candidates, but no candidate effectiveness evaluation occurred.",
+      "root_cause": "The formal macOS sandbox allowed writes only under the AHE attempt root while NexAU LocalSandbox and AHE LongToolOutputMiddleware defaulted to process-global /tmp paths.",
+      "nexau_local_sandbox_digest": "sha256:4c5d169053119e604032acdadc2110f0e690e8158c4046b501fa1af65f79a701",
+      "ahe_long_tool_output_digest": "sha256:1b213b047a235ea86ce6d5c029a7e7cba290d1e07ce3a5877c0f9a7e94fedf67",
+      "disposition": "R12 candidates remain historical and unevaluated; successor AHE attempts must route bash results, long tool output, cache, and TMPDIR under their own content-addressed attempt root and verify this inside the formal sandbox before any model call."
+    }
+  ],
+  "classification": {
+    "implementation_gap": true,
+    "protocol_gap": true,
+    "spec_gap": true,
+    "objective_changed": false,
+    "split_changed": false,
+    "evaluator_changed": false,
+    "pricing_changed": false,
+    "r12_history_rewritten": false
+  },
+  "required_successor_controls": [
+    "bind bounded_same_call_context_final_only_v1 with a repair limit of exactly one",
+    "record both User Simulator calls independently and aggregate their usage and comparison-only raw cost into the retained simulation",
+    "keep direct frozen-price call accounting authoritative and preserve second-empty failure",
+    "bind attempt_local_runtime_only_v1 for external Updater sandbox outputs",
+    "execute a no-model NexAU bash write inside the exact formal sandbox before any Updater model call",
+    "bind the changed runtime files and no-model acceptance evidence into a new protocol, source revision, baseline, and experiment identity"
+  ],
+  "investigation_accounting": {
+    "external_model_calls": 0,
+    "known_provider_model_cost_usd": "0",
+    "local_compute_monetary_cost": "unmetered_unknown",
+    "r12_observed_provider_cost_lower_bound_unchanged_usd": "1.1970712488"
+  },
+  "artifact_digest": "sha256:552d0cd210f96ee23de5cb2516eff3e90337fdb716d78988677df7e8a0a4ab65"
+}

@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R13_SUCCESSOR_INTEGRITY_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R12",
+  "source_incident_artifact": "artifacts/research/banking_r13/r12_successor_integrity_incident.json",
+  "source_incident_digest": "sha256:552d0cd210f96ee23de5cb2516eff3e90337fdb716d78988677df7e8a0a4ab65",
+  "contains_raw_customer_data": false,
+  "user_empty_final_repair_policy": "bounded_same_call_context_final_only_v1",
+  "user_empty_final_repair_limit": 1,
+  "updater_sandbox_output_policy": "attempt_local_runtime_only_v1",
+  "assertions": [
+    "only user_simulator_response calls with neither nonblank content nor a tool call are eligible for repair",
+    "the repair appends one correction instruction to the unchanged conversation and cannot inspect Formal Gold or infer a tool call",
+    "the original and repair calls receive distinct STARTED and terminal ledger events with direct task, trial, seed, and attempt identity",
+    "a repaired retained response aggregates both usage records while direct frozen-price per-call accounting remains authoritative",
+    "a second empty response remains invalid and cannot trigger a third call",
+    "NexAU bash results, AHE long tool outputs, cache, and process temporary files are confined to the current AHE attempt root",
+    "AHE doctor executes a real NexAU bash command inside the same macOS sandbox profile before any Updater model call"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:0c4da255d6c204f8e3fe5e55f985c30fe704895c902a9780dc770e12439a1886",
+    "agentloopgate/runtime/__init__.py": "sha256:447f35d9728d0796874dc4a231a918eef21e66186b03c4500713be25a3e0880b",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:16a8bd0590f925f8092b0996a8c498d9311fe28689240db07c24180636e459c9",
+    "agentloopgate/updaters/ahe.py": "sha256:d572b851389c272a312a589a0b2fa779393f195f13d8e386504d8f92cc44b78c",
+    "agentloopgate/experiment/protocol.py": "sha256:5d6a5cac3b2fa6a9a81b2f15ba866143c35367488d506472e57280939d092876",
+    "agentloopgate/experiment/service.py": "sha256:b458a5bc19544ffd59b8db17041db8e6a7648e4046ae231a0dfc4893abb7d538",
+    "agentloopgate/experiment/__init__.py": "sha256:5e9ac885a3def2c656dcd4fabde5fcbbb066df7f7a60dd0abf26499bb7441f13",
+    "tests/unit/test_tau3_pilot_runtime.py": "sha256:185eb0dc45d0682c587148918beb9214bd58f1057ccc5b267e2d47c2a637b48d",
+    "tests/unit/test_updaters.py": "sha256:0f771ae887c3e423150c18874dc04b00efeea12179fdfcfa7a126bdf2bb756f8"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-23T15:30:10Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "user_empty_final_single_repair": "passed",
+      "user_empty_final_second_empty_fails_closed": "passed",
+      "user_usage_and_cost_aggregation": "passed",
+      "user_calls_separately_ledgered": "passed",
+      "invalid_policy_or_limit_rejected": "passed",
+      "ahe_runtime_paths_attempt_local": "passed",
+      "ahe_long_tool_output_attempt_local": "passed",
+      "nexau_bash_inside_formal_sandbox": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R13-NM-001",
+        "scope": "focused_successor_integrity_initial",
+        "status": "failed",
+        "tests_passed": 92,
+        "tests_failed": 1,
+        "failure": "AHE import emitted environment-status lines before the readiness marker; the probe used an exact-stdout assertion instead of marker membership.",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R13-NM-002",
+        "scope": "focused_successor_integrity_corrected",
+        "status": "passed",
+        "tests_passed": 93,
+        "ruff": "passed",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R13-NM-003",
+        "scope": "full_unit_and_static",
+        "status": "passed",
+        "python_tests_passed": 198,
+        "ruff": "passed",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R13-NM-004",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 198,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel_install": "passed",
+        "dsh_headless_bundle_conformance": "passed",
+        "plugin_build_and_pack": "passed",
+        "secret_pii_scan": "passed_293_files_zero_findings",
+        "real_seconds": "25.66",
+        "user_cpu_seconds": "15.58",
+        "system_cpu_seconds": "3.70",
+        "maximum_resident_set_bytes": 357580800,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R13-NM-005",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 199,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel_install": "passed",
+        "dsh_headless_bundle_conformance": "passed",
+        "plugin_build_and_pack": "passed",
+        "secret_pii_scan": "passed_295_files_zero_findings",
+        "real_seconds": "22.38",
+        "user_cpu_seconds": "15.87",
+        "system_cpu_seconds": "3.76",
+        "maximum_resident_set_bytes": 358989824,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "no-model fixtures prove bounded behavior, accounting, and sandbox routing but do not estimate how frequently future provider responses will be empty",
+    "the AHE sandbox probe verifies local bash evidence routing and configured long-output routing but does not claim that an unevaluated R12 candidate was effective",
+    "local compute monetary cost is unmetered_unknown and is not represented as zero",
+    "a paid successor still requires a new immutable protocol, source revision, baseline, preregistration, and exact machine authorization"
+  ],
+  "artifact_digest": "sha256:671567a3abd4061b9766ac385568062e5d66f929280ef985e90706a70620eea6"
+}
