@@ -870,6 +870,7 @@ class FormalExperimentService:
             objective_digest=computed_contract_digest(contract),
             split_digest=split.split_digest,
             pricing=pricing,
+            allow_runtime_binding_mismatch=existing_only,
         )
         if not existing_only and (
             self.config.schema_version != "1.2"
@@ -1187,6 +1188,7 @@ class FormalExperimentService:
         objective_digest: str,
         split_digest: str,
         pricing,
+        allow_runtime_binding_mismatch: bool = False,
     ) -> FormalExecutionProtocol | None:
         return _verified_protocol(
             self.root,
@@ -1194,6 +1196,7 @@ class FormalExperimentService:
             objective_digest=objective_digest,
             split_digest=split_digest,
             pricing=pricing,
+            allow_runtime_binding_mismatch=allow_runtime_binding_mismatch,
         )
 
     def _task_ids(self, stage: FormalStage) -> list[str]:
@@ -1280,6 +1283,7 @@ def _verified_protocol(
     objective_digest: str,
     split_digest: str,
     pricing: PilotPricingConfig,
+    allow_runtime_binding_mismatch: bool = False,
 ) -> FormalExecutionProtocol | None:
     if config.execution_protocol_config is None:
         return None
@@ -1368,7 +1372,13 @@ def _verified_protocol(
             raise ValueError("reply-lineage source diagnosis digest mismatch")
         for relative, expected_digest in lineage.runtime_bindings.items():
             runtime_path = _under(root, Path(relative))
-            if not runtime_path.is_file() or file_digest(runtime_path) != expected_digest:
+            if (
+                not allow_runtime_binding_mismatch
+                and (
+                    not runtime_path.is_file()
+                    or file_digest(runtime_path) != expected_digest
+                )
+            ):
                 raise ValueError(
                     f"reply-lineage runtime binding mismatch: {relative}"
                 )
@@ -1413,7 +1423,13 @@ def _verified_protocol(
             raise ValueError("cost-lineage source incident digest mismatch")
         for relative, expected_digest in cost.runtime_bindings.items():
             runtime_path = _under(root, Path(relative))
-            if not runtime_path.is_file() or file_digest(runtime_path) != expected_digest:
+            if (
+                not allow_runtime_binding_mismatch
+                and (
+                    not runtime_path.is_file()
+                    or file_digest(runtime_path) != expected_digest
+                )
+            ):
                 raise ValueError(
                     f"cost-lineage runtime binding mismatch: {relative}"
                 )
@@ -1486,7 +1502,13 @@ def _verified_protocol(
             raise ValueError("evaluator calibration affected tasks mismatch")
         for relative, expected_digest in evaluator_calibration.runtime_bindings.items():
             runtime_path = _under(root, Path(relative))
-            if not runtime_path.is_file() or file_digest(runtime_path) != expected_digest:
+            if (
+                not allow_runtime_binding_mismatch
+                and (
+                    not runtime_path.is_file()
+                    or file_digest(runtime_path) != expected_digest
+                )
+            ):
                 raise ValueError(
                     f"evaluator correction runtime binding mismatch: {relative}"
                 )

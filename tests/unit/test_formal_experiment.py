@@ -859,6 +859,26 @@ def test_banking_r7_freezes_reply_v5_and_direct_lineage_protocol() -> None:
         )
 
 
+def test_banking_r11_existing_only_allows_runtime_repair_but_keeps_artifacts_pinned() -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r11.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    pricing = load_pilot_pricing(Path(config.pricing_config))
+
+    verified = _verified_protocol(
+        Path(".").resolve(),
+        config,
+        objective_digest=protocol.objective_digest,
+        split_digest=protocol.split_digest,
+        pricing=pricing,
+        allow_runtime_binding_mismatch=True,
+    )
+
+    assert verified is not None
+    assert verified.protocol_digest == protocol.protocol_digest
+
+
 def test_banking_r7_rejects_tampered_reply_lineage_calibration(
     tmp_path: Path,
 ) -> None:
