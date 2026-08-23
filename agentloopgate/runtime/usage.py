@@ -33,13 +33,17 @@ class CostStatus(StrEnum):
 class ModelCallUsageEvent(StrictModel):
     """One append-only lifecycle event for one model invocation."""
 
-    schema_version: Literal["1.0", "1.1"] = "1.0"
+    schema_version: Literal["1.0", "1.1", "1.2"] = "1.0"
     event_id: ArtifactId
     call_id: ArtifactId
     state: AttemptState
     recorded_at: UtcDateTime
     session_id_hash: Digest
     model: NonEmpty
+    task_id: NonEmpty | None = None
+    trial: int | None = Field(default=None, ge=0)
+    seed: int | None = None
+    task_attempt_index: int | None = Field(default=None, ge=1)
     duration_ms: int | None = Field(default=None, ge=0)
     input_tokens: int | None = Field(default=None, ge=0)
     cache_read_tokens: int | None = Field(default=None, ge=0)
@@ -64,6 +68,18 @@ class ModelCallUsageEvent(StrictModel):
             raise ValueError("model-call usage 1.1 requires provider_retry_count")
         if self.schema_version == "1.0" and self.provider_retry_count is not None:
             raise ValueError("model-call usage 1.0 cannot contain provider_retry_count")
+        task_identity = (
+            self.task_id,
+            self.trial,
+            self.seed,
+            self.task_attempt_index,
+        )
+        if self.schema_version == "1.2" and any(value is None for value in task_identity):
+            raise ValueError("model-call usage 1.2 requires complete task-attempt identity")
+        if self.schema_version != "1.2" and any(
+            value is not None for value in task_identity
+        ):
+            raise ValueError("only model-call usage 1.2 can contain task identity")
         return self
 
 
@@ -75,6 +91,9 @@ def append_model_call_event(path: Path, event: ModelCallUsageEvent) -> None:
     payload = event.model_dump(mode="json")
     if event.schema_version == "1.0" and event.provider_retry_count is None:
         payload.pop("provider_retry_count", None)
+    if event.schema_version != "1.2":
+        for field in ("task_id", "trial", "seed", "task_attempt_index"):
+            payload.pop(field, None)
     encoded = canonical_json_bytes(payload) + b"\n"
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
@@ -85,7 +104,12 @@ def append_model_call_event(path: Path, event: ModelCallUsageEvent) -> None:
 
 
 def make_model_call_event(**payload: Any) -> ModelCallUsageEvent:
-    if payload.get("provider_retry_count", 0) is None:
+    task_fields = ("task_id", "trial", "seed", "task_attempt_index")
+    has_task_identity = any(payload.get(field) is not None for field in task_fields)
+    if has_task_identity:
+        payload["schema_version"] = "1.2"
+        payload.setdefault("provider_retry_count", 0)
+    elif payload.get("provider_retry_count", 0) is None:
         payload["schema_version"] = "1.0"
         payload.pop("provider_retry_count", None)
     else:
@@ -104,6 +128,9 @@ def make_model_call_event(**payload: Any) -> ModelCallUsageEvent:
     )
     if draft.schema_version == "1.0" and "provider_retry_count" not in draft.model_fields_set:
         normalized.pop("provider_retry_count", None)
+    if draft.schema_version != "1.2":
+        for field in task_fields:
+            normalized.pop(field, None)
     digest = canonical_digest(normalized)
     return draft.model_copy(
         update={
@@ -119,5 +146,8 @@ def verify_model_call_event(event: ModelCallUsageEvent) -> None:
     )
     if event.schema_version == "1.0" and event.provider_retry_count is None:
         payload.pop("provider_retry_count", None)
+    if event.schema_version != "1.2":
+        for field in ("task_id", "trial", "seed", "task_attempt_index"):
+            payload.pop(field, None)
     if canonical_digest(payload) != event.event_digest:
         raise ValueError("model call event digest mismatch")

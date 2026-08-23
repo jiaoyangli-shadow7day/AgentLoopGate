@@ -48,6 +48,8 @@ class BenchmarkRunRequest(StrictModel):
     user_model_max_retries: int = Field(default=1, ge=0)
     resume: bool = False
     model_usage_ledger: Path | None = None
+    user_model_usage_ledger: Path | None = None
+    task_attempt_ledger: Path | None = None
 
     @model_validator(mode="after")
     def tasks_are_unique(self) -> BenchmarkRunRequest:

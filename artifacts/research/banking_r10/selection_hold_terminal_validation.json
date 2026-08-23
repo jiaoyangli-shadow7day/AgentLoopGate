@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "selection_hold_terminal_validation",
+  "recorded_at": "2026-08-23T03:30:01Z",
+  "experiment_context": "EXP_BANKING_R10",
+  "execution_mode": "zero_model_correction_validation",
+  "source_revision": "tree:sha256:c80288e3b2b9f93119aa76b5750bb588979245cff261886836fd5a9f20e006ec",
+  "spec_revision": "v1.0 Execution Core r35",
+  "purpose": "prove that corrected Selection abstention is a normal sealed terminal outcome and cannot trigger the Release tail",
+  "historical_paid_evidence": {
+    "completed_task_positions_through_c2_selection": 95,
+    "known_model_cost_usd": "3.0651904832",
+    "cost_status": "exact",
+    "c3_selection_started": false,
+    "release_id_started": false,
+    "release_ood_started": false,
+    "replay_started": false
+  },
+  "implementation_bindings": {
+    "agentloopgate/experiment/orchestrator.py": "sha256:83324ee25bf72defd264e8690218e8fac9f5e0bb2567527312de256efbf5c950",
+    "agentloopgate/cli.py": "sha256:ed6ec80905dd437e84b357ad6829301ddd1721805eca0604034986e7e2da42c1",
+    "tests/unit/test_formal_experiment.py": "sha256:c5f83906caea9f39232a8f40d26e80ffc62168a6882fbf99b4b268101b477f79",
+    "tests/unit/test_cli.py": "sha256:061605ef6f33973cf5a08a4714d39e4611f6bc44730b9832536b85034022d666",
+    "SPEC.md": "sha256:ff43f4d50f1f2e4173c63a1e9e204f40402c1f6bffbeaed32cfc737a008ed2e0",
+    "README.md": "sha256:c02dca2642e7b46de1c1f421ea75bcf2d599b0e785644bd5bd0336b1b300bc03",
+    "docs/release-readiness.md": "sha256:faac3ef3832cd22f29d2fab7657a5a1a704131778f1745eba7a3888744d62d4d"
+  },
+  "behavioral_guarantees_verified": [
+    "Selection HOLD returns a successful typed CLI outcome rather than an infrastructure-error exit",
+    "agentloopgate_candidate_id is null and every governed candidate transitions to terminal held",
+    "no release_id, release_ood, or replay stage is started after Selection HOLD",
+    "selection_hold_outcome.json and JSON/Markdown reports bind protocol, study, source, selection, lineage, batches, candidates, costs, and file digests",
+    "formal batch costs must be exact and updater costs retain exact, partial, or unavailable scope without converting unknown amounts to zero",
+    "an updater attempt claiming exact cost without a known amount fails closed",
+    "a crash after terminal candidate transition can resume and seal the same outcome without reopening paid stages",
+    "repeated terminal verification is existing-evidence-only and detects Release batch or report drift"
+  ],
+  "validation": {
+    "ruff": "passed",
+    "python_tests_passed": 176,
+    "typescript_tests_passed": 13,
+    "python_sdist_to_wheel_clean_install": "passed",
+    "deepseek_harness_headless_conformance": "passed",
+    "deepseek_harness_package_build": "passed",
+    "clean_room_public_tree_files_scanned": 257,
+    "post_artifact_public_tree_files_scanned": 257,
+    "public_tree_secret_or_pii_findings": 0,
+    "clean_room_real_seconds": "32.95",
+    "clean_room_user_cpu_seconds": "14.04",
+    "clean_room_system_cpu_seconds": "9.13",
+    "clean_room_maximum_resident_set_bytes": 350765056,
+    "clean_room_peak_memory_footprint_bytes": 1327440
+  },
+  "correction_cost": {
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "model_cost_status": "not_applicable",
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "paid_execution_status": "paused_pending_explicit_owner_authorization",
+  "next_paid_checkpoint_if_authorized": {
+    "update_source_positions": 25,
+    "update_check_positions": 40,
+    "selection_positions": 60,
+    "total_positions_before_release": 125,
+    "release_tail_positions": 450,
+    "release_tail_requires_separate_authorization": true,
+    "stop_condition": "seal Selection HOLD immediately when no candidate passes"
+  },
+  "limitations": [
+    "zero-model tests prove workflow and evidence semantics but do not establish a positive candidate effect",
+    "R10 C1 and C2 outcomes remain historical context and cannot be upgraded into corrected-selector evidence",
+    "the next real terminal outcome still requires a new frozen identity and complete paid evidence",
+    "local compute monetary cost was not metered"
+  ],
+  "artifact_digest": "sha256:05319b71d3779592980e14e5c73a3b3c49412c38b2bcb4132e56ee82d1a7ae99"
+}

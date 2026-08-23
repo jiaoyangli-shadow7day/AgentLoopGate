@@ -1,0 +1,124 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "R10_SELECTION_DESIGN_CORRECTION_1",
+  "experiment_id": "EXP_BANKING_R10",
+  "recorded_at": "2026-08-23T05:30:00Z",
+  "contains_raw_customer_data": false,
+  "disposition": "paid_hold",
+  "paid_hold_scope": [
+    "selection:C_AHE_23F1F9DC6BD4",
+    "release_id:all_roles",
+    "release_ood:all_roles",
+    "replay:all_roles"
+  ],
+  "completed_formal_task_positions": 95,
+  "completed_evidence": {
+    "update_source": {
+      "batch_id": "B_145C664C1F8B470102DE",
+      "task_positions": 25
+    },
+    "update_check": {
+      "batch_ids": [
+        "B_EA4D8A0EB9C0C42857BD",
+        "B_26B6863D85A17687AC61",
+        "B_AA31CAD95872F7185078",
+        "B_D3177EF5CD677126F38F"
+      ],
+      "task_positions": 40
+    },
+    "selection": {
+      "batch_ids": [
+        "B_60B386895A4CA0DF48E3",
+        "B_6F8C6928CFF75886A3CD"
+      ],
+      "task_positions": 30,
+      "c1_stable_success": 7,
+      "c2_stable_success": 7
+    }
+  },
+  "cost_accounting": {
+    "currency": "USD",
+    "formal_model_cost_through_c2": "3.0651904832",
+    "local_compute_cost_status": "unmetered_unknown",
+    "c1_selection_whole_attempt_cost": "0.5674393312",
+    "c2_selection_whole_attempt_cost": "0.4124392888",
+    "c2_failed_attempt_cost": "0.0108813656"
+  },
+  "design_findings": [
+    {
+      "code": "MISSING_A0_SELECTION_COMPARATOR",
+      "severity": "material",
+      "evidence": "configs/banking_r10_study_v1.yaml declares Selection variant_count=3"
+    },
+    {
+      "code": "NO_SELECTOR_ABSTENTION",
+      "severity": "material",
+      "evidence": "legacy DualSelector always returns one governance-eligible candidate"
+    },
+    {
+      "code": "INCOMPLETE_OPERATIONAL_SELECTION_EVIDENCE",
+      "severity": "material",
+      "evidence": "legacy ordering consumes stable success, valid mean cost, and p50 only"
+    },
+    {
+      "code": "SEMANTICALLY_DUPLICATE_CANDIDATES",
+      "severity": "material",
+      "candidate_ids": [
+        "C_AHE_AED3D43F759E",
+        "C_AHE_23F1F9DC6BD4"
+      ],
+      "semantic_tags": [
+        "gated_success_claim",
+        "read_after_write",
+        "terminal_state_verification"
+      ],
+      "semantic_fingerprint": "sha256:d3c154f73178ef2be65d0d36add62e1e021e4d9872fd3d7f7300be225beea329"
+    },
+    {
+      "code": "UNBOUND_STATIC_CAPABILITY_TARGETS",
+      "severity": "material",
+      "candidate_id": "C_AHE_A3C057997F5B",
+      "corrected_check_disposition": "REJECT_UNBOUND_CAPABILITY",
+      "evidence": "candidate hard-codes generic development capabilities absent from the Banking task runtime tool schema"
+    }
+  ],
+  "claim_impact": {
+    "evidence_governance_usefulness": "retained",
+    "trace_persistence_telemetry_coexistence": "retained",
+    "cost_and_attempt_observability": "retained",
+    "correct_self_evolution_direction": "not_established",
+    "governed_candidate_selection": "not_permitted_from_r10"
+  },
+  "required_correction": {
+    "study_schema_minimum": "1.2",
+    "new_experiment_identity_required": true,
+    "selection_task_count": 15,
+    "selection_trials": 1,
+    "selection_variant_count": 4,
+    "selection_target_trials": 60,
+    "core_target_trial_count": 575,
+    "baseline_policy": "same_pool_same_tasks_same_trials_required",
+    "abstain_policy": "hold_unless_strict_stable_gain_without_stable_regression",
+    "operational_evidence_policy": "whole_attempt_retry_timeout_p95_max_v1",
+    "candidate_semantic_policy": "runtime_capability_bound_and_semantically_distinct_v1"
+  },
+  "evidence_reuse": {
+    "historical_context": [
+      "all immutable R10 raw traces, batches, ledgers, costs, attempts, timings, errors, and retries",
+      "C1/C2 task outcomes for hypothesis generation and runtime budgeting"
+    ],
+    "decision_grade_reuse": [],
+    "decision_grade_reuse_status": "blocked_pending_artifact_level_equivalence_audit",
+    "automatic_rerun": false,
+    "owner_authorization_required_for_paid_work": true
+  },
+  "source_refs": [
+    "SPEC.md#1611-r10-c2-之后的-selection-设计修正与付费暂停",
+    "runs/experiments/EXP_BANKING_R10/operator_journal.md",
+    "configs/banking_r10_study_v1.yaml",
+    "agentloopgate/gates/selection.py",
+    "agentloopgate/mutation/service.py",
+    "agentloopgate/runtime/capabilities.py"
+  ],
+  "artifact_digest": "sha256:43b00a41243ca0386996d92d4bd2b7062a487f79068072a3579336fdb2d12af7"
+}

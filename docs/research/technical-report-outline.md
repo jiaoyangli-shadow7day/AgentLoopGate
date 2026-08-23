@@ -1,5 +1,9 @@
 # AgentLoopGate technical report outline
 
+> Historical R2 outline. Its placeholder matrix and 560-trial language are not
+> current results. The report must be rewritten against the next corrected,
+> baseline-bound Selection terminal evidence and the current readiness matrix.
+
 This outline is ready for a workshop paper, systems paper draft, or open-source
 technical report. Bracketed result fields must be populated only from verified
 Banking R2 artifacts. Until then they mean “not available,” not zero.

@@ -68,6 +68,48 @@ def test_ahe_usage_accounting_never_turns_unknown_cost_into_zero(
     assert accounting[6] == Decimal("0.002")
 
 
+def test_ahe_direct_environment_binds_checkout_import_and_removes_proxies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkout = tmp_path / "ahe"
+    checkout.mkdir()
+    runner = AheExternalRunner(
+        checkout,
+        project_root=tmp_path,
+        network_route_policy="direct_no_proxy",
+    )
+    for name in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        monkeypatch.setenv(name, "socks5://invalid.example:1")
+    monkeypatch.setenv("PYTHONPATH", "/existing/path")
+
+    environment = runner._base_environment()
+
+    assert environment["PYTHONPATH"].split(":") == [
+        str(checkout.resolve()),
+        "/existing/path",
+    ]
+    assert environment["NO_PROXY"] == environment["no_proxy"] == "*"
+    assert not any(
+        name in environment
+        for name in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+        )
+    )
+
+
 def asset_manifest() -> HarnessAssetManifest:
     return HarnessAssetManifest.model_validate(
         {

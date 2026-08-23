@@ -3,11 +3,15 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
+from agentloopgate import cli as cli_module
 from agentloopgate.cli import app
+from agentloopgate.experiment import FormalSelectionHoldOutcome
 
 runner = CliRunner()
 
@@ -162,6 +166,79 @@ def test_installed_console_script_runs_outside_source_tree(tmp_path: Path) -> No
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["status"] == "ready"
+
+
+def test_formal_selection_hold_is_a_successful_cli_outcome(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    digest = "sha256:" + "a" * 64
+    payload = {
+        "schema_version": "1.0",
+        "outcome_kind": "selection_hold",
+        "experiment_id": "EXP_HOLD",
+        "protocol_digest": digest,
+        "study_digest": digest,
+        "source_revision": "tree:fixture",
+        "baseline_snapshot_id": "A0",
+        "candidate_ids": ["C_1", "C_2", "C_3"],
+        "candidate_snapshot_ids": ["S_1", "S_2", "S_3"],
+        "native_candidate_id": "C_1",
+        "agentloopgate_candidate_id": None,
+        "final_decision": "HOLD",
+        "decision_reason": "no_candidate_passed_baseline_bound_selection_policy",
+        "selection_digest": digest,
+        "lineage_digest": digest,
+        "batch_ids": ["B_1"],
+        "candidate_statuses": {"C_1": "held", "C_2": "held", "C_3": "held"},
+        "batch_model_cost_usd": Decimal("1.25"),
+        "updater_model_cost_usd": Decimal("0.125"),
+        "total_known_model_cost_usd": Decimal("1.375"),
+        "cost_status": "exact",
+        "unresolved_updater_model_call_count": 0,
+        "unknown_cost_scope": [],
+        "cost_artifact_refs": ["runs/experiments/EXP_HOLD/costs/B_1.json"],
+        "release_batch_count": 0,
+        "model_calls_after_selection": 0,
+        "report_digest": digest,
+        "report_file_digests": {"report.json": digest, "report.md": digest},
+        "outcome_digest": digest,
+    }
+    outcome = FormalSelectionHoldOutcome.model_validate(payload)
+
+    class _Orchestrator:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        @staticmethod
+        def run() -> FormalSelectionHoldOutcome:
+            return outcome
+
+    monkeypatch.setattr(
+        cli_module,
+        "inspect_formal_preflight",
+        lambda *_args, **_kwargs: SimpleNamespace(ready=True, missing=[]),
+    )
+    monkeypatch.setattr(cli_module, "FormalExperimentOrchestrator", _Orchestrator)
+
+    result = runner.invoke(
+        app,
+        [
+            "experiment",
+            "run",
+            "--project",
+            str(tmp_path),
+            "--config",
+            "unused.yaml",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    emitted = json.loads(result.stdout)
+    assert emitted["outcome_kind"] == "selection_hold"
+    assert emitted["final_decision"] == "HOLD"
+    assert emitted["release_batch_count"] == 0
 
 
 def test_deepseek_init_is_idempotent_and_does_not_touch_governance_files(

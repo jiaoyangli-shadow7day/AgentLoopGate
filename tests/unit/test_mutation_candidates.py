@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from agentloopgate.candidates import CandidateRegistry, CandidateStateError
+from agentloopgate.candidates import (
+    CandidateRegistry,
+    CandidateRejectedError,
+    CandidateStateError,
+)
 from agentloopgate.contracts import canonical_digest
 from agentloopgate.mutation import (
     CandidateCheckCode,
@@ -86,6 +90,35 @@ def policy() -> MutationPolicy:
     )
 
 
+def semantic_manifest() -> HarnessAssetManifest:
+    payload = manifest().model_dump(mode="python")
+    payload["schema_version"] = "1.1"
+    payload["assets"].append(
+        {
+            "asset_id": "tool-routing",
+            "family": "tool_contract_routing",
+            "path_patterns": ["harness/tools/**"],
+            "risk_tier": "M",
+            "allowed_operations": ["patch", "evaluate", "rollback"],
+            "rollback_unit": "tool-routing-unit",
+            "semantic_validator": "runtime_capability_routing_v1",
+        }
+    )
+    return HarnessAssetManifest.model_validate(payload)
+
+
+def semantic_policy() -> MutationPolicy:
+    payload = policy().model_dump(mode="python")
+    payload.update(
+        {
+            "schema_version": "1.1",
+            "reject_unbound_static_capabilities": True,
+            "semantic_deduplication": True,
+        }
+    )
+    return MutationPolicy.model_validate(payload)
+
+
 def patch_file(root: Path, body: str, *, name: str = "candidate.patch") -> Path:
     target = root / name
     target.write_text(body, encoding="utf-8")
@@ -107,11 +140,19 @@ def project(root: Path) -> None:
     (root / "configs").mkdir(parents=True)
     (root / "harness/retrieval").mkdir(parents=True)
     (root / "harness/middleware").mkdir(parents=True)
+    (root / "harness/tools").mkdir(parents=True)
     (root / "SPEC.md").write_text("spec", encoding="utf-8")
     (root / "configs/objective_contract.yaml").write_text("objective", encoding="utf-8")
     (root / "harness/system_prompt.md").write_text("old", encoding="utf-8")
     (root / "harness/retrieval/policy.yaml").write_text("old", encoding="utf-8")
     (root / "harness/middleware/hook.py").write_text("old", encoding="utf-8")
+    (root / "harness/tools/routing.yaml").write_text(
+        "schema_version: '1.0'\n"
+        "capability_binding:\n"
+        "  source: runtime_tool_schema\n"
+        "  reject_unknown_route_targets: true\n",
+        encoding="utf-8",
+    )
 
 
 def failure_bundle() -> FailureBundle:
@@ -229,6 +270,101 @@ def test_budget_and_trust_kernel_drift_are_rejected(tmp_path: Path) -> None:
     (tmp_path / "SPEC.md").write_text("tampered", encoding="utf-8")
     legal = patch_file(tmp_path, unified("harness/system_prompt.md", "safe"), name="legal.patch")
     assert checker.check(legal).code is CandidateCheckCode.REJECT_TRUST_KERNEL_DRIFT
+
+
+def test_static_tool_capability_is_rejected_before_candidate_execution(
+    tmp_path: Path,
+) -> None:
+    project(tmp_path)
+    semantic = semantic_policy()
+    checker = CandidateChecker(
+        tmp_path,
+        semantic_manifest(),
+        semantic,
+        freeze_trust_kernel(tmp_path, semantic),
+    )
+    patch = patch_file(
+        tmp_path,
+        unified(
+            "harness/tools/routing.yaml",
+            "  capability: run_shell_command",
+        ),
+    )
+
+    result = checker.check(patch)
+
+    assert result.disposition is CheckDisposition.REJECT
+    assert result.code is CandidateCheckCode.REJECT_UNBOUND_CAPABILITY
+    assert "runtime capability_ref" in result.message
+    assert result.schema_version == "1.1"
+    assert result.semantic_fingerprint is not None
+
+
+def test_runtime_capability_reference_passes_semantic_candidate_check(
+    tmp_path: Path,
+) -> None:
+    project(tmp_path)
+    semantic = semantic_policy()
+    checker = CandidateChecker(
+        tmp_path,
+        semantic_manifest(),
+        semantic,
+        freeze_trust_kernel(tmp_path, semantic),
+    )
+    patch = patch_file(
+        tmp_path,
+        unified(
+            "harness/tools/routing.yaml",
+            "  capability_ref: runtime://tool/lookup_account",
+        ),
+    )
+
+    result = checker.check(patch)
+
+    assert result.disposition is CheckDisposition.PASS
+    assert result.code is CandidateCheckCode.PASS
+
+
+def test_semantically_duplicate_sibling_candidate_is_rejected(tmp_path: Path) -> None:
+    project(tmp_path)
+    semantic = semantic_policy()
+    checker = CandidateChecker(
+        tmp_path,
+        semantic_manifest(),
+        semantic,
+        freeze_trust_kernel(tmp_path, semantic),
+    )
+    registry = CandidateRegistry(tmp_path, checker)
+    first = patch_file(
+        tmp_path,
+        unified(
+            "harness/system_prompt.md",
+            "Read back the terminal state before any success claim.",
+        ),
+        name="first.patch",
+    )
+    second = patch_file(
+        tmp_path,
+        unified(
+            "harness/system_prompt.md",
+            "Re-read terminal state before reporting completion or a success claim.",
+        ),
+        name="second.patch",
+    )
+    kwargs = {
+        "parent_snapshot_id": "S_A0",
+        "failure_bundle": failure_bundle(),
+        "updater_name": "fixture-updater",
+        "updater_version": "1.0@abc123",
+        "hypothesis": "Read-back gates prevent false success claims.",
+        "predicted_metric": "stable_success_task_count",
+        "predicted_direction": "increase",
+        "created_at": datetime(2026, 8, 20, tzinfo=UTC),
+    }
+    registry.register(candidate_id="C_FIRST", patch_path=first, **kwargs)
+
+    with pytest.raises(CandidateRejectedError, match="semantic duplicate of C_FIRST"):
+        registry.register(candidate_id="C_SECOND", patch_path=second, **kwargs)
 
 
 def test_candidate_registry_is_append_only_and_enforces_state_machine(tmp_path: Path) -> None:

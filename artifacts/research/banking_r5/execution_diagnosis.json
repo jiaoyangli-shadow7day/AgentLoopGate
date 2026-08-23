@@ -1,0 +1,190 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R5_EXECUTION_DIAGNOSIS",
+  "experiment_id": "EXP_BANKING_R5",
+  "batch_id": "B_C65BDD4F95EFC0D9EA81",
+  "protocol_digest": "sha256:650a9edddde177230212560958873737dd2819c9e0ff0bb212d97074d32112c0",
+  "batch_digest": "sha256:61ea4725e99016a4939e7fd53e0b70f484d4ce17568f8a4cf59727fb8e92692e",
+  "disposition": "hold",
+  "hold_reasons": ["infra_invalid:2", "missing_valid_trials"],
+  "formal_summary": {
+    "task_positions": 25,
+    "valid_runs": 23,
+    "successes": 7,
+    "task_failures": 16,
+    "infra_invalid": 2,
+    "pass_1": "7/23",
+    "p50_simulation_latency_ms": 198035,
+    "valid_simulation_duration_seconds": {
+      "total": "7511.80590462428524",
+      "minimum": "26.4264731251169",
+      "median": "198.03529012482613",
+      "maximum": "1036.6702934170607"
+    },
+    "outer_process": {
+      "wall_seconds": "9157.16",
+      "user_cpu_seconds": "1223.30",
+      "system_cpu_seconds": "278.86",
+      "maximum_resident_set_bytes": 430309376,
+      "peak_memory_footprint": 9880032
+    }
+  },
+  "cost_accounting": {
+    "valid_cost_status": "exact",
+    "valid_agent_cost_usd": "0.512214029600000021",
+    "valid_user_cost_usd": "0.0943866400000000017",
+    "valid_total_model_cost_usd": "0.6066006696000000227",
+    "whole_attempt_accounting_status": "partial",
+    "whole_attempt_known_lower_bound_usd": "0.65718674880000000402",
+    "known_agent_lower_bound_usd": "0.5591678848",
+    "whole_attempt_exact_user_cost_usd": "0.09801886400000000402",
+    "unknown_billing_scopes": [
+      "task_067 attempt_2 provider request terminated by the outer 300-second subprocess timeout before Usage returned",
+      "task_068 attempt_1 provider request terminated by the outer 300-second subprocess timeout before Usage returned",
+      "local compute monetary cost is unmetered"
+    ]
+  },
+  "model_call_evidence": {
+    "agent": {
+      "started": 758,
+      "terminal": 758,
+      "completed": 752,
+      "failed": 6,
+      "exact_cost_terminal": 756,
+      "unavailable_cost_terminal": 2,
+      "unresolved": 0,
+      "input_tokens_known": 1978142,
+      "cache_read_tokens_known": 38882816,
+      "output_tokens_known": 619129,
+      "max_exact_output_tokens": 10952,
+      "max_exact_duration_ms": 179906,
+      "provider_retries": 0,
+      "unretained_calls": 82
+    },
+    "user": {
+      "started": 193,
+      "terminal": 193,
+      "completed": 193,
+      "failed": 0,
+      "exact_cost_terminal": 193,
+      "unresolved": 0,
+      "input_tokens": 551185,
+      "cache_read_tokens": 0,
+      "output_tokens": 51923,
+      "max_output_tokens": 2880,
+      "max_duration_ms": 48856,
+      "provider_retries": 0,
+      "unretained_calls": 15
+    }
+  },
+  "task_attempt_evidence": {
+    "started": 29,
+    "completed": 23,
+    "failed": 6,
+    "retried_positions": ["task_067", "task_068", "task_074", "task_093"],
+    "permanent_infra_invalid": ["task_067", "task_074"],
+    "recovered_positions": ["task_068", "task_093"]
+  },
+  "empty_final_responses": [
+    {
+      "task_id": "task_067",
+      "attempt_index": 1,
+      "task_attempt_duration_ms": 30626,
+      "agent_call_duration_ms": 2171,
+      "input_tokens": 530,
+      "cache_read_tokens": 16640,
+      "output_tokens": 56,
+      "reasoning_tokens": 56,
+      "final_text_characters": 0,
+      "exact_cost_usd": "0.000136472",
+      "native_session_sha256": "d6f88a1a5ba164d3b4e27926f7bcf7afd23aaa52557b5934702da4dc3bc25ad0"
+    },
+    {
+      "task_id": "task_074",
+      "attempt_index": 1,
+      "task_attempt_duration_ms": 247990,
+      "agent_call_duration_ms": 2595,
+      "input_tokens": 441,
+      "cache_read_tokens": 52096,
+      "output_tokens": 56,
+      "reasoning_tokens": 56,
+      "final_text_characters": 0,
+      "exact_cost_usd": "0.0002232888",
+      "native_session_sha256": "5d19cca759622677fcf1337eae2bd35f8b9673a8b1c4b7c34f08c40dde62d388"
+    },
+    {
+      "task_id": "task_074",
+      "attempt_index": 2,
+      "task_attempt_duration_ms": 419553,
+      "agent_call_duration_ms": 5241,
+      "input_tokens": 492,
+      "cache_read_tokens": 40320,
+      "output_tokens": 56,
+      "reasoning_tokens": 56,
+      "final_text_characters": 0,
+      "exact_cost_usd": "0.000197456",
+      "native_session_sha256": "bba2ade82dc369673427a04ee5d28f3575718621351a3decdaf2c36f6de6c021"
+    },
+    {
+      "task_id": "task_093",
+      "attempt_index": 1,
+      "task_attempt_duration_ms": 27528,
+      "agent_call_duration_ms": 2298,
+      "input_tokens": 504,
+      "cache_read_tokens": 14720,
+      "output_tokens": 56,
+      "reasoning_tokens": 56,
+      "final_text_characters": 0,
+      "exact_cost_usd": "0.000127456",
+      "native_session_sha256": "bea8fa44a3d061d55990b3d83924653a3111039aec724151649188c1e1c9aab0"
+    }
+  ],
+  "outer_timeout_responses": [
+    {
+      "task_id": "task_067",
+      "attempt_index": 2,
+      "task_attempt_duration_ms": 547777,
+      "agent_call_duration_ms": 300018,
+      "usage_status": "unavailable",
+      "last_native_event": "request/header",
+      "last_native_turn": 32,
+      "native_session_sha256": "444f2204b91a0d3914b0636aeef824dc9e3ffd49471e493095e250c446c1f6fb"
+    },
+    {
+      "task_id": "task_068",
+      "attempt_index": 1,
+      "task_attempt_duration_ms": 327503,
+      "agent_call_duration_ms": 300016,
+      "usage_status": "unavailable",
+      "last_native_event": "request/header",
+      "last_native_turn": 9,
+      "native_session_sha256": "5c932cfa1948c53be711a15f1c6892bd1dc5784224b4331cd910aa1d588f9ff8"
+    }
+  ],
+  "pinned_host_timeout_evidence": {
+    "package": "@deepseek-ai/dsh-llm-deepseek@0.1.0-rc.8",
+    "documented_stream_idle_timeout_ms": 300000,
+    "readme_sha256": "87af913a75bfd33e4ce768a7b61d8bd0bd8e6c1cebc73b04b39f0f209bc6dd39",
+    "implementation_sha256": "55540bcd4d5fa3c5c19925d53d041cc85ab358135a5b89223e30a58a729af012",
+    "r5_outer_subprocess_timeout_seconds": 300,
+    "diagnosis": "The outer Python subprocess timeout raced the host's equal five-minute stream-idle watchdog and killed DSH before host-owned timeout persistence and termination could complete."
+  },
+  "r4_compatibility_recovery": {
+    "task_id": "task_078",
+    "r5_attempts": 1,
+    "r5_run_validity": "valid",
+    "r5_task_outcome": "task_failure",
+    "r5_duration_seconds": "832.1853104159236",
+    "conclusion": "Reply policy v4 removed the R4 schema block without changing the evaluator's task outcome."
+  },
+  "required_next_controls": [
+    "classify zero-character final text with reasoning-only usage as empty_final_response rather than invalid_json",
+    "permit at most one separately ledgered same-session repair request that asks only for the missing final reply and performs no semantic inference",
+    "pin the DSH provider stream-idle timeout explicitly",
+    "set the outer subprocess timeout above the host idle timeout with bounded persistence and shutdown grace",
+    "retain the global two-attempt task cap and all R4 cost, network, output, Objective, Split, Gate, model, temperature, task, and trial controls",
+    "use a new Protocol, Study, Experiment, and Baseline for a symmetric 25-position rerun"
+  ],
+  "contains_raw_customer_data": false,
+  "artifact_digest": "sha256:f11501844baccbb4a6412fc5fc3a595e1dee445a9f4b34a712d755ef32c1beda"
+}

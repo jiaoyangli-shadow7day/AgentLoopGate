@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R4_REPLY_COMPATIBILITY_DIAGNOSIS",
+  "experiment_id": "EXP_BANKING_R4",
+  "batch_id": "B_AE1B74E4FC79C7428E3E",
+  "protocol_digest": "sha256:5a3b684b289ca5ac6b647b4aa673a5d798966ab14a1af0df5f1e66444fa76b2d",
+  "task_id": "task_078",
+  "trial": 0,
+  "seed": 626729,
+  "attempts": [
+    {
+      "attempt_index": 1,
+      "classification": "invalid_json_syntax",
+      "normalization_decision": "fail_closed",
+      "reason": "A dynamic tool-name property was emitted without a JSON value; executable intent cannot be recovered without inference.",
+      "final_text_sha256": "1c2b0d82e303d87d8f47e90e680a9d3173a4a1a568b61007b9c9c89823723837",
+      "native_session_sha256": "43bc5a71f129a1030b1a96f00a655c30be84d0af6cca40d57e3cd1f54daaf658"
+    },
+    {
+      "attempt_index": 2,
+      "classification": "redundant_allow_listed_tool_name_with_arguments",
+      "normalization_decision": "eligible_for_future_versioned_rule",
+      "reason": "The object has exactly a dynamic allow-listed tool-name key whose string value equals that key plus an arguments object; the mapping to canonical name and arguments is unique and semantics-preserving.",
+      "final_text_sha256": "0de137948f1a740c3c497130e60732a86c54441bf3b86d0b4782cbc623886f12",
+      "native_session_sha256": "568e20a13138a13fe733039441911333f50b34323172247f9e7ff1220a557dcd"
+    }
+  ],
+  "proposed_rule": {
+    "input_keys": ["<allow-listed-tool-name>", "arguments"],
+    "requirements": [
+      "the dynamic key is present in the exact per-turn tool allow-list",
+      "the dynamic value is a string exactly equal to the dynamic key",
+      "arguments is an object",
+      "there are no additional keys"
+    ],
+    "canonical_output": {
+      "name": "<allow-listed-tool-name>",
+      "arguments": "<unchanged object>"
+    },
+    "reject_if": [
+      "JSON syntax is invalid",
+      "the tool is unknown",
+      "the redundant value differs from the key",
+      "arguments is not an object",
+      "an extra or reserved key exists"
+    ]
+  },
+  "frozen_r4_disposition": "HOLD",
+  "requires_new_protocol_and_experiment": true,
+  "contains_raw_customer_data": false,
+  "artifact_digest": "sha256:b93ed7f097bc8dcba1e9605c2a7c10da1bb05c023bd5839386d9b3264896c454"
+}

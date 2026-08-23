@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R9_EXPERIMENT_HOLD",
+  "experiment_id": "EXP_BANKING_R9",
+  "recorded_at": "2026-08-22T14:26:12Z",
+  "status": "HOLD",
+  "contains_raw_customer_data": false,
+  "immutable_protocol_digest": "sha256:be118f2fc3b2d2cbba5a70f3ad819bbafd8711234dab9bb8160c5702eef669f3",
+  "immutable_study_digest": "sha256:d471e383ad8f7084c345cb025a022f43671c10ff6b50db0a713571dee2200766",
+  "completed_stage": {
+    "stage": "update_source",
+    "batch_id": "B_68063F9BA013DBFD828E",
+    "valid_runs": 25,
+    "infra_invalid_runs": 0,
+    "official_successes": 7,
+    "official_failures": 18,
+    "official_apparent_pass_1": "0.28",
+    "direct_valid_agent_cost_usd": "0.5613236888",
+    "direct_valid_user_cost_usd": "0.09279340",
+    "direct_valid_total_cost_usd": "0.6541170888",
+    "direct_valid_mean_cost_usd": "0.026164683552",
+    "whole_attempt_agent_cost_usd": "0.6059570888",
+    "whole_attempt_user_cost_usd": "0.0955541600000000060",
+    "whole_attempt_total_cost_usd": "0.7015112488000000060",
+    "cost_status": "exact"
+  },
+  "hold_reason": {
+    "incident_artifact": "artifacts/research/banking_r9/eval_incident_task_053.json",
+    "incident_digest": "sha256:1dc739fb6c4f21dab6b5f3e23175f9a9f39f08121b51186b08dde8a54202ef14",
+    "affected_task_ids": [
+      "task_053"
+    ],
+    "classification": "upstream_task_fixture_missing_required_user_action",
+    "candidate_generation_from_r9_permitted": false,
+    "ship_decision_from_r9_permitted": false
+  },
+  "resolution": {
+    "spec_revision": "Execution Core r33",
+    "evaluator_overlay_artifact": "configs/evaluator_overlays/banking_task_053_user_call_v1.json",
+    "evaluator_overlay_digest": "sha256:1f4c96e3ee85862e1fa3ed4e1d2fd7be00844ca88cbb9f583d64b0867921b62d",
+    "required_new_protocol_schema": "1.8",
+    "required_new_experiment_id": "EXP_BANKING_R10",
+    "r9_raw_or_summary_rewritten": false
+  },
+  "execution_accounting": {
+    "paid_candidate_generation_model_calls": 0,
+    "post_incident_investigation_model_calls": 0,
+    "post_incident_known_model_cost_usd": "0",
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "automatic_deployment_permitted": false,
+  "publication_permitted_without_owner_authorization": false,
+  "artifact_digest": "sha256:b07212364facd278ccfa8f7629bfad795b61eff2bf728594304bbff9fd4fa110"
+}

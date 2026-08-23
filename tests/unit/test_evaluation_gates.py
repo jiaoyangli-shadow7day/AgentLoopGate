@@ -9,10 +9,13 @@ import pytest
 from agentloopgate.contracts import freeze_contract, load_contract
 from agentloopgate.evaluation import EvaluationAuditor, EvaluationContext, EvaluationIntegrityError
 from agentloopgate.gates import (
+    BaselineSelectionInput,
     CandidateSelectionInput,
     DualSelector,
     GateAssessment,
     GateEngine,
+    SelectionError,
+    SelectionPolicy,
 )
 from agentloopgate.schemas import (
     DecisionValue,
@@ -375,3 +378,191 @@ def test_dual_selector_uses_external_emission_order_when_score_is_unsupported() 
 
     assert result.native_candidate_id == "C_FIRST"
     assert result.agentloopgate_candidate_id == "C_BETTER"
+
+
+def selection_baseline(**overrides: object) -> BaselineSelectionInput:
+    values: dict[str, object] = {
+        "snapshot_id": "S_A0",
+        "evaluation_complete": True,
+        "stable_success_task_count": 1,
+        "stable_task_outcomes": {
+            "task_001": True,
+            "task_002": False,
+            "task_003": False,
+        },
+        "critical_violations": 0,
+        "mean_cost": "1.0",
+        "whole_attempt_cost_usd": "3.0",
+        "task_attempt_count": 3,
+        "retry_count": 0,
+        "timeout_count": 0,
+        "p50_latency_ms": "100",
+        "p95_latency_ms": "200",
+        "max_latency_ms": "250",
+        "operational_evidence_refs": [
+            "batch:B_A0",
+            "cost:B_A0",
+            "attempts:B_A0",
+        ],
+    }
+    values.update(overrides)
+    return BaselineSelectionInput.model_validate(values)
+
+
+def selection_policy() -> SelectionPolicy:
+    return SelectionPolicy(
+        whole_attempt_cost_ratio_max="1.2",
+        p95_latency_ratio_max="1.2",
+        max_retry_increase=0,
+        max_timeout_increase=0,
+    )
+
+
+def governed_candidate(
+    candidate_id: str,
+    outcomes: dict[str, bool],
+    **overrides: object,
+) -> CandidateSelectionInput:
+    values: dict[str, object] = {
+        "candidate_id": candidate_id,
+        "native_score": None,
+        "native_rank": 1,
+        "native_signal_ref": f"updater:{candidate_id}",
+        "evaluation_complete": True,
+        "stable_success_task_count": sum(outcomes.values()),
+        "stable_task_outcomes": outcomes,
+        "critical_violations": 0,
+        "mean_cost": "1.0",
+        "whole_attempt_cost_usd": "3.0",
+        "task_attempt_count": 3,
+        "retry_count": 0,
+        "timeout_count": 0,
+        "p50_latency_ms": "100",
+        "p95_latency_ms": "200",
+        "max_latency_ms": "250",
+        "operational_evidence_refs": [
+            f"batch:{candidate_id}",
+            f"cost:{candidate_id}",
+            f"attempts:{candidate_id}",
+        ],
+    }
+    values.update(overrides)
+    return CandidateSelectionInput.model_validate(values)
+
+
+def test_baseline_bound_selector_abstains_when_no_candidate_improves() -> None:
+    candidate = governed_candidate(
+        "C_TIED",
+        {"task_001": True, "task_002": False, "task_003": False},
+    )
+
+    result = DualSelector().select(
+        [candidate], baseline=selection_baseline(), policy=selection_policy()
+    )
+
+    assert result.schema_version == "1.1"
+    assert result.native_candidate_id == "C_TIED"
+    assert result.agentloopgate_decision == "HOLD"
+    assert result.agentloopgate_candidate_id is None
+    assert result.governance_findings == {"C_TIED": ["no_stable_success_gain"]}
+
+
+def test_baseline_bound_selector_rejects_regression_despite_positive_net() -> None:
+    baseline = selection_baseline(
+        stable_success_task_count=1,
+        stable_task_outcomes={
+            "task_001": True,
+            "task_002": False,
+            "task_003": False,
+            "task_004": False,
+        },
+        task_attempt_count=4,
+    )
+    candidate = governed_candidate(
+        "C_NET_POSITIVE",
+        {
+            "task_001": False,
+            "task_002": True,
+            "task_003": True,
+            "task_004": False,
+        },
+        task_attempt_count=4,
+    )
+
+    result = DualSelector().select(
+        [candidate], baseline=baseline, policy=selection_policy()
+    )
+
+    assert result.agentloopgate_decision == "HOLD"
+    assert "stable_task_regression:task_001" in result.governance_findings[
+        "C_NET_POSITIVE"
+    ]
+
+
+def test_baseline_bound_selector_selects_strict_gain_and_uses_tail_evidence() -> None:
+    outcomes = {"task_001": True, "task_002": True, "task_003": False}
+    slower = governed_candidate(
+        "C_SLOWER",
+        outcomes,
+        native_rank=1,
+        p95_latency_ms="220",
+        max_latency_ms="260",
+    )
+    faster = governed_candidate(
+        "C_FASTER",
+        outcomes,
+        native_rank=2,
+        p95_latency_ms="180",
+        max_latency_ms="240",
+    )
+
+    result = DualSelector().select(
+        [slower, faster], baseline=selection_baseline(), policy=selection_policy()
+    )
+
+    assert result.native_candidate_id == "C_SLOWER"
+    assert result.agentloopgate_decision == "SELECT"
+    assert result.agentloopgate_candidate_id == "C_FASTER"
+
+
+def test_baseline_bound_selector_holds_retry_or_whole_cost_regression() -> None:
+    outcomes = {"task_001": True, "task_002": True, "task_003": False}
+    retried = governed_candidate(
+        "C_RETRY",
+        outcomes,
+        task_attempt_count=4,
+        retry_count=1,
+    )
+    expensive = governed_candidate(
+        "C_EXPENSIVE",
+        outcomes,
+        native_rank=2,
+        whole_attempt_cost_usd="3.61",
+    )
+
+    result = DualSelector().select(
+        [retried, expensive], baseline=selection_baseline(), policy=selection_policy()
+    )
+
+    assert result.agentloopgate_decision == "HOLD"
+    assert "retry_increase" in result.governance_findings["C_RETRY"]
+    assert "whole_attempt_cost_noninferiority" in result.governance_findings[
+        "C_EXPENSIVE"
+    ]
+
+
+def test_baseline_bound_selector_requires_complete_enhanced_evidence() -> None:
+    legacy = CandidateSelectionInput(
+        candidate_id="C_LEGACY",
+        native_score="1",
+        evaluation_complete=True,
+        stable_success_task_count=2,
+        critical_violations=0,
+        mean_cost="1",
+        p50_latency_ms="100",
+    )
+
+    with pytest.raises(SelectionError, match="enhanced selection evidence"):
+        DualSelector().select(
+            [legacy], baseline=selection_baseline(), policy=selection_policy()
+        )

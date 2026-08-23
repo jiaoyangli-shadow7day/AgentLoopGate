@@ -1,0 +1,325 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R7_EXECUTION_DIAGNOSIS",
+  "experiment_id": "EXP_BANKING_R7",
+  "batch_id": "B_B01B5F4A6C150148D8FA",
+  "spec_digest": "sha256:b01b5f4a6c150148d8faaef444dd876327522aec492aa3899d1d450be16d10e1",
+  "protocol_digest": "sha256:06b880c8c58ce510ba28137f3bdc87861b51d91428f038e88bce2f612fc42afd",
+  "study_digest": "sha256:f614c59406632a5f044e0ffe826ba174586dcfffa21f7fdb90fa5be8fb4a6316",
+  "baseline_digest": "sha256:0a219440779381f666114a2257d170d7bf6f9a98ce74be84c08075b61b5e84ba",
+  "source_revision": "tree:sha256:3cb019c3e39f66fd1572224c62b82eb86d5b7ca80d3107e2d536204aa029ce4c",
+  "batch_digest": "sha256:3b9c0b8d89a26efa71dfb3a531197bd5c80c3876945ac2c467dfd1674e25f159",
+  "disposition": "complete",
+  "hold_reasons": [],
+  "gate_assessment": {
+    "gate": "update_source_evidence_integrity",
+    "result": "pass",
+    "candidate_generation_permitted": true,
+    "automatic_deployment_permitted": false,
+    "basis": "all 25 frozen task positions have one valid retained result, all cross-plane evidence is complete, and the sole failed task attempt recovered within the frozen two-attempt cap"
+  },
+  "formal_summary": {
+    "task_positions": 25,
+    "valid_runs": 25,
+    "successes": 5,
+    "task_failures": 20,
+    "infra_invalid": 0,
+    "pass_1": "5/25",
+    "successful_task_ids": [
+      "task_003",
+      "task_006",
+      "task_019",
+      "task_047",
+      "task_093"
+    ],
+    "p50_simulation_latency_ms": "195775",
+    "valid_simulation_duration_seconds": {
+      "total": "7109.147274625720371",
+      "minimum": "20.41262741596438",
+      "median": "195.77491049980745",
+      "maximum": "825.8589823748916"
+    },
+    "termination_counts": {
+      "user_stop": 25
+    },
+    "paid_attempt": {
+      "attempt_id": "ATT_D7B9A5D8364744BE815A48EC510F8540",
+      "started_event_id": "EV_BDAAB5DD509C7FA6C47A2539",
+      "completed_event_id": "EV_E0807C42BF0C12EAE4A36678",
+      "attempt_ledger_duration_ms": 7546675,
+      "outer_process": {
+        "wall_seconds": "7548.09",
+        "user_cpu_seconds": "1252.83",
+        "system_cpu_seconds": "305.75",
+        "maximum_resident_set_bytes": 433618944,
+        "peak_memory_footprint": 1261880
+      }
+    },
+    "sealed_evidence_recheck": {
+      "attempt_id": "ATT_330C2B3D0FF849A7924A3AA0BB4F219A",
+      "started_event_id": "EV_A1E5D1A0335820FDE1B067CC",
+      "completed_event_id": "EV_A6B57258B973F08848458B2C",
+      "resumed": true,
+      "model_calls": 0,
+      "known_model_cost_usd": "0",
+      "attempt_ledger_duration_ms": 4332,
+      "outer_process": {
+        "wall_seconds": "5.13",
+        "user_cpu_seconds": "3.41",
+        "system_cpu_seconds": "0.57",
+        "maximum_resident_set_bytes": 223117312,
+        "peak_memory_footprint": 10043872
+      },
+      "result": "same immutable batch, raw, and cost bytes accepted"
+    }
+  },
+  "cost_accounting": {
+    "accounting_status": "exact",
+    "scope": "whole_observed_attempt",
+    "valid_cost_status": "exact",
+    "valid_agent_cost_usd": "0.5346333104000000278",
+    "valid_user_cost_usd": "0.0948704320000000048",
+    "valid_total_model_cost_usd": "0.6295037424000000326",
+    "observed_agent_attempt_cost_usd": "0.5626233760",
+    "observed_user_attempt_cost_usd": "0.10020160000000000350",
+    "observed_total_model_cost_usd": "0.66282497600000000350",
+    "failed_task_attempt_delta_from_cost_artifact_usd": "0.03332123359999997090",
+    "failed_task_attempt_direct_ledger_cost_usd": "0.0333212336000000003",
+    "raw_float_to_direct_ledger_tail_delta_usd": "-0.00000000000000002940",
+    "tail_delta_assessment": "the frozen valid-run gate uses the exact decimal spelling observed in the retained tau3 raw artifact, while direct schema-1.2 call ledgers independently sum the failed attempt; the 2.94e-17 USD difference is disclosed as upstream float-serialization tail and cannot affect the 1.2 cost-ratio gate",
+    "unresolved_agent_calls": 0,
+    "unresolved_user_calls": 0,
+    "agent_provider_retries": 0,
+    "user_provider_retries": 0,
+    "unknown_billing_scopes": [
+      "local compute monetary cost is unmetered"
+    ]
+  },
+  "model_call_evidence": {
+    "agent": {
+      "started": 749,
+      "terminal": 749,
+      "completed": 746,
+      "failed": 3,
+      "exact_cost_terminal": 749,
+      "unavailable_cost_terminal": 0,
+      "unresolved": 0,
+      "input_tokens": 1847952,
+      "cache_read_tokens": 37659520,
+      "output_tokens": 708798,
+      "max_output_tokens": 21524,
+      "max_duration_ms": 150784,
+      "provider_retries": 0,
+      "unretained_call_count": 36,
+      "direct_task_identity_mismatches": 0,
+      "task_session_binding_mismatches": 0
+    },
+    "user": {
+      "started": 177,
+      "terminal": 177,
+      "completed": 177,
+      "failed": 0,
+      "exact_cost_terminal": 177,
+      "unavailable_cost_terminal": 0,
+      "unresolved": 0,
+      "input_tokens": 515612,
+      "cache_read_tokens": 0,
+      "output_tokens": 53372,
+      "max_output_tokens": 2442,
+      "max_duration_ms": 20638,
+      "provider_retries": 0,
+      "unretained_call_count": 5,
+      "direct_task_identity_mismatches": 0
+    }
+  },
+  "task_attempt_evidence": {
+    "started": 26,
+    "session_bound": 26,
+    "terminal": 26,
+    "completed": 25,
+    "failed": 1,
+    "retried_positions": [
+      "task_069"
+    ],
+    "recovered_positions": [
+      "task_069"
+    ],
+    "permanent_infra_invalid": [],
+    "lineage_mismatches": 0,
+    "failed_attempts": [
+      {
+        "task_id": "task_069",
+        "attempt_index": 1,
+        "duration_ms": 387646,
+        "error_type": "Tau3PilotError",
+        "error_message": "DeepSeek Harness turn did not complete: error",
+        "native_error_code": "TRANSPORT",
+        "native_error_message_safe": "DeepSeek API stream from [REDACTED_URL] failed",
+        "native_error_message_sha256": "7bb29f8469b50f5583f79f8b8f553f281362df8d89ea28fbb81a359193c30408",
+        "agent_calls": 34,
+        "agent_failed_calls": 1,
+        "agent_cost_usd": "0.0279900656",
+        "agent_input_tokens": 102228,
+        "agent_cache_read_tokens": 1562752,
+        "agent_output_tokens": 33223,
+        "user_calls": 5,
+        "user_cost_usd": "0.0053311680000000003",
+        "user_input_tokens": 16056,
+        "user_output_tokens": 3396,
+        "session_id_hash": "sha256:5737653c30100ba523fc5ea514b1dc4f933ee26efe79cc136def2535d6b6e480",
+        "native_session_bytes": 2000574,
+        "native_session_sha256": "1930d4a1d790af2e0c23214da6192d201321126ced3bba20ea996228098ee4c6"
+      }
+    ],
+    "recovered_attempts": [
+      {
+        "task_id": "task_069",
+        "attempt_index": 2,
+        "terminal_outcome": "valid_task_failure",
+        "duration_ms": 826238,
+        "agent_calls": 50,
+        "agent_failed_calls": 1,
+        "agent_cost_usd": "0.0516639368",
+        "agent_input_tokens": 138075,
+        "agent_cache_read_tokens": 3734656,
+        "agent_output_tokens": 78130,
+        "user_calls": 9,
+        "user_cost_usd": "0.00582065600000000013",
+        "user_input_tokens": 36244,
+        "user_output_tokens": 2986,
+        "session_id_hash": "sha256:1cfe8f129aaa4c91f9978dec1aa0f2ca8ee75c334a5810e7db5b9c3d12155217",
+        "native_session_bytes": 3529986,
+        "native_session_sha256": "7f959f5281deef7500aeebc4514756305d03d9e718690a5302cb3dffdfe0b908"
+      }
+    ]
+  },
+  "failed_model_call_evidence": [
+    {
+      "task_id": "task_044",
+      "attempt_index": 1,
+      "error_type": "EmptyFinalResponseError",
+      "failed_call_id": "MC_CA0198D463E64FABB20C707E69CC0A7C",
+      "failed_call_cost_usd": "0.0009245936",
+      "failed_call_duration_ms": 2445,
+      "repair_call_id": "MC_F45F35FC86944278B8C6621FF2E4E824",
+      "repair_call_cost_usd": "0.0001330168",
+      "repair_call_duration_ms": 3262,
+      "combined_input_tokens": 6227,
+      "combined_cache_read_tokens": 39168,
+      "combined_output_tokens": 272,
+      "combined_exact_cost_usd": "0.0010576104",
+      "same_session_id_hash": "sha256:946314b65ee3d331a904af74fb2439fcfe3672e9c9d246fe8c7de82e6e4bfed9",
+      "task_continued": true
+    },
+    {
+      "task_id": "task_069",
+      "attempt_index": 1,
+      "error_type": "DshProcessError",
+      "failed_call_id": "MC_B7059810CD0A40E4A76E8EDDADE0B361",
+      "failed_call_cost_usd": "0.0000",
+      "failed_call_duration_ms": 26968,
+      "failed_call_input_tokens": 0,
+      "failed_call_cache_read_tokens": 0,
+      "failed_call_output_tokens": 0,
+      "same_session_repair": false,
+      "task_retry_consumed": true
+    },
+    {
+      "task_id": "task_069",
+      "attempt_index": 2,
+      "error_type": "EmptyFinalResponseError",
+      "failed_call_id": "MC_B5FB1AADD2FF470BA8B3A98777C3DA64",
+      "failed_call_cost_usd": "0.0001555456",
+      "failed_call_duration_ms": 2102,
+      "repair_call_id": "MC_0EC15F7FA3394260B6DC99549048C709",
+      "repair_call_cost_usd": "0.0001175608",
+      "repair_call_duration_ms": 2269,
+      "combined_input_tokens": 619,
+      "combined_cache_read_tokens": 53888,
+      "combined_output_tokens": 127,
+      "combined_exact_cost_usd": "0.0002731064",
+      "same_session_id_hash": "sha256:1cfe8f129aaa4c91f9978dec1aa0f2ca8ee75c334a5810e7db5b9c3d12155217",
+      "task_continued": true
+    }
+  ],
+  "reply_policy_evidence": {
+    "assistant_text_reply_count": 748,
+    "shape_counts": {
+      "canonical_tool_calls": 601,
+      "plain_content": 134,
+      "legacy_explicit_tool_calls": 10,
+      "v5_discoverable_wrapper_alias": 1,
+      "v5_missing_name": 0,
+      "empty_final": 2,
+      "malformed_json": 0
+    },
+    "observed_v5_compatibility_paths": [
+      {
+        "task_id": "task_041",
+        "attempt_index": 1,
+        "shape": "exact_single_call_discoverable_agent_tool_wrapper_alias",
+        "count": 1,
+        "result": "accepted under the frozen allow-listed v5 rule and the task continued"
+      }
+    ],
+    "r6_missing_name_recurrence": 0,
+    "assessment": "R7 directly exercised the discoverable-wrapper v5 path and produced no reply-representation Infra Invalid; the provider did not emit the separately calibrated missing-name shape in this batch, so fixtures rather than frequency claims remain the evidence for that branch"
+  },
+  "trace_coexistence_evidence": {
+    "native_dsh_session_files": 26,
+    "native_dsh_session_bytes": 37165431,
+    "native_dsh_jsonl_events": 36903,
+    "task_attempt_session_bindings": 26,
+    "missing_native_session_bindings": 0,
+    "ambiguous_native_session_bindings": 0,
+    "evidence_joins": 25,
+    "verified_dsh_trace_refs": 25,
+    "cursor_complete_dsh_trace_refs": 25,
+    "dsh_receipts": 25,
+    "tau_receipts": 25,
+    "receipt_error_count": 0,
+    "conclusion": "DeepSeek Harness retained native JSONL session authority for every real task attempt, including the failed retry, while AgentLoopGate added direct hash bindings, normalized final-run records, receipts, and cross-plane joins without replacing host trace or persistence."
+  },
+  "r6_control_recovery": [
+    {
+      "task_id": "task_053",
+      "r6_status": "failed_once_on_missing_name_reply_then_recovered_but_batch_held",
+      "r7_attempts": 1,
+      "r7_status": "valid_task_failure",
+      "r7_reply_representation_failure": false
+    },
+    {
+      "task_id": "task_069",
+      "r6_status": "permanent_infra_invalid_after_two_reply_representation_failures",
+      "r7_attempts": 2,
+      "r7_status": "valid_task_failure_after_transient_provider_transport_retry",
+      "r7_reply_representation_failure": false
+    }
+  ],
+  "spec_assessment": {
+    "provider_transport_failure": "not_a_spec_defect: the native DSH trace classifies the first task_069 failure as upstream TRANSPORT, and the frozen one-retry task-position policy recovered it with a distinct bound session",
+    "reply_normalization": "effective_for_observed_batch: one exact v5 discoverable-wrapper alias was consumed without ambiguity and no reply-representation Infra Invalid remained",
+    "failed_attempt_lineage": "complete: every task attempt was bound before its first Agent call, and every Agent/User model-call lifecycle carries direct task/trial/seed/attempt identity",
+    "trace_coexistence": "complete: all 26 host-native sessions remain independently present and hash-addressable, including the failed attempt that has no retained tau3 RunRecord",
+    "cost_and_timeout_observability": "complete_for_r7: all 926 Agent/User calls terminate with exact recorded cost, no provider retry or unresolved call exists, and the only raw-vs-ledger discrepancy is a separately disclosed 2.94e-17 USD float-serialization tail",
+    "spec_revision_required_before_candidate_generation": false
+  },
+  "artifact_byte_sha256": {
+    "batch": "21a67dd54ac622842be6069b8cf60449c04f124a8d82e2c2e433131a9b519750",
+    "cost": "33885a9ac99a82b4e4b7eec2698c846fa832f90395258a1daabc33189958e268",
+    "model_usage": "48738ecb1cf368a5bb213888004507100753d5dfc2f28fa725e3141eb9b71606",
+    "user_model_usage": "e5c5e7dca47ef175064517938cf7457070393375bf4d6a3c2a15a507c22a3de2",
+    "task_attempts": "0a9809f204942afad50669da276f6451e73aec92a6fe6bd085779eca1258b458",
+    "raw": "3a89790eb21a451818c0dae5583bd022f8adccbe17b9ad21b122d82f0054698c"
+  },
+  "required_next_controls": [
+    "keep every R7 raw, ledger, native trace, failed call, failed task attempt, retry, cost, timing, and sealed-evidence recheck immutable",
+    "generate bounded external-Updater candidates only from the 20 valid Update-Source failures and the frozen Objective/Split/Gates; do not use Infra Invalid zeros because none exist",
+    "freeze candidate manifests and evaluate all candidates plus A0 symmetrically on Update-Check before independent Selection",
+    "run the frozen 560-trial core matrix only for the selected baseline, updater-native, and AgentLoopGate roles, then compute paired statistics and both Selector Decisions",
+    "complete the four frozen minimum ablations, four figures, public redaction, clean-room reproduction, CI, licensing, and third-party disclosures before any open-source readiness claim",
+    "do not publish the private repository, create a public Release, auto-promote, deploy, or submit a paper without explicit Owner authorization"
+  ],
+  "contains_raw_customer_data": false,
+  "artifact_digest": "sha256:464bf038af77ee8dd7996fca9702a9b71c1aeb6c7c6b82234317cdc91d3df714"
+}

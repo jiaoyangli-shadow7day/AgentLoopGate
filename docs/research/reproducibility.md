@@ -1,5 +1,10 @@
 # Banking R2 reproducibility protocol
 
+> Historical existing-evidence verification only. Do not execute the
+> credentialed commands below as a new or resumed paid study. R2 was superseded;
+> current `PAID_HOLD` policy and the corrected experiment requirements are in
+> [release-readiness.md](../release-readiness.md) and SPEC §16.11.
+
 This document describes how to reproduce and audit `EXP_BANKING_R2` without
 changing its frozen scientific choices. It is an execution protocol, not a
 results document. No final Banking R2 result exists until the credentialed core

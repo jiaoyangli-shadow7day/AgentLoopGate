@@ -177,6 +177,9 @@ class DshFormalBatchExecutor:
         agent_temperature: str = "0",
         user_temperature: str = "0",
         user_model_max_retries: int = 1,
+        capture_user_attempt_usage: bool = False,
+        global_task_attempt_limit: int | None = None,
+        cost_gate_scope: Literal["whole_attempt", "valid_runs"] = "whole_attempt",
     ) -> None:
         self.project_root = project_root.resolve()
         self.adapter = adapter
@@ -191,6 +194,12 @@ class DshFormalBatchExecutor:
         self.agent_temperature = agent_temperature
         self.user_temperature = user_temperature
         self.user_model_max_retries = user_model_max_retries
+        self.capture_user_attempt_usage = capture_user_attempt_usage
+        self.global_task_attempt_limit = global_task_attempt_limit
+        self.cost_gate_scope = cost_gate_scope
+        self.direct_cost_lineage = (
+            capture_user_attempt_usage and global_task_attempt_limit is not None
+        )
 
     def execute(self, spec: FormalBatchSpec) -> FormalBatchExecution:
         retained = (
@@ -255,6 +264,42 @@ class DshFormalBatchExecutor:
             user_model_max_retries=self.user_model_max_retries,
             resume=True,
             model_usage_ledger=self.model_usage_path(spec),
+            user_model_usage_ledger=(
+                self.user_model_usage_path(spec)
+                if self.capture_user_attempt_usage
+                else None
+            ),
+            task_attempt_ledger=(
+                self.task_attempt_path(spec)
+                if self.global_task_attempt_limit is not None
+                else None
+            ),
+        )
+
+    def user_model_usage_path(self, spec: FormalBatchSpec) -> Path:
+        return (
+            self.project_root
+            / "runs/experiments"
+            / spec.experiment_id
+            / "user_model_usage"
+            / f"{spec.batch_id}.jsonl"
+        )
+
+    def task_attempt_path(self, spec: FormalBatchSpec) -> Path:
+        return (
+            self.project_root
+            / "runs/experiments"
+            / spec.experiment_id
+            / "task_attempts"
+            / f"{spec.batch_id}.jsonl"
+        )
+
+    def frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal]:
+        pricing = self.adapter.pilot.pricing
+        return (
+            pricing.input_cache_miss,
+            pricing.input_cache_hit,
+            pricing.output,
         )
 
     @staticmethod
@@ -299,6 +344,9 @@ class FormalBatchRunner:
             else None
         )
         usage_path = self._model_usage_path(spec)
+        user_usage_path = self._user_model_usage_path(spec)
+        task_attempt_path = self._task_attempt_path(spec)
+        cost_gate_scope = self._cost_gate_scope()
         handle = None
         if ledger is not None:
             handle = ledger.begin(
@@ -319,8 +367,8 @@ class FormalBatchRunner:
         try:
             if path.exists():
                 artifact = self._load(path)
-                self._verify(artifact, spec)
                 if ledger is None:
+                    self._verify(artifact, spec)
                     return FormalBatchRunResult(artifact=artifact, resumed=True)
                 raw_path = self.store.resolve_artifact_uri(
                     f"artifact:{artifact.result_artifact}"
@@ -330,7 +378,12 @@ class FormalBatchRunner:
                     raw_path=raw_path,
                     records=[self._run_record(run_id) for run_id in artifact.tau_run_ids],
                     usage_path=usage_path,
+                    user_usage_path=user_usage_path,
+                    task_attempt_path=task_attempt_path,
+                    frozen_token_prices=self._frozen_token_prices(),
+                    cost_gate_scope=cost_gate_scope,
                 )
+                self._verify(artifact, spec, cost=cost)
                 if ledger is not None and handle is not None:
                     ledger.complete(
                         handle,
@@ -359,10 +412,20 @@ class FormalBatchRunner:
                     raw_path=execution.result_path,
                     records=execution.result.records,
                     usage_path=usage_path,
+                    user_usage_path=user_usage_path,
+                    task_attempt_path=task_attempt_path,
+                    frozen_token_prices=self._frozen_token_prices(),
+                    cost_gate_scope=cost_gate_scope,
                 )
-                if cost.accounting_status is not CostStatus.EXACT:
+                summary = self._summary_with_direct_cost(summary, cost)
+                gate_status = (
+                    cost.valid_cost_status
+                    if cost_gate_scope == "valid_runs"
+                    else cost.accounting_status
+                )
+                if gate_status is not CostStatus.EXACT:
                     hold_reasons.append(
-                        f"cost_accounting:{cost.accounting_status.value}"
+                        f"cost_accounting:{gate_status.value}"
                     )
             hold_reasons = sorted(set(hold_reasons))
             payload = {
@@ -392,7 +455,7 @@ class FormalBatchRunner:
             if "protocol_digest" not in artifact.spec.model_fields_set:
                 serialized["spec"].pop("protocol_digest", None)
             self._write_once(path, serialized)
-            self._verify(artifact, spec)
+            self._verify(artifact, spec, cost=cost)
             if ledger is None:
                 return FormalBatchRunResult(artifact=artifact, resumed=False)
             if (
@@ -413,6 +476,8 @@ class FormalBatchRunner:
                             "batch": path,
                             "cost": cost_path,
                             "model_usage": usage_path,
+                            "user_model_usage": user_usage_path,
+                            "task_attempts": task_attempt_path,
                         }
                     ),
                     counters=self._cost_counters(cost),
@@ -420,14 +485,31 @@ class FormalBatchRunner:
             return FormalBatchRunResult(artifact=artifact, resumed=False)
         except BaseException as exc:
             if ledger is not None and handle is not None:
-                cost_status, known_cost = observed_usage_cost(usage_path)
+                raw_path = (
+                    self.project_root
+                    / "runs/experiments"
+                    / spec.experiment_id
+                    / "raw"
+                    / f"{spec.batch_id}.json"
+                )
+                cost_status, known_cost = observed_usage_cost(
+                    usage_path,
+                    user_model_usage_path=user_usage_path,
+                    raw_result_path=raw_path,
+                )
                 ledger.fail(
                     handle,
                     exc,
                     cost_status=cost_status,
                     known_cost_usd=known_cost,
                     result_artifacts=artifact_hashes(
-                        {"batch": path, "model_usage": usage_path}
+                        {
+                            "raw": raw_path,
+                            "batch": path,
+                            "model_usage": usage_path,
+                            "user_model_usage": user_usage_path,
+                            "task_attempts": task_attempt_path,
+                        }
                     ),
                     recovery_action=(
                         "inspect the immutable attempt and usage ledgers, reconcile billing, "
@@ -443,12 +525,20 @@ class FormalBatchRunner:
         raw_path: Path,
         records: list[RunRecord],
         usage_path: Path,
+        user_usage_path: Path | None,
+        task_attempt_path: Path | None,
+        frozen_token_prices: tuple[Decimal, Decimal, Decimal] | None,
+        cost_gate_scope: Literal["whole_attempt", "valid_runs"],
     ):
         cost = reconcile_formal_costs(
             batch_id=spec.batch_id,
             raw_result_path=raw_path,
             records=records,
             model_usage_path=usage_path,
+            user_model_usage_path=user_usage_path,
+            task_attempt_path=task_attempt_path,
+            frozen_token_prices=frozen_token_prices,
+            cost_gate_scope=cost_gate_scope,
         )
         path = (
             self.project_root
@@ -471,6 +561,26 @@ class FormalBatchRunner:
             / "model_usage"
             / f"{spec.batch_id}.jsonl"
         )
+
+    def _user_model_usage_path(self, spec: FormalBatchSpec) -> Path | None:
+        method = getattr(self.executor, "user_model_usage_path", None)
+        return method(spec) if callable(method) else None
+
+    def _task_attempt_path(self, spec: FormalBatchSpec) -> Path | None:
+        if getattr(self.executor, "direct_cost_lineage", None) is False:
+            return None
+        method = getattr(self.executor, "task_attempt_path", None)
+        return method(spec) if callable(method) else None
+
+    def _frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal] | None:
+        method = getattr(self.executor, "frozen_token_prices", None)
+        return method() if callable(method) else None
+
+    def _cost_gate_scope(self) -> Literal["whole_attempt", "valid_runs"]:
+        value = getattr(self.executor, "cost_gate_scope", "whole_attempt")
+        if value not in {"whole_attempt", "valid_runs"}:
+            raise FormalBatchError("executor declares an unsupported cost gate scope")
+        return value
 
     def _execution_command(self, spec: FormalBatchSpec) -> list[str]:
         method = getattr(self.executor, "execution_command", None)
@@ -539,9 +649,63 @@ class FormalBatchRunner:
             "user_input_tokens_retained": cost.user_input_tokens_retained,
             "user_cache_read_tokens_retained": cost.user_cache_read_tokens_retained,
             "user_output_tokens_retained": cost.user_output_tokens_retained,
+            **(
+                {
+                    "user_model_calls": cost.user_model_call_count or 0,
+                    "unresolved_user_calls": cost.unresolved_user_call_count or 0,
+                    "unretained_user_calls": cost.unretained_user_call_count or 0,
+                    "user_provider_retries": cost.user_provider_retry_count or 0,
+                    "user_input_tokens": cost.user_input_tokens or 0,
+                    "user_cache_read_tokens": cost.user_cache_read_tokens or 0,
+                    "user_output_tokens": cost.user_output_tokens or 0,
+                }
+                if cost.schema_version in {"1.2", "1.3", "1.4"}
+                else {}
+            ),
+            **(
+                {
+                    "direct_task_attempts": cost.direct_task_attempt_count or 0,
+                    "direct_valid_task_attempts": (
+                        cost.direct_valid_task_attempt_count or 0
+                    ),
+                    "direct_infra_task_attempts": (
+                        cost.direct_infra_task_attempt_count or 0
+                    ),
+                    "raw_direct_cost_mismatches": (
+                        cost.raw_direct_cost_mismatch_count or 0
+                    ),
+                }
+                if cost.schema_version in {"1.3", "1.4"}
+                else {}
+            ),
         }
 
-    def _verify(self, artifact: FormalBatchArtifact, spec: FormalBatchSpec) -> None:
+    def _summary_with_direct_cost(self, summary: EvaluationSummary, cost) -> EvaluationSummary:
+        if cost.schema_version != "1.4":
+            return summary
+        mean = cost.scored_valid_mean_total_cost_usd
+        if mean is None:
+            known = cost.valid_agent_cost_usd + (cost.valid_user_cost_usd or Decimal(0))
+            mean = known / cost.valid_run_count if cost.valid_run_count else Decimal(0)
+        payload = summary.model_dump(mode="python")
+        payload.update(
+            {
+                "schema_version": "1.1",
+                "mean_cost": mean,
+                "cost_source": "direct_task_attempt_model_calls",
+                "cost_status": cost.valid_cost_status.value,
+                "cost_digest": cost.cost_digest,
+            }
+        )
+        return EvaluationSummary.model_validate(payload)
+
+    def _verify(
+        self,
+        artifact: FormalBatchArtifact,
+        spec: FormalBatchSpec,
+        *,
+        cost=None,
+    ) -> None:
         if (
             artifact.batch_id != spec.batch_id
             or artifact.spec_digest != spec.spec_digest
@@ -558,6 +722,13 @@ class FormalBatchRunner:
             if "hold_reasons" not in artifact.model_fields_set:
                 legacy_payload.pop("hold_reasons", None)
             legacy_valid = canonical_digest(legacy_payload) == artifact.batch_digest
+            if not legacy_valid:
+                legacy_summary = legacy_payload.get("summary")
+                if isinstance(legacy_summary, dict):
+                    for field in ("cost_source", "cost_status", "cost_digest"):
+                        if field not in artifact.summary.model_fields_set:
+                            legacy_summary.pop(field, None)
+                legacy_valid = canonical_digest(legacy_payload) == artifact.batch_digest
             if not legacy_valid:
                 raise FormalBatchError("formal batch digest mismatch")
         tau_records = [self._run_record(run_id) for run_id in artifact.tau_run_ids]
@@ -582,6 +753,12 @@ class FormalBatchRunner:
         if not retained.is_file():
             raise FormalBatchError("retained formal raw result is unavailable")
         summary = self._summarize_and_verify(result, spec)
+        if artifact.summary.schema_version == "1.1":
+            if cost is None:
+                raise FormalBatchError(
+                    "direct-cost formal summary requires its reconciled cost artifact"
+                )
+            summary = self._summary_with_direct_cost(summary, cost)
         if canonical_digest(summary) != canonical_digest(artifact.summary):
             raise FormalBatchError("formal batch summary no longer matches its run evidence")
 

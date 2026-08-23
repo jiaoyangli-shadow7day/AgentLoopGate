@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R9_EVAL_INCIDENT_TASK_053",
+  "experiment_id": "EXP_BANKING_R9",
+  "batch_id": "B_68063F9BA013DBFD828E",
+  "task_id": "task_053",
+  "run_id": "544c02cd-ffd0-4a48-89ed-eca1176806c9",
+  "recorded_at": "2026-08-22T13:58:17Z",
+  "contains_raw_customer_data": false,
+  "incident_class": "upstream_task_fixture_missing_required_user_action",
+  "status": "confirmed_pending_versioned_correction",
+  "immutable_source_evidence": {
+    "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+    "task_fixture_sha256": "3abd0036c8fefbfb5ae1094f2fdbc6ff023e0442cd08b9b56e62b97ef6714b98",
+    "raw_batch_sha256": "b682213d51256c4c961a63207fc4c538e53f6bf14e326e38960250b5c4c4dff2",
+    "batch_digest": "sha256:9a477d3934b9bd1806a482737474047ab0744bbccebcc68c44730bc996c65194",
+    "protocol_digest": "sha256:be118f2fc3b2d2cbba5a70f3ad819bbafd8711234dab9bb8160c5702eef669f3",
+    "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1"
+  },
+  "observation": {
+    "official_reward": "0",
+    "official_db_match": false,
+    "reward_basis": [
+      "DB"
+    ],
+    "expected_action_check_count": 16,
+    "matched_action_check_count": 16,
+    "expected_give_user_tool_action_count": 1,
+    "expected_user_tool_call_action_count": 0,
+    "observed_user_tool_call_count": 1,
+    "state_diff": [
+      {
+        "table": "user_discoverable_tool_calls",
+        "predicted_record_count": 1,
+        "gold_record_count": 0,
+        "predicted_only_record_count": 1,
+        "gold_only_record_count": 0,
+        "changed_record_count": 0
+      }
+    ]
+  },
+  "deterministic_cause_isolation": {
+    "external_model_calls": 0,
+    "method": "replay the immutable trajectory and golden actions against fresh pinned environments, then suppress only the observed user discoverable-tool call and its paired response",
+    "full_trajectory_matches_gold_db": false,
+    "without_user_discoverable_call_matches_gold_db": true,
+    "other_state_differences_after_suppression": 0,
+    "interpretation": "the official DB failure is caused solely by a user-tool call that the fixture omitted from its golden actions"
+  },
+  "root_cause": {
+    "agent_behavior_defect": false,
+    "agentloopgate_runtime_defect": false,
+    "upstream_evaluator_algorithm_defect": false,
+    "upstream_task_fixture_defect": true,
+    "detail": "the fixture requires the agent to give a discoverable user tool but omits the corresponding user call from golden actions; the user simulator executes the provided tool and the environment correctly persists that call, producing the only DB delta"
+  },
+  "governance_disposition": {
+    "r9_raw_result_rewritten": false,
+    "r9_official_batch_summary_rewritten": false,
+    "task_failure_may_guide_candidate_generation": false,
+    "candidate_generation_blocked_until_resolution": true,
+    "automatic_deployment_permitted": false,
+    "required_next_step": "introduce a versioned evaluator/task correction, bind it to a new protocol and experiment identity, and rerun affected baseline and future candidates symmetrically"
+  },
+  "cost_and_execution": {
+    "external_model_calls": 0,
+    "known_provider_model_cost_usd": "0",
+    "local_monetary_cost": "unmetered_unknown",
+    "paid_r9_batch_cost_is_preserved_in_its_original_cost_artifact": true
+  },
+  "artifact_digest": "sha256:1dc739fb6c4f21dab6b5f3e23175f9a9f39f08121b51186b08dde8a54202ef14"
+}

@@ -27,7 +27,11 @@ PII_RULES = {
     "email_address": re.compile(
         rb"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"
     ),
-    "mainland_china_mobile": re.compile(rb"(?<![0-9])1[3-9][0-9]{9}(?![0-9])"),
+    # Hex digests can contain phone-shaped decimal runs. Requiring a non-hex
+    # boundary preserves standalone-number detection without flagging SHA-256.
+    "mainland_china_mobile": re.compile(
+        rb"(?<![0-9A-Fa-f])1[3-9][0-9]{9}(?![0-9A-Fa-f])"
+    ),
 }
 
 ALLOWED_EMAILS = {b"local@agentloopgate.invalid"}

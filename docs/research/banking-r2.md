@@ -1,5 +1,10 @@
 # Banking R2 study protocol
 
+> Historical protocol, retained for provenance. R2 was superseded by later
+> experiments and must not be used to start new paid work. The current state and
+> corrected A0-bound Selection design are documented in
+> [release-readiness.md](../release-readiness.md) and SPEC §16.11.
+
 Banking R2 is the release-grade experiment for the AgentLoopGate open-source
 technical report or systems/workshop paper. Its claim is deliberately narrow:
 an evidence-governed selection layer can change an external updater's candidate

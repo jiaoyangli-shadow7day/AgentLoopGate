@@ -28,6 +28,7 @@ Object.assign(environment, {
   AGENTLOOPGATE_DSH_SESSION_ROOT: join(temporary, 'native-sessions'),
   AGENTLOOPGATE_DSH_PROVIDER: 'deepseek-official',
   AGENTLOOPGATE_DSH_MODEL: 'deepseek-v4-flash',
+  AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS: '300000',
   AGENTLOOPGATE_PROVIDER_MAX_RETRIES: '0',
   AGENTLOOPGATE_PROVIDER_RETRY_DELAY_MS: '500',
   AGENTLOOPGATE_AGENT_TEMPERATURE: '0',
@@ -148,6 +149,11 @@ try {
   }
   if (!/- id: web-search-deepseek[\s\S]*?disabled: true/.test(pilot)) {
     throw new Error('banking pilot left the web-search provider waiting on disabled web')
+  }
+  if (!pilot.includes(
+    'streamIdleTimeoutMs: !!js Number(process.env.AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS)',
+  ) || environment.AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS !== '300000') {
+    throw new Error('banking pilot did not freeze the DSH stream idle timeout')
   }
 
   mock = await mockCompletionServer()

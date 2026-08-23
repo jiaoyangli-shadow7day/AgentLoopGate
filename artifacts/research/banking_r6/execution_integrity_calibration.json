@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.0",
+  "calibration_id": "CAL_BANKING_R6_EXECUTION_INTEGRITY_1",
+  "recorded_at": "2026-08-22T02:53:59Z",
+  "scope": "incident_driven_empty_final_and_nested_timeout_integrity",
+  "formal_exclusion": true,
+  "quality_selection": false,
+  "formal_gold_or_reward_used": false,
+  "contains_raw_customer_data": false,
+  "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+  "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "dsh_commit": "141eb6fef83422698aef7a981029e843e8161534",
+  "agent_model": "deepseek-official/deepseek-v4-flash",
+  "user_model": "deepseek/deepseek-v4-flash",
+  "supersedes_calibration_digest": "sha256:faf997e978ff721b56d561f9734ebbc64806cbdea80e413fcf02e36752c0196e",
+  "source_revision_before_freeze": "tree:sha256:23035c05f99a36fa4ae0d85c9406daedf9fc0404023a6f23bd236587c3b0b7c0",
+  "source_evidence": {
+    "r5_batch_id": "B_C65BDD4F95EFC0D9EA81",
+    "r5_protocol_digest": "sha256:650a9edddde177230212560958873737dd2819c9e0ff0bb212d97074d32112c0",
+    "r5_batch_digest": "sha256:61ea4725e99016a4939e7fd53e0b70f484d4ce17568f8a4cf59727fb8e92692e",
+    "r5_disposition": "hold",
+    "r5_valid_task_positions": 23,
+    "r5_infra_invalid_task_positions": 2,
+    "r5_valid_agent_cost_usd": "0.512214029600000021",
+    "r5_valid_user_cost_usd": "0.0943866400000000017",
+    "r5_whole_attempt_known_cost_lower_bound_usd": "0.65718674880000000402",
+    "r5_whole_attempt_accounting_status": "partial",
+    "r5_execution_diagnosis_digest": "sha256:f11501844baccbb4a6412fc5fc3a595e1dee445a9f4b34a712d755ef32c1beda",
+    "r5_execution_diagnosis_file_sha256": "0c6e90b8535a483b8e5d33574313fdf1ea74a6bd8c3bcedd03759f38fb7aef10"
+  },
+  "incident_findings": [
+    "Four terminal replies contained exactly 56 reasoning tokens and zero final-text characters; they were empty-final responses rather than invalid JSON.",
+    "Two outer 300-second subprocess timeouts raced the pinned DSH provider's 300000-millisecond stream-idle timeout and prevented host-owned terminal evidence from returning.",
+    "No reasoning content has a unique safe mapping to a customer reply, tool name, or tool arguments.",
+    "R5 reward, expected actions, formal gold, and per-task success were not used to define the new controls."
+  ],
+  "accepted_controls": {
+    "dsh_tau3_protocol_version": "dsh-tau3/1.1",
+    "reply_normalization_policy": "bounded_allow_list_v4_redundant_allow_listed_name",
+    "empty_final_repair_policy": "bounded_same_session_final_only_v1",
+    "empty_final_repair_limit": 1,
+    "dsh_stream_idle_timeout_ms": 300000,
+    "outer_turn_timeout_seconds": 360,
+    "agent_max_output_tokens": 32768,
+    "simulation_timeout_seconds": 1800,
+    "max_concurrency": 1,
+    "max_task_retries": 1,
+    "global_task_attempt_limit": 2,
+    "resume_retry_budget_policy": "global_task_position_attempt_cap",
+    "network_route_policy": "direct_no_proxy",
+    "dsh_provider_max_retries": 0,
+    "runner_failure_usage_policy": "recover_verified_envelope",
+    "user_failure_usage_policy": "append_only_model_call_ledger",
+    "cost_gate_scope": "valid_runs_exact_whole_attempt_reported"
+  },
+  "empty_final_contract": {
+    "trigger": "completed DSH envelope with zero non-whitespace final-response characters",
+    "repair_session": "same DSH session id",
+    "repair_prompt": "fixed final-only request that omits the original task, policy, tools, and reasoning",
+    "ledger_policy": "original and repair calls use distinct call ids and append-only STARTED plus terminal events",
+    "success_accounting": "input, cache-read, output, cost, retry count, trace range, and wall duration include both calls",
+    "fail_closed_after": [
+      "second empty final response",
+      "invalid JSON-like syntax",
+      "unknown tool",
+      "ambiguous reply shape",
+      "host idle timeout",
+      "incomplete evidence"
+    ]
+  },
+  "timeout_contract": {
+    "host_owns_idle_cancellation": true,
+    "dsh_stream_idle_timeout_ms": 300000,
+    "outer_subprocess_timeout_ms": 360000,
+    "bounded_persistence_and_exit_grace_ms": 60000,
+    "outer_extends_model_generation_after_idle": false
+  },
+  "runtime_binding": {
+    "patch_digest": "sha256:cae1180a44e36fb33196dcc7c3605fa1e32a4b618a786dc023760da747b8b25e",
+    "turn_runtime_digest": "sha256:ecd2376004d7bf7a18c2b506551109e924aaa25a9065b8772ed8342d91b00eaa",
+    "adapter_digest": "sha256:7a021fb30f8021a689cef2ca0af094951716e1f126c4293708861e3009a96f42",
+    "protocol_schema_digest": "sha256:6f61d1b22b26185d613783ef4eb0c57c379380fd82674c3177401bba31243b1c",
+    "headless_conformance_digest": "sha256:60fd3c41353b7f30b5171db3f751d0aff02738fa96f69ff67908bc8fa94ef0d6",
+    "plugin_package_sha256": "2d31e136a241148c22a8b9d3855d08ab133b39114e8b84e68811badaae9a4799"
+  },
+  "no_model_acceptance": {
+    "focused_python_tests": 45,
+    "full_python_tests": 135,
+    "typescript_tests": 13,
+    "ruff": "passed",
+    "python_sdist_to_wheel_clean_room": "passed",
+    "dsh_headless_bundle_conformance": "passed",
+    "public_tree_secret_scan": "passed",
+    "fixtures": [
+      "one empty final then successful same-session repair aggregates usage and exact cost",
+      "repair uses a second distinct model call identity and fixed final-only prompt",
+      "unknown tool in the repair reply is rejected and both calls terminate in the ledger",
+      "empty final is classified separately from malformed JSON",
+      "protocol 1.4 rejects outer timeout less than or equal to host idle timeout",
+      "child environment and both DSH composition digests bind idle timeout and repair controls",
+      "live local DSH composition accepts the explicit idle timeout and persists a verified trace"
+    ],
+    "attempts": [
+      {
+        "attempt_index": 1,
+        "scope": "full_clean_room",
+        "status": "failed",
+        "failure": "conformance child omitted the new stream-idle environment value",
+        "wall_seconds": "142.38",
+        "user_cpu_seconds": "9.56",
+        "system_cpu_seconds": "4.78",
+        "maximum_resident_set_bytes": 348831744,
+        "peak_memory_footprint": 1327440,
+        "external_model_calls": 0,
+        "local_mock_requests": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_index": 2,
+        "scope": "targeted_dsh_conformance",
+        "status": "failed",
+        "failure": "assertion expected evaluated numeric output from a dump that preserves the JavaScript expression",
+        "wall_seconds": "2.22",
+        "user_cpu_seconds": "2.00",
+        "system_cpu_seconds": "0.48",
+        "maximum_resident_set_bytes": 331759616,
+        "peak_memory_footprint": 94449088,
+        "external_model_calls": 0,
+        "local_mock_requests": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_index": 3,
+        "scope": "targeted_dsh_conformance",
+        "status": "passed",
+        "wall_seconds": "4.60",
+        "user_cpu_seconds": "3.18",
+        "system_cpu_seconds": "0.81",
+        "maximum_resident_set_bytes": 296484864,
+        "peak_memory_footprint": 92826616,
+        "external_model_calls": 0,
+        "local_mock_requests": 1,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_index": 4,
+        "scope": "full_clean_room",
+        "status": "passed",
+        "wall_seconds": "22.28",
+        "user_cpu_seconds": "12.51",
+        "system_cpu_seconds": "5.48",
+        "maximum_resident_set_bytes": 349601792,
+        "peak_memory_footprint": 1343824,
+        "external_model_calls": 0,
+        "local_mock_requests": 1,
+        "known_model_cost_usd": "0"
+      }
+    ],
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "cost_status": "not_applicable"
+  },
+  "acceptance_basis": [
+    "The repair never converts hidden reasoning into executable or user-visible semantics.",
+    "The exact per-turn tool allow-list and reply schema remain authoritative for the repair response.",
+    "The original and repair calls retain independent cost and terminal evidence while successful tau3 accounting includes both.",
+    "The host idle timeout always expires before the outer subprocess guard, preserving DSH cancellation and native trace authority.",
+    "R5 remains immutable and R6 must symmetrically rerun all 25 Update-Source positions before candidate work."
+  ],
+  "limitations": [
+    "No-model fixtures prove control behavior and accounting, not provider frequency or Banking task quality.",
+    "A provider request that never returns verifiable usage may still leave an unknown billing scope and must be disclosed.",
+    "The R6 paid symmetric rerun is required before the infrastructure controls can support downstream candidate claims.",
+    "Local compute monetary cost remains unmetered; process time and memory are reported separately."
+  ],
+  "artifact_digest": "sha256:ae732aa052bda8103be44b2d37f23135c449825efa904d950d207b43a6b0d7d3"
+}

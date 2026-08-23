@@ -1,4 +1,7 @@
 schema_version: "1.0"
+capability_binding:
+  source: runtime_tool_schema
+  reject_unknown_route_targets: true
 require_discovery_before_unavailable_claim: true
 validate_required_parameters: true
 reject_unsupported_actions: true

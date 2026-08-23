@@ -15,19 +15,22 @@ Adapter、τ³ Adapter、不可变 Snapshot/Batch、可恢复的 A0→Decision �
 以及可打包的 DeepSeek Harness 原生 Bundle。公开 Demo 中的 Outcome 全部是合成 Fixture，只用于
 验证软件行为，**不是现实实验结果**。
 
-真实 `EXP_BANKING_P0` 已完成 Pilot、A0 Update-Source、三个 AHE 候选、Update-Check、Selection
-以及 A0 Release-ID；A0 Release-ID 因 4/60 Infra Invalid 被诚实封存为 HOLD，尚无最终 Candidate
-Decision。该实验同时暴露出 τ³ 默认重试次数与冻结 Spec 不一致，因此保留为不可变 Incident/
-工程证据，不作为发布级主结论。修正后的 `EXP_BANKING_R2` 已冻结 v2 执行协议、560 个逻辑
-Trial 矩阵、源码身份与非部署评测基线 `R2_A4`；Integrity Gate 和 DeepSeek Harness 插件共存
-两项无模型消融已经完成，本地 macOS 与私有 GitHub Linux clean-room 均通过。凭证相关的对称
-核心矩阵尚未启动，不能宣称已有 R2 最终结果。冻结身份与文件哈希见
-`runs/experiments/EXP_BANKING_R2/freeze_manifest_a4.json`。先前的 `R2_A0` 至 `R2_A3` 分别因
-DSH clean-room conformance、Python sdist、本地存在但未进入 Git 的核心源码，以及 Linux 上的
-Bridge 异步 `EPIPE` 而在付费核心开始前被取代；原 Snapshot、freeze manifest、失败 CI 和
-Incident 均保留，冻结 Objective、Split、Gate、Protocol 与 Study 未改变。
-逐项开源/论文验收状态及尚缺证据见
-[docs/release-readiness.md](docs/release-readiness.md)。
+真实实验已迭代到不可变的 `EXP_BANKING_R10`。截至 C2 Selection 封存，已完成 25 个
+Update-Source 位置、A0/C1/C2/C3 各 10 个 Update-Check 位置，以及 C1/C2 各 15 个 Selection
+位置，共 95 个正式任务位置；可验证模型总成本为 USD `3.0651904832`。C3 Selection、
+Release-ID、Release-OOD 与 Replay 均未启动，也没有任何候选被部署或 Promote。
+
+C1 与 C2 都是 7/15，但成功任务集合互换，不能证明稳定方向性提升。随后零模型审计确认旧
+Selection 设计缺少 A0 同池基线和 `HOLD/ABSTAIN`，C1/C3 语义重复，C2 又引用未绑定到 Banking
+Runtime 的通用工具能力。因此 R10 只作为不可变历史/工程证据，不能继续生成发布级 RC。当前
+所有新增付费实验处于 `PAID_HOLD`：先修正 Selector、候选语义/能力绑定、成本与尾延迟证据以及
+正常 Selection-HOLD 终态；未经 Owner 再授权，不运行下一批模型实验。
+
+修正后的 Study schema 1.2 将 Selection 改为 A0 + 3 个语义不同候选，共 60 个位置，并允许在
+没有严格稳定增益时正常弃权。软件实现和完整 clean-room 已通过；这证明治理、证据、成本、
+DeepSeek Harness Trace 共存与 fail-closed 行为可用，但尚未证明正向自进化效果。详细缺口与
+下一步见 [docs/release-readiness.md](docs/release-readiness.md)，R10 修正证据见
+[`artifacts/research/banking_r10/`](artifacts/research/banking_r10/)。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 
@@ -167,45 +170,31 @@ uv run agentloopgate contract freeze configs/objective_contract.yaml \
   --confirm "FREEZE OBJECTIVE" --json
 ```
 
-随后运行只读预检：
+历史 R10 配置和 Artifact 只允许验真，不允许因当前源码变化而 Resume 成新付费结果。查看当前
+协议、Study 与暂停依据：
 
 ```sh
 uv run agentloopgate experiment protocol-verify \
-  --config configs/experiment_protocol_banking_r2_v2.yaml --json
+  --config configs/experiment_protocol_banking_r10_v1.yaml --json
 uv run agentloopgate experiment study-verify \
-  --config configs/banking_r2_study_v2.yaml --json
-uv run agentloopgate experiment preflight \
-  --config configs/formal_experiment_r2_a4.yaml --json
+  --config configs/banking_r10_study_v1.yaml --json
 ```
 
-它逐项核对真实 Pilot Join、冻结 Split、Objective 状态、源码树版本、DSH/τ³/AHE pin、隔离
-Profile 与进程凭证。未满足任一项时返回退出码 `4`，不会启动模型或生成候选。源码尚未 commit
-时使用完整 public-tree digest 作为 `code_revision`；预检不会替用户执行 commit/push。
-
-凭证不可用时也可先冻结或幂等核验非部署评测基线；该命令不调用模型，也不改变 active
-Snapshot：
-
-```sh
-uv run agentloopgate experiment baseline-freeze \
-  --config configs/formal_experiment_r2_a4.yaml --json
-```
-
-全部通过后，一条命令运行或恢复 A0→诊断→AHE 候选→Update-Check→Selection→双 RC→
-Release-ID/OOD→Replay→Gate→报告：
-
-```sh
-uv run agentloopgate experiment run \
-  --config configs/formal_experiment_r2_a4.yaml --json
-```
+下一次正式运行必须先生成新的 Protocol/Study/Experiment/Baseline 身份、通过无模型 preflight，
+并获得 Owner 对该精确付费范围的明确授权。仓库目前故意不提供“复制即可启动下一轮”的命令。
+最低授权检查点是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及 A0+3 候选共 60 个
+Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OOD/Replay。若没有候选满足
+严格增益与非回退规则，编排器以成功退出码封存 `selection_hold_outcome.json` 和 JSON/Markdown
+报告，记录逐候选原因、完整成本证据，并证明未启动 Release 或新的模型调用。
 
 每个付费批次都有输入 Hash、保留的原始 τ³ 结果、双侧 Trace/Receipt/RunRecord/Join 与聚合摘要。
-重复执行会先验真并复用，不会静默重复付费调用；证据漂移返回退出码 `5`。排障时可用
+重复执行会先验真并复用，不会静默重复付费调用；证据漂移返回退出码 `5`。获授权后，排障可用
 `agentloopgate experiment stage --stage <stage> --snapshot <snapshot-id>` 单独恢复一个批次。
 每次正式尝试在执行前写 `STARTED`，并以 `COMPLETED` 或 `FAILED` 收尾；记录命令、源码/
 协议/Study 身份、墙钟时间、退出码、重试、结果哈希、模型调用、Token 与成本状态。未知成本
 只能是 `partial/unavailable`，不能写成 0；纯本地无模型步骤使用 `not_applicable` 并明确
-`model_calls=0`。如果两种 Selector 选中同一 Snapshot，560 仍是逻辑矩阵规模，但物理唯一执行
-数为 410、复用 150 个角色 Trial；选中不同 Snapshot 时物理执行数为 560。
+`model_calls=0`。修正后的最小 Core 在 Release 前是 125 个位置；若选择器弃权，就在这里停止，
+不会为了凑齐图表或实验规模继续消耗模型费用。
 完整编排只产生 `SHIP_RECOMMENDED/HOLD/REJECT` 建议，绝不会自动 Promote。
 只有人类提供与目标、动作匹配的 Approval JSON 后，才可另行运行 `agentloopgate snapshot
 promote`；相同授权可安全重试，`snapshot rollback` 也遵循同一边界。
@@ -225,8 +214,8 @@ Git 忽略，正式公开前仍必须运行仓库级 Secret/PII 检查。
 项目为兼容 macOS 隐藏 `.venv` 使用确定性的非 editable 开发安装；该脚本会显式重装当前
 AgentLoopGate 源码，确保 CLI 与刚修改的工作树一致。
 
-该脚本通过只表示实现与 Clean-room Fixture 通过；它不会把未运行的真实 Banking Pilot
-标记为 P0 完成。
+该脚本通过只表示实现与 Clean-room Fixture 通过；它不会把 R10 历史结果或尚未获授权的修正后
+正式实验标记为 P0 完成。
 
 ## License
 

@@ -1,5 +1,9 @@
 # Sanitized Banking R2 public result package contract
 
+> Historical package contract. No R2 package may be presented as the current
+> AgentLoopGate result. Apply this fail-closed contract to the next valid
+> corrected terminal evidence, including a real Selection-HOLD outcome.
+
 The public result package is a derived, privacy-reviewed view of authoritative
 private evidence. It must not be assembled until the credentialed R2 Outcome is
 terminal and verified. A template, partial directory, or synthetic demo must

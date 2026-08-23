@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from agentloopgate.schemas import ArtifactId, Pool, RunRecord, RunValidity
+from agentloopgate.schemas import ArtifactId, Digest, Pool, RunRecord, RunValidity
 from agentloopgate.schemas.models import StrictModel
 
 
@@ -30,7 +30,7 @@ class EvaluationContext(StrictModel):
 
 
 class EvaluationSummary(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     pool: Pool
     snapshot_id: ArtifactId
     candidate_id: ArtifactId | None
@@ -44,7 +44,10 @@ class EvaluationSummary(StrictModel):
     stable_task_outcomes: dict[ArtifactId, bool]
     task_success_counts: dict[ArtifactId, int]
     critical_violation_count: int
-    mean_cost: Decimal
+    mean_cost: Decimal = Field(ge=0)
+    cost_source: Literal["direct_task_attempt_model_calls"] | None = None
+    cost_status: Literal["exact", "partial", "unavailable"] | None = None
+    cost_digest: Digest | None = None
     p50_latency_ms: Decimal
     integrity_complete: bool
     integrity_issues: list[str]
@@ -58,6 +61,11 @@ class EvaluationSummary(StrictModel):
                 raise ValueError("task success count is outside the trial range")
             if self.stable_task_outcomes[task_id] != (count == self.trials):
                 raise ValueError("stable task outcome conflicts with success count")
+        cost_evidence = (self.cost_source, self.cost_status, self.cost_digest)
+        if self.schema_version == "1.1" and any(item is None for item in cost_evidence):
+            raise ValueError("evaluation summary 1.1 requires direct cost evidence")
+        if self.schema_version == "1.0" and any(item is not None for item in cost_evidence):
+            raise ValueError("evaluation summary 1.0 cannot contain direct cost evidence")
         return self
 
 

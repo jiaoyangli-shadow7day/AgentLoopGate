@@ -1,5 +1,6 @@
 """Runtime bootstrap and readiness checks."""
 
+from .capabilities import CapabilityBindingError, validate_runtime_capability_binding
 from .deepseek_harness import (
     BootstrapResult,
     DeepSeekHarnessConfig,
@@ -7,7 +8,30 @@ from .deepseek_harness import (
     bootstrap_deepseek_harness,
     inspect_deepseek_harness,
 )
+from .tau3_evaluator_overlay import (
+    Tau3EvaluatorOverlay,
+    apply_evaluator_overlay,
+    computed_evaluator_overlay_digest,
+    install_evaluator_overlay_from_environment,
+    load_evaluator_overlay,
+    verify_evaluator_overlay,
+    verify_evaluator_overlay_sources,
+)
+from .tau3_evidence import (
+    GlobalTaskAttemptBudgetExhausted,
+    bind_current_task_attempt_session,
+    current_task_attempt_identity_fields,
+    install_tau3_evidence_hooks,
+    task_attempt_count,
+)
 from .tau3_pilot import (
+    DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT,
+    DSH_TAU3_EMPTY_FINAL_POLICY_DISABLED,
+    DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
+    DSH_TAU3_FAILURE_USAGE_POLICY_CURRENT,
+    DSH_TAU3_PROTOCOL_CURRENT,
+    DSH_TAU3_REPLY_POLICY_CURRENT,
+    DSH_TAU3_SUPPORTED_PROTOCOLS,
     DshTau3TurnClient,
     DshTau3TurnConfig,
     Tau3AgentReply,
@@ -17,15 +41,36 @@ from .tau3_pilot import (
 )
 
 __all__ = [
+    "CapabilityBindingError",
     "BootstrapResult",
     "DeepSeekHarnessConfig",
+    "DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT",
+    "DSH_TAU3_EMPTY_FINAL_POLICY_DISABLED",
+    "DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT",
+    "DSH_TAU3_FAILURE_USAGE_POLICY_CURRENT",
+    "DSH_TAU3_PROTOCOL_CURRENT",
+    "DSH_TAU3_REPLY_POLICY_CURRENT",
+    "DSH_TAU3_SUPPORTED_PROTOCOLS",
     "DshTau3TurnClient",
     "DshTau3TurnConfig",
+    "GlobalTaskAttemptBudgetExhausted",
     "ReadinessReport",
     "Tau3AgentReply",
+    "Tau3EvaluatorOverlay",
     "Tau3PilotError",
     "Tau3TurnEnvelope",
     "Tau3TurnResult",
+    "bind_current_task_attempt_session",
+    "apply_evaluator_overlay",
     "bootstrap_deepseek_harness",
+    "current_task_attempt_identity_fields",
+    "computed_evaluator_overlay_digest",
     "inspect_deepseek_harness",
+    "install_tau3_evidence_hooks",
+    "install_evaluator_overlay_from_environment",
+    "load_evaluator_overlay",
+    "task_attempt_count",
+    "validate_runtime_capability_binding",
+    "verify_evaluator_overlay",
+    "verify_evaluator_overlay_sources",
 ]

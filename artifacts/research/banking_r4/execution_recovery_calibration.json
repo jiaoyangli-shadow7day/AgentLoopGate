@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "calibration_id": "CAL_BANKING_R4_RECOVERY_BUDGET_1",
+  "recorded_at": "2026-08-21T20:57:37Z",
+  "scope": "incident_driven_execution_recovery_protocol",
+  "formal_exclusion": true,
+  "quality_selection": false,
+  "formal_gold_or_reward_used": false,
+  "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+  "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "dsh_commit": "141eb6fef83422698aef7a981029e843e8161534",
+  "agent_model": "deepseek-official/deepseek-v4-flash",
+  "user_model": "deepseek/deepseek-v4-flash",
+  "supersedes_calibration_digest": "sha256:123e8f8be4988b09acf894143ce836a844b908c8f08e68d32be7ef7a639c2690",
+  "source_evidence": {
+    "r3_batch_id": "B_9EFA521951DA16948007",
+    "r3_batch_digest": "sha256:199dac8db04792e93d8d211caabfe0f2ff8162a81082a218bacb6bd4a2d9aadf",
+    "r3_cost_digest": "sha256:4cd2afaf845d42cf8a86abf80431eec3f2176b9a9b52184140d1e47823b86511",
+    "r3_raw_sha256": "747c6990611bcab219c60199cc8860c23839bf3b052123e2b28e6c27a7c98add",
+    "r3_model_usage_sha256": "c58f75685c511211d5438d7a1e845a4e8ba967c5b6336eff4300727485009a77",
+    "r3_batch_file_sha256": "adb8f68945bf2b4c4a227fec171885cff30341814719efd2effc985bad5f15ab",
+    "r3_cost_file_sha256": "62b6a7cdb5c9ff8d83cc2de36ee5d0c59d761e117bbb44b13c7f209871040464",
+    "valid_task_positions": 22,
+    "infra_invalid_task_positions": 3,
+    "task_positions_reaching_8192_output_tokens": 5,
+    "terminal_dsh_calls_reaching_8192_output_tokens": 7,
+    "known_model_cost_lower_bound_usd": "0.7673673600000000036",
+    "cost_status": "partial",
+    "disposition": "hold"
+  },
+  "provider_capability_evidence": {
+    "package": "@deepseek-ai/dsh-llm-deepseek@0.1.0-rc.8",
+    "source": "pinned package README",
+    "source_sha256": "87af913a75bfd33e4ce768a7b61d8bd0bd8e6c1cebc73b04b39f0f209bc6dd39",
+    "documented_default_max_output_tokens": 256000,
+    "explicit_agent_max_output_tokens_precedence": true,
+    "selected_limit_within_documented_cap": true
+  },
+  "incident_findings": [
+    "R3 observed five task positions reach the 8192-token cap, so the R3 Pilot did not cover the formal tail of response complexity.",
+    "R3 auto-resume reran infrastructure-invalid task positions and reapplied the per-process retry budget.",
+    "The final tau3 raw result omitted user-simulator calls belonging to discarded or interrupted attempts.",
+    "The local proxy endpoint 127.0.0.1:10823 was unavailable during the first invocation while a direct unauthenticated provider health request remained reachable."
+  ],
+  "accepted_controls": {
+    "agent_max_output_tokens": 32768,
+    "turn_timeout_seconds": 300,
+    "simulation_timeout_seconds": 1800,
+    "max_concurrency": 1,
+    "max_task_retries": 1,
+    "global_task_attempt_limit": 2,
+    "resume_retry_budget_policy": "global_task_position_attempt_cap",
+    "network_route_policy": "direct_no_proxy",
+    "user_failure_usage_policy": "append_only_model_call_ledger",
+    "cost_gate_scope": "valid_runs_exact_whole_attempt_reported",
+    "dsh_provider_max_retries": 0,
+    "user_model_max_retries": 0
+  },
+  "acceptance_basis": [
+    "32768 is four times the observed R3 cap and remains one eighth of the pinned provider adapter's documented default output limit.",
+    "The output-budget change is symmetric for baseline and every later candidate and does not change Objective, Split, Gate, tasks, trials, model, temperature, or evaluator.",
+    "The global attempt cap preserves the registered initial-plus-one-retry topology across process interruption and resume.",
+    "Separate append-only agent and user ledgers preserve known model costs outside retained final simulations.",
+    "Valid-run exact cost remains a hard Gate; whole-attempt partial accounting is reported as a lower bound with unknown scopes and is never treated as zero or used for candidate ranking."
+  ],
+  "limitations": [
+    "The 32768-token control is incident-driven and has not yet been validated by a paid R4 formal run.",
+    "A provider failure without terminal usage may still leave an unknown billing scope even though the started call remains recorded.",
+    "Local compute monetary cost remains unmetered; wall, user CPU, system CPU, and maximum resident set must be recorded separately.",
+    "Direct routing is frozen only for the R4 subprocess environment and does not assert that all developer networks should bypass proxies."
+  ],
+  "artifact_digest": "sha256:bbde5c453f7896e981a0c7224e8a44b22d0ae75d0dfb1b6b99bb271c8afae210"
+}

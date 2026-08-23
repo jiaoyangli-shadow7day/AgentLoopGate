@@ -268,7 +268,7 @@ def run_plugin_coexistence_ablation(
             raise ValueError("plugin ablation artifact digest mismatch")
         if raw.get("study_digest") != study.study_digest:
             raise ValueError("plugin ablation artifact is bound to a different study")
-        if study.schema_version == "1.1" and raw.get("protocol_digest") != (
+        if study.schema_version in {"1.1", "1.2"} and raw.get("protocol_digest") != (
             protocol.protocol_digest
         ):
             raise ValueError("plugin ablation artifact lacks the frozen protocol binding")

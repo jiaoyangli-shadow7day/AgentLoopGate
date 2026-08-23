@@ -22,10 +22,25 @@ from agentloopgate.adapters.base import (
     OutcomeImportError,
 )
 from agentloopgate.adapters.evidence import BenchmarkEvidenceStore
-from agentloopgate.adapters.tau3 import SOCKSIO_REQUIREMENT, TAU3_DOMAIN, Tau3Adapter
+from agentloopgate.adapters.tau3 import (
+    SOCKSIO_REQUIREMENT,
+    TAU3_COMMIT,
+    TAU3_DOMAIN,
+    Tau3Adapter,
+)
 from agentloopgate.bridge import BridgeService
 from agentloopgate.contracts import canonical_digest, file_digest
-from agentloopgate.runtime import DshTau3TurnClient
+from agentloopgate.runtime import (
+    DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT,
+    DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
+    DSH_TAU3_FAILURE_USAGE_POLICY_CURRENT,
+    DSH_TAU3_PROTOCOL_CURRENT,
+    DSH_TAU3_REPLY_POLICY_CURRENT,
+    DSH_TAU3_SUPPORTED_PROTOCOLS,
+    DshTau3TurnClient,
+    load_evaluator_overlay,
+    verify_evaluator_overlay_sources,
+)
 from agentloopgate.schemas import (
     EvidenceReceipt,
     EvidenceStatus,
@@ -57,11 +72,22 @@ class DshTau3PilotConfig:
     experiment_namespace: str
     pricing: PilotPricingConfig
     harness_root: Path | None = None
-    turn_timeout_seconds: int = 180
+    turn_timeout_seconds: int = 360
+    dsh_stream_idle_timeout_ms: int = 300_000
     provider_max_retries: int = 1
     provider_retry_delay_ms: int = 500
     agent_temperature: Decimal = Decimal(0)
     agent_max_output_tokens: int = 4096
+    dsh_tau3_protocol_version: str = DSH_TAU3_PROTOCOL_CURRENT
+    reply_normalization_policy: str = DSH_TAU3_REPLY_POLICY_CURRENT
+    runner_failure_usage_policy: str = DSH_TAU3_FAILURE_USAGE_POLICY_CURRENT
+    empty_final_repair_policy: str = DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT
+    empty_final_repair_limit: int = DSH_TAU3_EMPTY_FINAL_REPAIR_LIMIT_CURRENT
+    network_route_policy: Literal["inherit", "direct_no_proxy"] = "inherit"
+    global_task_attempt_limit: int | None = None
+    task_attempt_ledger_schema_version: Literal["1.0", "1.1"] = "1.0"
+    model_usage_ledger_schema_version: Literal["1.1", "1.2"] = "1.1"
+    evaluator_overlay_path: Path | None = None
 
 
 class PilotPricingConfig(StrictModel):
@@ -138,6 +164,14 @@ class DshTau3Adapter(Tau3Adapter):
         ):
             if not path.resolve().is_file():
                 missing.append(label)
+        if self.pilot.evaluator_overlay_path is not None:
+            try:
+                overlay = load_evaluator_overlay(self.pilot.evaluator_overlay_path)
+                if overlay.benchmark_commit != TAU3_COMMIT:
+                    raise ValueError("overlay benchmark commit mismatch")
+                verify_evaluator_overlay_sources(overlay, checkout=self.checkout)
+            except ValueError as exc:
+                missing.append(f"verified evaluator overlay ({exc})")
         version = self._dsh_version()
         if version != DSH_VERSION:
             missing.append(f"DeepSeek Harness {DSH_VERSION}")
@@ -243,6 +277,16 @@ class DshTau3Adapter(Tau3Adapter):
         environment = os.environ.copy()
         environment.pop("VIRTUAL_ENV", None)
         environment.pop("UV_RUN_RECURSION_DEPTH", None)
+        if self.pilot.network_route_policy == "direct_no_proxy":
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "ALL_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "all_proxy",
+            ):
+                environment.pop(name, None)
         python_paths = [str(self.project_root), str(self.checkout / "src")]
         if environment.get("PYTHONPATH"):
             python_paths.append(environment["PYTHONPATH"])
@@ -280,6 +324,9 @@ class DshTau3Adapter(Tau3Adapter):
                 "AGENTLOOPGATE_DSH_TURN_TIMEOUT_SECONDS": str(
                     self.pilot.turn_timeout_seconds
                 ),
+                "AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS": str(
+                    self.pilot.dsh_stream_idle_timeout_ms
+                ),
                 "AGENTLOOPGATE_PROVIDER_MAX_RETRIES": str(
                     self.pilot.provider_max_retries
                 ),
@@ -292,8 +339,22 @@ class DshTau3Adapter(Tau3Adapter):
                 "AGENTLOOPGATE_AGENT_MAX_OUTPUT_TOKENS": str(
                     self.pilot.agent_max_output_tokens
                 ),
+                "AGENTLOOPGATE_REPLY_NORMALIZATION_POLICY": (
+                    self.pilot.reply_normalization_policy
+                ),
+                "AGENTLOOPGATE_EMPTY_FINAL_REPAIR_POLICY": (
+                    self.pilot.empty_final_repair_policy
+                ),
+                "AGENTLOOPGATE_EMPTY_FINAL_REPAIR_LIMIT": str(
+                    self.pilot.empty_final_repair_limit
+                ),
+                "AGENTLOOPGATE_TAU3_CHECKOUT": str(self.checkout.resolve()),
             }
         )
+        if self.pilot.evaluator_overlay_path is not None:
+            environment["AGENTLOOPGATE_TAU3_EVALUATOR_OVERLAY"] = str(
+                self.pilot.evaluator_overlay_path.resolve()
+            )
         if request.model_usage_ledger is not None:
             usage_ledger = request.model_usage_ledger.resolve()
             if not usage_ledger.is_relative_to(self.project_root):
@@ -301,6 +362,37 @@ class DshTau3Adapter(Tau3Adapter):
                     "model usage ledger must remain under the project root"
                 )
             environment["AGENTLOOPGATE_MODEL_USAGE_LEDGER"] = str(usage_ledger)
+            environment["AGENTLOOPGATE_MODEL_USAGE_LEDGER_SCHEMA_VERSION"] = (
+                self.pilot.model_usage_ledger_schema_version
+            )
+        if request.user_model_usage_ledger is not None:
+            user_usage_ledger = request.user_model_usage_ledger.resolve()
+            if not user_usage_ledger.is_relative_to(self.project_root):
+                raise BenchmarkUnavailableError(
+                    "user model usage ledger must remain under the project root"
+                )
+            environment["AGENTLOOPGATE_USER_MODEL_USAGE_LEDGER"] = str(
+                user_usage_ledger
+            )
+        if request.task_attempt_ledger is not None:
+            task_attempt_ledger = request.task_attempt_ledger.resolve()
+            if not task_attempt_ledger.is_relative_to(self.project_root):
+                raise BenchmarkUnavailableError(
+                    "task attempt ledger must remain under the project root"
+                )
+            if self.pilot.global_task_attempt_limit is None:
+                raise BenchmarkUnavailableError(
+                    "task attempt ledger requires a global task attempt limit"
+                )
+            environment["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER"] = str(
+                task_attempt_ledger
+            )
+            environment["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER_SCHEMA_VERSION"] = (
+                self.pilot.task_attempt_ledger_schema_version
+            )
+            environment["AGENTLOOPGATE_GLOBAL_TASK_ATTEMPT_LIMIT"] = str(
+                self.pilot.global_task_attempt_limit
+            )
         try:
             subprocess.run(
                 self.build_command(request),
@@ -343,11 +435,28 @@ class DshTau3Adapter(Tau3Adapter):
                 "model": self.pilot.model,
                 "pricing_evidence": canonical_digest(self.pilot.pricing),
                 "turn_timeout_seconds": self.pilot.turn_timeout_seconds,
+                "dsh_stream_idle_timeout_ms": self.pilot.dsh_stream_idle_timeout_ms,
                 "harness_digest": self._harness_digest(),
                 "provider_max_retries": self.pilot.provider_max_retries,
                 "provider_retry_delay_ms": self.pilot.provider_retry_delay_ms,
                 "agent_temperature": self.pilot.agent_temperature,
                 "agent_max_output_tokens": self.pilot.agent_max_output_tokens,
+                "dsh_tau3_protocol_version": self.pilot.dsh_tau3_protocol_version,
+                "reply_normalization_policy": self.pilot.reply_normalization_policy,
+                "runner_failure_usage_policy": self.pilot.runner_failure_usage_policy,
+                "empty_final_repair_policy": self.pilot.empty_final_repair_policy,
+                "empty_final_repair_limit": self.pilot.empty_final_repair_limit,
+                "network_route_policy": self.pilot.network_route_policy,
+                "global_task_attempt_limit": self.pilot.global_task_attempt_limit,
+                "task_attempt_ledger_schema_version": (
+                    self.pilot.task_attempt_ledger_schema_version
+                ),
+                "model_usage_ledger_schema_version": (
+                    self.pilot.model_usage_ledger_schema_version
+                ),
+                "evaluator_overlay_digest": (
+                    _evaluator_overlay_digest(self.pilot.evaluator_overlay_path)
+                ),
             }
         )
 
@@ -623,7 +732,23 @@ class DshTau3EvidenceLinker:
                 "provider": self.pilot.provider,
                 "model": self.pilot.model,
                 "pricing_evidence": canonical_digest(self.pilot.pricing),
+                "turn_timeout_seconds": self.pilot.turn_timeout_seconds,
+                "dsh_stream_idle_timeout_ms": self.pilot.dsh_stream_idle_timeout_ms,
                 "harness_digest": self._harness_digest(),
+                "provider_max_retries": self.pilot.provider_max_retries,
+                "provider_retry_delay_ms": self.pilot.provider_retry_delay_ms,
+                "agent_temperature": self.pilot.agent_temperature,
+                "agent_max_output_tokens": self.pilot.agent_max_output_tokens,
+                "dsh_tau3_protocol_version": self.pilot.dsh_tau3_protocol_version,
+                "reply_normalization_policy": self.pilot.reply_normalization_policy,
+                "runner_failure_usage_policy": self.pilot.runner_failure_usage_policy,
+                "empty_final_repair_policy": self.pilot.empty_final_repair_policy,
+                "empty_final_repair_limit": self.pilot.empty_final_repair_limit,
+                "network_route_policy": self.pilot.network_route_policy,
+                "global_task_attempt_limit": self.pilot.global_task_attempt_limit,
+                "evaluator_overlay_digest": (
+                    _evaluator_overlay_digest(self.pilot.evaluator_overlay_path)
+                ),
             }
         )
 
@@ -648,11 +773,12 @@ class DshTau3EvidenceLinker:
             if not isinstance(message, dict) or message.get("role") != "assistant":
                 continue
             raw_data = message.get("raw_data")
-            dsh_backed = (
-                isinstance(raw_data, dict)
-                and raw_data.get("agentloopgate_protocol") == "dsh-tau3/1.0"
+            protocol = (
+                raw_data.get("agentloopgate_protocol")
+                if isinstance(raw_data, dict)
+                else None
             )
-            if not dsh_backed:
+            if protocol is None:
                 # τ³ seeds one inert assistant greeting before the custom agent
                 # generates its first turn. It is not a DSH model invocation.
                 if (
@@ -664,7 +790,12 @@ class DshTau3EvidenceLinker:
                 ):
                     continue
                 raise OutcomeImportError(
-                    "assistant message lacks DSH adapter provenance"
+                    "provenance_missing: assistant message lacks DSH adapter provenance"
+                )
+            if protocol not in DSH_TAU3_SUPPORTED_PROTOCOLS:
+                raise OutcomeImportError(
+                    "protocol_version_unsupported: assistant message uses an "
+                    f"unsupported DSH adapter protocol: {protocol!r}"
                 )
             value = message.get("generation_time_seconds")
             if value is None or isinstance(value, bool):
@@ -696,3 +827,7 @@ class DshTau3EvidenceLinker:
         if not isinstance(raw, dict):
             raise OutcomeImportError("τ³ result must be a JSON object")
         return raw
+
+
+def _evaluator_overlay_digest(path: Path | None) -> str | None:
+    return load_evaluator_overlay(path).overlay_digest if path is not None else None

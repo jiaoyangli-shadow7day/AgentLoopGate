@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -289,6 +291,67 @@ def test_dsh_tau3_command_selects_custom_agent_and_rejects_parallelism(
         adapter.build_command(request.model_copy(update={"max_concurrency": 2}))
 
 
+def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkout = tmp_path / "tau3"
+    config = replace(
+        pilot_config(tmp_path),
+        network_route_policy="direct_no_proxy",
+        global_task_attempt_limit=2,
+    )
+    adapter = DshTau3Adapter(tmp_path, checkout=checkout, pilot=config)
+    request = BenchmarkRunRequest(
+        task_ids=["task_001"],
+        trials=1,
+        agent_model="deepseek-official/deepseek-v4-flash",
+        user_model="deepseek/deepseek-v4-flash",
+        run_name="r4-fixture",
+        model_usage_ledger=tmp_path / "runs/agent.jsonl",
+        user_model_usage_ledger=tmp_path / "runs/user.jsonl",
+        task_attempt_ledger=tmp_path / "runs/task.jsonl",
+    )
+    result = checkout / "data/simulations/r4-fixture/results.json"
+    result.parent.mkdir(parents=True)
+    result.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("all_proxy", "socks5://127.0.0.1:1")
+    monkeypatch.setattr(
+        adapter,
+        "doctor",
+        lambda: SimpleNamespace(ready=True, remediation="No action required."),
+    )
+    captured: dict = {}
+
+    def fake_run(*args, **kwargs):
+        captured.update(kwargs["env"])
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("agentloopgate.adapters.dsh_tau3.subprocess.run", fake_run)
+
+    assert adapter.run(request) == result
+    assert "HTTP_PROXY" not in captured
+    assert "all_proxy" not in captured
+    assert captured["AGENTLOOPGATE_GLOBAL_TASK_ATTEMPT_LIMIT"] == "2"
+    assert captured["AGENTLOOPGATE_REPLY_NORMALIZATION_POLICY"] == (
+        "bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias"
+    )
+    assert captured["AGENTLOOPGATE_DSH_TURN_TIMEOUT_SECONDS"] == "360"
+    assert captured["AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS"] == "300000"
+    assert captured["AGENTLOOPGATE_EMPTY_FINAL_REPAIR_POLICY"] == (
+        "bounded_same_session_final_only_v1"
+    )
+    assert captured["AGENTLOOPGATE_EMPTY_FINAL_REPAIR_LIMIT"] == "1"
+    assert captured["AGENTLOOPGATE_MODEL_USAGE_LEDGER"].endswith("runs/agent.jsonl")
+    assert captured["AGENTLOOPGATE_USER_MODEL_USAGE_LEDGER"].endswith(
+        "runs/user.jsonl"
+    )
+    assert captured["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER"].endswith("runs/task.jsonl")
+    assert captured["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER_SCHEMA_VERSION"] == "1.0"
+    assert captured["AGENTLOOPGATE_MODEL_USAGE_LEDGER_SCHEMA_VERSION"] == "1.1"
+
+
 def test_dsh_tau3_evidence_join_preserves_both_trace_authorities(tmp_path: Path) -> None:
     payload = tau3_result()
     payload["info"]["agent_info"]["llm"] = "deepseek-official/deepseek-v4-flash"
@@ -314,7 +377,7 @@ def test_dsh_tau3_evidence_join_preserves_both_trace_authorities(tmp_path: Path)
         42,
     )
     payload["simulations"][0]["messages"][1]["raw_data"] = {
-        "agentloopgate_protocol": "dsh-tau3/1.0",
+        "agentloopgate_protocol": "dsh-tau3/1.1",
         "dsh_session_id_hash": canonical_digest({"session_id": session_id})
     }
     raw = write_json(tmp_path / "upstream/results.json", payload)
@@ -388,13 +451,41 @@ def test_dsh_tau3_evidence_join_preserves_both_trace_authorities(tmp_path: Path)
 
 
 def test_dsh_latency_rejects_unprovenanced_generated_assistant_message() -> None:
-    with pytest.raises(OutcomeImportError, match="lacks DSH adapter provenance"):
+    with pytest.raises(OutcomeImportError, match="provenance_missing"):
         DshTau3EvidenceLinker._agent_latency_ms(
             [
                 {
                     "role": "assistant",
                     "turn_idx": 1,
                     "generation_time_seconds": 0.25,
+                }
+            ]
+        )
+
+
+@pytest.mark.parametrize("version", ["dsh-tau3/1.0", "dsh-tau3/1.1"])
+def test_dsh_latency_accepts_registered_protocol_versions(version: str) -> None:
+    assert DshTau3EvidenceLinker._agent_latency_ms(
+        [
+            {
+                "role": "assistant",
+                "turn_idx": 1,
+                "generation_time_seconds": 0.25,
+                "raw_data": {"agentloopgate_protocol": version},
+            }
+        ]
+    ) == 250
+
+
+def test_dsh_latency_distinguishes_unsupported_protocol_version() -> None:
+    with pytest.raises(OutcomeImportError, match="protocol_version_unsupported"):
+        DshTau3EvidenceLinker._agent_latency_ms(
+            [
+                {
+                    "role": "assistant",
+                    "turn_idx": 1,
+                    "generation_time_seconds": 0.25,
+                    "raw_data": {"agentloopgate_protocol": "dsh-tau3/9.9"},
                 }
             ]
         )

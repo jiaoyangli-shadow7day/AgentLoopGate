@@ -111,6 +111,16 @@ class CandidateRegistry:
             )
         if check.risk_tier is None or not check.asset_families:
             raise CandidateStateError("candidate check did not resolve assets and risk")
+        failure_bundle_digest = canonical_digest(failure_bundle)
+        duplicate = self._semantic_duplicate(
+            parent_snapshot_id=parent_snapshot_id,
+            failure_bundle_digest=failure_bundle_digest,
+            semantic_fingerprint=check.semantic_fingerprint,
+        )
+        if duplicate is not None:
+            raise CandidateRejectedError(
+                "candidate rejected as a semantic duplicate of " + duplicate
+            )
         directory.mkdir(parents=True)
         stored_patch = directory / "candidate.patch"
         stored_patch.write_bytes(patch_path.read_bytes())
@@ -129,7 +139,7 @@ class CandidateRegistry:
             schema_version="1.0",
             candidate_id=candidate_id,
             parent_snapshot_id=parent_snapshot_id,
-            failure_bundle_digest=canonical_digest(failure_bundle),
+            failure_bundle_digest=failure_bundle_digest,
             updater=UpdaterIdentity(name=updater_name, version=updater_version),
             hypothesis=hypothesis,
             asset_families=check.asset_families,
@@ -156,6 +166,44 @@ class CandidateRegistry:
             occurred_at=created_at,
         )
         return record
+
+    def _semantic_duplicate(
+        self,
+        *,
+        parent_snapshot_id: str,
+        failure_bundle_digest: str,
+        semantic_fingerprint: str | None,
+    ) -> str | None:
+        if (
+            self.checker.policy.schema_version != "1.1"
+            or self.checker.policy.semantic_deduplication is not True
+            or semantic_fingerprint is None
+        ):
+            return None
+        candidates_root = self.project_root / "candidates"
+        for directory in sorted(candidates_root.glob("*")):
+            if not directory.is_dir():
+                continue
+            events = sorted((directory / "events").glob("*.json"))
+            check_path = directory / "check.json"
+            if not events or not check_path.is_file():
+                continue
+            try:
+                existing = CandidateLifecycleEvent.model_validate_json(
+                    events[-1].read_text(encoding="utf-8")
+                ).record
+                existing_check = json.loads(check_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                raise CandidateStateError(
+                    f"candidate {directory.name} semantic evidence is corrupt"
+                ) from exc
+            if (
+                existing.parent_snapshot_id == parent_snapshot_id
+                and existing.failure_bundle_digest == failure_bundle_digest
+                and existing_check.get("semantic_fingerprint") == semantic_fingerprint
+            ):
+                return existing.candidate_id
+        return None
 
     def load(self, candidate_id: str) -> CandidateRecord:
         events = sorted((self._candidate_dir(candidate_id) / "events").glob("*.json"))

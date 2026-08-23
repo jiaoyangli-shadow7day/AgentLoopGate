@@ -1,4 +1,4 @@
-schema_version: "1.0"
+schema_version: "1.1"
 max_files: 4
 max_changed_lines: 160
 auto_executable_risks: ["L", "M"]
@@ -34,3 +34,5 @@ forbidden_content_patterns:
   - "(?i)evaluation_criteria"
   - "sk-[A-Za-z0-9]{20,}"
   - "(?i)(api[_-]?key|authorization|credential|secret)\\s*[:=]\\s*[^${][^\\s]{8,}"
+reject_unbound_static_capabilities: true
+semantic_deduplication: true

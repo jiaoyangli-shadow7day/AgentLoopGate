@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R9_COST_GATE_INCIDENT_DIAGNOSIS",
+  "source_experiment_id": "EXP_BANKING_R8",
+  "recorded_at": "2026-08-22T11:05:58Z",
+  "contains_raw_customer_data": false,
+  "incident_class": "direct_cost_not_propagated_to_cost_gate",
+  "observation": {
+    "r8_paid_batches_started": 0,
+    "cost_artifact_direct_lineage_available": true,
+    "evaluation_summary_input_before_fix": "tau3_raw_run_record_cost",
+    "final_cost_gate_input_before_fix": "tau3_raw_run_record_cost",
+    "required_input": "direct_valid_agent_plus_user_mean"
+  },
+  "root_cause": {
+    "implementation": "direct Agent and User cost was sealed after EvaluationSummary was constructed, while final runtime metrics independently reread normalized RunRecord cost",
+    "protocol_gap": "protocol 1.6 froze direct valid-cost lineage but did not independently pin the downstream Cost Gate input field",
+    "spec_gap": false,
+    "business_semantics_changed": false
+  },
+  "disposition": {
+    "r8_formal_result_available": false,
+    "r8_paid_evidence_discarded": false,
+    "r8_no_model_evidence_preserved": true,
+    "automatic_deployment_permitted": false,
+    "r7_or_r8_history_rewritten": false
+  },
+  "required_correction": [
+    "compute and seal exact direct valid Agent plus User mean cost",
+    "bind the direct cost source, status, and cost digest into EvaluationSummary",
+    "require selection curves and final Cost Gate to consume the bound summary value",
+    "weight multi-batch mean cost by valid run count",
+    "add a fixture whose raw and direct costs differ and assert the Gate uses direct cost",
+    "use a new protocol and experiment identity before paid execution"
+  ],
+  "artifact_digest": "sha256:be63360dea26c5c22a558b41b8c3482c259d4bd05104dea59eb1fe3e0bb0e731"
+}

@@ -1,6 +1,6 @@
 # Experiment evidence and cost recording standard
 
-This is the minimum record required for a Banking R2 execution to be usable as
+This is the minimum record required for a Banking formal execution to be usable as
 open-source or paper evidence. A score without this record is not a valid
 experiment result.
 
@@ -15,7 +15,7 @@ experiment result.
 | Trace evidence | One host/benchmark evidence plane | SourceTraceRef, cursor range, event count, source revision, Receipt, normalized record digest, cross-plane Join | Execution lineage and completeness |
 | Batch and cost artifacts | One formal batch | Batch/spec digest, all run/receipt/join IDs, summary, disposition/HOLD reasons; valid and Infra Invalid cost partitions | Denominator, integrity, and cost reconciliation |
 | Analysis artifacts | Frozen role assignment and six comparisons | Logical/unique/reused counts, batch and summary digests, effective bootstrap seeds, estimates and intervals | Publication statistics and selector contrast |
-| Release evidence | Two selector Decisions plus one governed report | Gate evidence, Decision/Lineage/report/outcome digests and four figure hashes | Final recommendation; never automatic deployment |
+| Terminal governance evidence | Selection-HOLD, or two selector Decisions plus one governed Release report | Selection/Decision, Lineage, report, outcome and figure hashes; cost refs; skipped-stage proof | Final recommendation or abstention; never automatic deployment |
 
 ## Lifecycle invariants
 
@@ -101,8 +101,11 @@ The final report must include, even when unfavorable:
 - every Attempt terminal status and every unresolved model call;
 - Pass^1, stable-success tasks, critical violations, latency, and exact
   valid-only cost with their denominators;
-- all six paired estimates and 95% intervals;
-- both selector Decisions and every HOLD/REJECT reason;
+- all preregistered paired estimates and 95% intervals that are applicable to
+  stages actually authorized and run; skipped Release comparisons are explicit
+  `not_applicable`, not zero;
+- the native choice, the governed choice or null abstention, and every
+  HOLD/REJECT reason;
 - negative differences and timing outliers from fixture ablations;
 - total known model spend, known lower-bound spend, and unknown cost scopes;
 - local and remote execution wall time separately;

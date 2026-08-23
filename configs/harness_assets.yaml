@@ -1,4 +1,4 @@
-schema_version: "1.0"
+schema_version: "1.1"
 assets:
   - asset_id: "system-prompt"
     family: "prompt_instruction"
@@ -24,6 +24,7 @@ assets:
     risk_tier: "M"
     allowed_operations: ["propose", "patch", "evaluate", "rollback"]
     rollback_unit: "tool-routing-unit"
+    semantic_validator: "runtime_capability_routing_v1"
   - asset_id: "orchestration-state"
     family: "orchestration_state"
     path_patterns: ["harness/orchestration/**"]

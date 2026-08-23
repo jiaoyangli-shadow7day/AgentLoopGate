@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import uuid4
 
 import yaml
@@ -137,6 +137,7 @@ class AheExternalRunner:
         input_price_per_million: Decimal = Decimal(0),
         cache_read_price_per_million: Decimal = Decimal(0),
         output_price_per_million: Decimal = Decimal(0),
+        network_route_policy: Literal["inherit", "direct_no_proxy"] = "inherit",
     ) -> None:
         self.checkout = checkout.resolve()
         self.project_root = project_root.resolve()
@@ -149,6 +150,7 @@ class AheExternalRunner:
         self.input_price_per_million = input_price_per_million
         self.cache_read_price_per_million = cache_read_price_per_million
         self.output_price_per_million = output_price_per_million
+        self.network_route_policy = network_route_policy
 
     def doctor(self) -> UpdaterHealth:
         sandbox_available = Path("/usr/bin/sandbox-exec").is_file()
@@ -198,6 +200,29 @@ class AheExternalRunner:
                 sandbox=sandbox_available,
                 remediation="Run uv sync in the AHE checkout and enable macOS sandbox-exec.",
             )
+        try:
+            with TemporaryDirectory(prefix="agentloopgate-ahe-doctor-") as directory:
+                subprocess.run(
+                    [str(python), "-c", "import evolve"],
+                    cwd=directory,
+                    env=self._base_environment(),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return self._health(
+                "unavailable",
+                actual_commit=commit,
+                version=version,
+                credentials=credentials,
+                sandbox=sandbox_available,
+                remediation=(
+                    "Restore the pinned AHE runtime so its checkout-root evolve module "
+                    "imports from an isolated working directory."
+                ),
+            )
         if not credentials:
             return self._health(
                 "missing_credentials",
@@ -233,7 +258,7 @@ class AheExternalRunner:
         driver.write_text(_AHE_DRIVER, encoding="utf-8")
         runtime_dir = request.experiment_root / ".runtime"
         runtime_dir.mkdir()
-        env = os.environ.copy()
+        env = self._base_environment()
         env.update(
             {
                 "LLM_API_KEY": env["DEEPSEEK_API_KEY"],
@@ -346,6 +371,28 @@ class AheExternalRunner:
             duration_ms=duration_ms,
             attempt_artifact_root=attempt_root,
         )
+
+    def _base_environment(self) -> dict[str, str]:
+        """Build the exact checkout-import and network route environment."""
+
+        environment = os.environ.copy()
+        python_paths = [str(self.checkout)]
+        if environment.get("PYTHONPATH"):
+            python_paths.append(environment["PYTHONPATH"])
+        environment["PYTHONPATH"] = os.pathsep.join(python_paths)
+        if self.network_route_policy == "direct_no_proxy":
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "ALL_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "all_proxy",
+            ):
+                environment.pop(name, None)
+            environment["NO_PROXY"] = "*"
+            environment["no_proxy"] = "*"
+        return environment
 
     def _install_evolve_agent(self, experiment_root: Path) -> None:
         source = self.checkout / "agents/evolve_agent"

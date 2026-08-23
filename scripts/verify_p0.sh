@@ -81,19 +81,9 @@ corepack pnpm run build
 corepack pnpm run test:conformance
 corepack pnpm pack --pack-destination "${VERIFY_TMP}"
 
-echo "[5/5] Public-tree secret check"
+echo "[5/5] Public-tree Secret/PII check"
 cd "${VERIFY_ROOT}"
-if rg -l 'sk-[A-Za-z0-9]{20,}' . --hidden \
-  -g '!.git/**' \
-  -g '!.venv/**' \
-  -g '!.cache/**' \
-  -g '!**/node_modules/**' \
-  -g '!dist/**' \
-  -g '!integrations/deepseek-harness/lib/**' \
-  >"${VERIFY_TMP}/secret-files.txt"; then
-  echo "Secret-like token found in one or more source files; paths withheld." >&2
-  exit 3
-fi
+uv run python scripts/audit_public_tree.py --project "${VERIFY_ROOT}"
 
 echo "AgentLoopGate clean-room checks passed."
 echo "Real Banking Pilot and Candidate Ladder are separate credentialed acceptance work."

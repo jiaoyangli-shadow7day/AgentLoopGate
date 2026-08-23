@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R8_COST_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R7",
+  "source_incident_artifact": "artifacts/research/banking_r8/cost_incident_diagnosis.json",
+  "source_incident_digest": "sha256:a8bc371ba7674ecfde6bdd0a18521433f28064b8d8680cc591539059da9fa1c9",
+  "contains_raw_customer_data": false,
+  "pricing_digest": "sha256:0dcc3e377789e4ef449ba539021fd0d448a78520bedbddc1156abd3733c26271",
+  "cost_authority_policy": "verified_tokens_times_frozen_prices_v1",
+  "valid_cost_lineage_policy": "direct_final_task_attempt_calls_v1",
+  "raw_cost_evidence_policy": "comparison_only_v1",
+  "positive_token_zero_cost_policy": "reject_positive_frozen_contribution_v1",
+  "assertions": [
+    "all frozen token prices are validated before any paid User Simulator call",
+    "terminal User cost is computed only from verified input, cache-read, and output tokens times frozen prices",
+    "a positive token contribution at a positive frozen price cannot be emitted as exact zero",
+    "valid-run cost is selected through retained simulation to completed task attempt to direct Agent and User calls",
+    "failed, retried, unretained, and unresolved calls remain in whole-attempt accounting",
+    "tau3 raw agent_cost and user_cost are preserved as comparison evidence and cannot override direct accounting",
+    "every exact direct call amount must equal independent frozen-price recomputation",
+    "AHE doctor verifies the actual checkout-root evolve import under the same pinned import and route environment"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:2fc67b8aef2c6b5ff1009046b40d6d48449a0006362d0b611ff963ed7ebc49ac",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/experiment/ledger.py": "sha256:7ba9fe245d9591292287b0f8ee99234d6b247b3238c252567efeaaf2c9a3bfeb",
+    "agentloopgate/experiment/batch.py": "sha256:1efa42929c8d3b1012a2d32beaf4eb173144c4a6e1347ffbbc3ce0f826d6c492",
+    "agentloopgate/experiment/protocol.py": "sha256:ff10c7e7aafb2a4e4c3c3f4a0b8592bd859d20b9a98d06e3f27e9275d2e48755",
+    "agentloopgate/experiment/service.py": "sha256:2603ffa1110fe1a50e3f56c905217261f6c5160ec276b6d4efdc237d7901d7f8",
+    "agentloopgate/updaters/ahe.py": "sha256:beedd1eb3fba46789ed71d27f08740a9a0f43778a345c93d43c4a6511cf7b3f9",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:d21a4e1ff5f035054384d54498bb110b4e808803574f31d5613b448fabc7430d"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-22T10:52:13Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "provider_false_zero_recomputed": "passed",
+      "missing_price_pre_call_rejected": "passed",
+      "direct_lineage_overrides_raw": "passed",
+      "positive_token_exact_zero_rejected": "passed"
+    },
+    "ahe_doctor": {
+      "status": "passed",
+      "checkout_commit": "8b2a55d97590363fe50c3cc6b5e833b020a4bb4c",
+      "version": "0.1.0",
+      "isolated_import": "passed",
+      "direct_no_proxy_environment": "passed",
+      "real_seconds": "0.25",
+      "user_cpu_seconds": "0.14",
+      "system_cpu_seconds": "0.04",
+      "maximum_resident_set_bytes": 37126144,
+      "peak_memory_footprint_bytes": 21971328
+    },
+    "attempts": [
+      {
+        "attempt_id": "R8-NM-001",
+        "scope": "formal_cost_focused_before_historical_lock_update",
+        "status": "failed",
+        "tests_passed": 27,
+        "tests_failed": 1,
+        "failure": "immutable R7 runtime binding correctly detected the changed cost hook",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R8-NM-002",
+        "scope": "broad_unit_with_incomplete_shell_path",
+        "status": "failed",
+        "tests_passed": 117,
+        "tests_failed": 1,
+        "failure": "invoking shell PATH omitted the installed virtual-environment console script",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R8-NM-003",
+        "scope": "focused_cost_and_ahe_regressions",
+        "status": "passed",
+        "cost_fixtures_passed": 4,
+        "tau3_evidence_tests_passed": 13,
+        "updater_tests_passed": 5,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R8-NM-004",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 149,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel_install": "passed",
+        "dsh_headless_bundle_conformance": "passed",
+        "secret_scan": "passed",
+        "real_seconds": "26.61",
+        "user_cpu_seconds": "12.45",
+        "system_cpu_seconds": "6.30",
+        "maximum_resident_set_bytes": 350060544,
+        "peak_memory_footprint_bytes": 1311056,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R8-NM-005",
+        "scope": "public_tree_secret_and_pii_audit",
+        "status": "passed",
+        "files_scanned": 226,
+        "findings": 0,
+        "real_seconds": "0.14",
+        "user_cpu_seconds": "0.12",
+        "system_cpu_seconds": "0.02",
+        "maximum_resident_set_bytes": 18563072,
+        "peak_memory_footprint_bytes": 9519464,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "deterministic fixtures prove accounting and rejection semantics but do not independently verify provider invoices",
+    "raw versus direct mismatches are disclosed rather than assumed to be provider billing errors",
+    "local compute monetary cost is unavailable and is never represented as zero"
+  ],
+  "artifact_digest": "sha256:d02c62c61e2106a1812ac1e20cd9b9fab6e2c3f1feac40b85d59c2287e8cb82e"
+}

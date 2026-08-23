@@ -8,6 +8,7 @@
 
 - id: llm-deepseek
   config:
+    streamIdleTimeoutMs: !!js Number(process.env.AGENTLOOPGATE_DSH_STREAM_IDLE_TIMEOUT_MS)
     retryPolicy:
       mode: normal
       maxRetries: !!js Number(process.env.AGENTLOOPGATE_PROVIDER_MAX_RETRIES)

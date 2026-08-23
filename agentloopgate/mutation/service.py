@@ -37,6 +37,8 @@ class ParsedPatch:
     additions: int
     deletions: int
     added_text: str
+    added_by_file: dict[str, list[str]]
+    deleted_by_file: dict[str, list[str]]
 
 
 def load_asset_manifest(path: Path) -> HarnessAssetManifest:
@@ -163,6 +165,15 @@ class CandidateChecker:
                 parsed=parsed,
                 assets=assets,
             )
+        semantic_error = self._runtime_capability_error(parsed, assets)
+        if semantic_error is not None:
+            return self._result(
+                CandidateCheckCode.REJECT_UNBOUND_CAPABILITY,
+                semantic_error,
+                digest,
+                parsed=parsed,
+                assets=assets,
+            )
         effective_budget = budget or ChangeBudget(
             max_files=self.policy.max_files,
             max_changed_lines=self.policy.max_changed_lines,
@@ -222,7 +233,7 @@ class CandidateChecker:
         parsed: ParsedPatch | None = None,
         assets: list[HarnessAsset] | None = None,
     ) -> CandidateCheckResult:
-        parsed = parsed or ParsedPatch([], 0, 0, "")
+        parsed = parsed or ParsedPatch([], 0, 0, "", {}, {})
         assets = assets or []
         risk = (
             max((asset.risk_tier for asset in assets), key=_RISK_ORDER.__getitem__)
@@ -230,7 +241,12 @@ class CandidateChecker:
             else None
         )
         return CandidateCheckResult(
-            schema_version="1.0",
+            schema_version=(
+                "1.1"
+                if self.manifest.schema_version == "1.1"
+                and self.policy.schema_version == "1.1"
+                else "1.0"
+            ),
             disposition=disposition,
             code=code,
             message=message,
@@ -250,7 +266,55 @@ class CandidateChecker:
                 and risk is not None
                 and risk in self.policy.auto_executable_risks
             ),
+            **(
+                {
+                    "semantic_tags": _semantic_tags(parsed),
+                    "semantic_fingerprint": _semantic_fingerprint(
+                        parsed,
+                        assets,
+                    ),
+                }
+                if self.manifest.schema_version == "1.1"
+                and self.policy.schema_version == "1.1"
+                else {}
+            ),
         )
+
+    def _runtime_capability_error(
+        self,
+        parsed: ParsedPatch,
+        assets: list[HarnessAsset],
+    ) -> str | None:
+        guarded = {
+            changed_file
+            for changed_file, asset in zip(parsed.changed_files, assets, strict=True)
+            if asset.semantic_validator == "runtime_capability_routing_v1"
+        }
+        if not guarded:
+            return None
+        for relative in guarded:
+            try:
+                current = yaml.safe_load(
+                    (self.project_root / relative).read_text(encoding="utf-8")
+                )
+            except (OSError, yaml.YAMLError):
+                return "runtime capability routing asset is not readable YAML"
+            binding = current.get("capability_binding") if isinstance(current, dict) else None
+            if not isinstance(binding, dict) or binding != {
+                "source": "runtime_tool_schema",
+                "reject_unknown_route_targets": True,
+            }:
+                return "tool routing is not bound to the runtime tool schema"
+            deleted = "\n".join(parsed.deleted_by_file.get(relative, []))
+            if "capability_binding" in deleted or "runtime_tool_schema" in deleted:
+                return "candidate cannot remove the runtime capability binding"
+            for line in parsed.added_by_file.get(relative, []):
+                if re.match(r"^\s*capability\s*:", line):
+                    return (
+                        "static capability targets are not portable; use a runtime "
+                        "capability_ref resolved against the current tool schema"
+                    )
+        return None
 
     @staticmethod
     def _parse_patch(path: Path) -> ParsedPatch:
@@ -259,6 +323,9 @@ class CandidateChecker:
         additions = 0
         deletions = 0
         added_lines: list[str] = []
+        added_by_file: dict[str, list[str]] = {}
+        deleted_by_file: dict[str, list[str]] = {}
+        current_file: str | None = None
         for line in text.splitlines():
             match = _DIFF_HEADER.fullmatch(line)
             if match:
@@ -267,14 +334,21 @@ class CandidateChecker:
                     raise MutationConfigError("rename patches are not supported in P0")
                 _validate_relative_path(new_path)
                 changed_files.append(new_path)
+                current_file = new_path
+                added_by_file[current_file] = []
+                deleted_by_file[current_file] = []
                 continue
             if line.startswith("Binary files ") or line == "GIT binary patch":
                 raise MutationConfigError("binary patches are not supported")
             if line.startswith("+") and not line.startswith("+++"):
                 additions += 1
                 added_lines.append(line[1:])
+                if current_file is not None:
+                    added_by_file[current_file].append(line[1:])
             elif line.startswith("-") and not line.startswith("---"):
                 deletions += 1
+                if current_file is not None:
+                    deleted_by_file[current_file].append(line[1:])
         if not changed_files:
             raise MutationConfigError("patch contains no diff --git file headers")
         if len(changed_files) != len(set(changed_files)):
@@ -284,7 +358,41 @@ class CandidateChecker:
             additions=additions,
             deletions=deletions,
             added_text="\n".join(added_lines),
+            added_by_file=added_by_file,
+            deleted_by_file=deleted_by_file,
         )
+
+
+def _semantic_tags(parsed: ParsedPatch) -> list[str]:
+    text = parsed.added_text.lower().replace("_", "-")
+    rules = {
+        "read_after_write": r"(?:read-after-write|read back|read-back|re-read)",
+        "terminal_state_verification": r"terminal state",
+        "gated_success_claim": r"(?:success claim|claim completion|reporting completion)",
+        "exact_capability_match": r"(?:exact match|exactly one registered capability)",
+        "fail_closed_routing": r"(?:unmatched|unroutable|unregistered).{0,40}reject",
+        "runtime_capability_binding": r"(?:runtime[-_ ]tool[-_ ]schema|capability-ref)",
+    }
+    return sorted(tag for tag, pattern in rules.items() if re.search(pattern, text))
+
+
+def _semantic_fingerprint(
+    parsed: ParsedPatch,
+    assets: list[HarnessAsset],
+) -> str:
+    tags = _semantic_tags(parsed)
+    normalized = [
+        re.sub(r"\s+", " ", line.strip().lower())
+        for line in parsed.added_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    behavior = tags if len(tags) >= 2 else normalized
+    return canonical_digest(
+        {
+            "asset_families": sorted({asset.family.value for asset in assets}),
+            "behavior": behavior,
+        }
+    )
 
 
 def _validate_relative_path(value: str) -> None:

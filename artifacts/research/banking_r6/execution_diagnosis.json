@@ -1,0 +1,288 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R6_EXECUTION_DIAGNOSIS",
+  "experiment_id": "EXP_BANKING_R6",
+  "batch_id": "B_4899C1374D59DFFB3F6F",
+  "spec_digest": "sha256:4899c1374d59dffb3f6fabbe21ea8a525cc5e6c8efa7b95e72c2f1f7876d414b",
+  "protocol_digest": "sha256:cc13502b4a48d7dd7423e6586fd114e3f963ccc94f8d53a7549f03946530969f",
+  "study_digest": "sha256:971b7fbfc2c993692be74aa45c621e4420c7139fad33f2a9354bacb1cae8845a",
+  "baseline_digest": "sha256:866acb8404ebfd57cfb67499cef329423124ea8aef36ea85394331c3830dec6c",
+  "source_revision": "tree:sha256:d9d1fc43dc91af72791ec1c202700476e085cbebfda6f1e327b28f2ae140e367",
+  "batch_digest": "sha256:46abd59b222c9fff0e19b9eddd35a8174f3f4667a0e1a868928a097f3a99a8c1",
+  "disposition": "hold",
+  "hold_reasons": [
+    "infra_invalid:1",
+    "missing_valid_trials"
+  ],
+  "formal_summary": {
+    "task_positions": 25,
+    "valid_runs": 24,
+    "successes": 4,
+    "task_failures": 20,
+    "infra_invalid": 1,
+    "pass_1": "4/24",
+    "p50_simulation_latency_ms": "213306.5",
+    "valid_simulation_duration_seconds": {
+      "total": "9035.798087330767756",
+      "minimum": "19.535546333994716",
+      "median": "213.306488479604015",
+      "maximum": "1808.176201458089"
+    },
+    "termination_counts": {
+      "user_stop": 23,
+      "timeout": 1,
+      "infrastructure_error": 1
+    },
+    "outer_process": {
+      "wall_seconds": "10164.22",
+      "user_cpu_seconds": "1695.32",
+      "system_cpu_seconds": "405.24",
+      "maximum_resident_set_bytes": 690061312,
+      "peak_memory_footprint": 9961952
+    }
+  },
+  "cost_accounting": {
+    "accounting_status": "exact",
+    "scope": "whole_observed_attempt",
+    "valid_agent_cost_usd": "0.578862967199999977",
+    "valid_user_cost_usd": "0.1099143360000000006",
+    "valid_total_model_cost_usd": "0.6887773031999999776",
+    "observed_agent_attempt_cost_usd": "0.6509788768",
+    "observed_user_attempt_cost_usd": "0.11885548800000000316",
+    "observed_total_model_cost_usd": "0.76983436480000000316",
+    "failed_task_attempt_agent_cost_usd": "0.0721159096",
+    "failed_task_attempt_user_cost_usd": "0.00894115200000000015",
+    "unresolved_agent_calls": 0,
+    "unresolved_user_calls": 0,
+    "unknown_billing_scopes": [
+      "local compute monetary cost is unmetered"
+    ]
+  },
+  "model_call_evidence": {
+    "agent": {
+      "started": 828,
+      "terminal": 828,
+      "completed": 822,
+      "failed": 6,
+      "exact_cost_terminal": 828,
+      "unavailable_cost_terminal": 0,
+      "unresolved": 0,
+      "input_tokens": 1860548,
+      "cache_read_tokens": 41238656,
+      "output_tokens": 982264,
+      "max_output_tokens": 23026,
+      "max_duration_ms": 165342,
+      "provider_retries": 0,
+      "unretained_call_count": 84
+    },
+    "user": {
+      "started": 237,
+      "terminal": 237,
+      "completed": 237,
+      "failed": 0,
+      "exact_cost_terminal": 237,
+      "unresolved": 0,
+      "input_tokens": 737529,
+      "cache_read_tokens": 0,
+      "output_tokens": 63509,
+      "max_output_tokens": 2101,
+      "max_duration_ms": 20873,
+      "provider_retries": 0,
+      "unretained_call_count": 19
+    }
+  },
+  "task_attempt_evidence": {
+    "started": 27,
+    "terminal": 27,
+    "completed": 24,
+    "failed": 3,
+    "retried_positions": [
+      "task_053",
+      "task_069"
+    ],
+    "recovered_positions": [
+      "task_053"
+    ],
+    "permanent_infra_invalid": [
+      "task_069"
+    ],
+    "failed_attempts": [
+      {
+        "task_id": "task_053",
+        "attempt_index": 1,
+        "duration_ms": 183657,
+        "agent_calls": 18,
+        "agent_cost_usd": "0.0111026664",
+        "agent_input_tokens": 35505,
+        "agent_cache_read_tokens": 370688,
+        "agent_output_tokens": 18193,
+        "user_calls": 6,
+        "user_cost_usd": "0.00165741600000000004",
+        "user_input_tokens": 14562,
+        "user_output_tokens": 863
+      },
+      {
+        "task_id": "task_069",
+        "attempt_index": 1,
+        "duration_ms": 840400,
+        "agent_calls": 53,
+        "agent_cost_usd": "0.0559521256",
+        "agent_input_tokens": 152825,
+        "agent_cache_read_tokens": 4167552,
+        "agent_output_tokens": 81741,
+        "user_calls": 11,
+        "user_cost_usd": "0.00673327200000000011",
+        "user_input_tokens": 41256,
+        "user_output_tokens": 3783
+      },
+      {
+        "task_id": "task_069",
+        "attempt_index": 2,
+        "duration_ms": 41796,
+        "agent_calls": 10,
+        "agent_cost_usd": "0.0050611176",
+        "agent_input_tokens": 26517,
+        "agent_cache_read_tokens": 203392,
+        "agent_output_tokens": 2783,
+        "user_calls": 2,
+        "user_cost_usd": "0.000550464",
+        "user_input_tokens": 5604,
+        "user_output_tokens": 284
+      }
+    ]
+  },
+  "empty_final_repairs": [
+    {
+      "task_id": "task_019",
+      "attempt_index": 1,
+      "failed_call_id": "MC_59A42C0517624857BBDE8F7B647E5BE1",
+      "repair_call_id": "MC_659334CBE6B846B29CE4F034452EFF6B",
+      "same_session_id_hash": "sha256:41e687ef67555513da1dbd3398357f8cf0914ea2592dd94a178a384613bf44b5",
+      "failed_call_duration_ms": 75493,
+      "repair_call_duration_ms": 21399,
+      "combined_input_tokens": 479,
+      "combined_cache_read_tokens": 86144,
+      "combined_output_tokens": 10113,
+      "combined_exact_cost_usd": "0.0031399032",
+      "task_continued": true
+    },
+    {
+      "task_id": "task_079",
+      "attempt_index": 1,
+      "failed_call_id": "MC_10B50160CE5949A3ACAA2CFD5F153F78",
+      "repair_call_id": "MC_8DE1ADDB696E420E908C751722C8D50A",
+      "same_session_id_hash": "sha256:fed83f9e8d70ab7c0f2e13abf8c18bec85021274f57ec584325bf4e0faa408db",
+      "failed_call_duration_ms": 2507,
+      "repair_call_duration_ms": 2425,
+      "combined_input_tokens": 691,
+      "combined_cache_read_tokens": 61440,
+      "combined_output_tokens": 205,
+      "combined_exact_cost_usd": "0.000326172",
+      "task_continued": true
+    },
+    {
+      "task_id": "task_080",
+      "attempt_index": 1,
+      "failed_call_id": "MC_96C8E849FE334D87B5B991C96F6FF399",
+      "repair_call_id": "MC_1F72C65AC94142B8B69818A1304578CA",
+      "same_session_id_hash": "sha256:3e8594860f93c77bdcd87a3835b61aafab720bb48d5494c7384bd74b16ac9aa5",
+      "failed_call_duration_ms": 1813,
+      "repair_call_duration_ms": 1996,
+      "combined_input_tokens": 669,
+      "combined_cache_read_tokens": 47744,
+      "combined_output_tokens": 132,
+      "combined_exact_cost_usd": "0.0002643032",
+      "task_continued": true
+    }
+  ],
+  "reply_representation_failures": [
+    {
+      "task_id": "task_053",
+      "attempt_index": 1,
+      "error_class": "invalid_json_missing_name_field",
+      "explicit_information_status": "allow-listed wrapper name and complete arguments present without executable ambiguity",
+      "terminal_call_id": "MC_873F3432C1A24E69B23933E13E4F977B",
+      "terminal_call_exact_cost_usd": "0.0002393216",
+      "final_text_characters": 255,
+      "final_text_sha256": "3423cfd69fa0c50d9913053c68bae9a8ff353e4153b3a0dec10b69d25cfd0aeb",
+      "native_session_sha256": "a46d379ad65f335ab2964532af68550affb921751a472b674f8fc8f42b2d1eec"
+    },
+    {
+      "task_id": "task_069",
+      "attempt_index": 1,
+      "error_class": "invalid_json_missing_name_field",
+      "explicit_information_status": "allow-listed wrapper name and complete arguments present without executable ambiguity",
+      "terminal_call_id": "MC_97EEC248355D4749830DAD850AB92482",
+      "terminal_call_exact_cost_usd": "0.000540148",
+      "final_text_characters": 213,
+      "final_text_sha256": "5620158069c668a6acdfdc0f2f31b1f11cc6d7e684a217abced28b73e923bad0",
+      "native_session_sha256": "147091410ece7ac9d5e75a8fbba23688de8de787f9118e84cae893b944b08fb6"
+    },
+    {
+      "task_id": "task_069",
+      "attempt_index": 2,
+      "error_class": "schema_aware_discoverable_wrapper_alias",
+      "explicit_information_status": "allow-listed wrapper name, explicit discovered tool name, and complete underlying arguments present",
+      "terminal_call_id": "MC_5C3043ED2FE340A386CCCF237997C99A",
+      "terminal_call_exact_cost_usd": "0.0001740088",
+      "final_text_characters": 126,
+      "final_text_sha256": "5a20eac16b901edaf75137563e38f7790896c7bf9b5340cf44d79a5c77d95a61",
+      "native_session_sha256": "264970bc0a503946ae029e80b3418dcca0556a28a93ceb2dfd9c1e56827ac51d"
+    }
+  ],
+  "trace_coexistence_evidence": {
+    "native_dsh_session_files": 27,
+    "native_dsh_session_bytes": 44637111,
+    "evidence_joins": 25,
+    "verified_dsh_trace_refs": 25,
+    "cursor_complete_dsh_trace_refs": 25,
+    "dsh_receipts": 25,
+    "tau_receipts": 25,
+    "receipt_error_count": 0,
+    "conclusion": "DeepSeek Harness retained native JSONL session authority while AgentLoopGate added hash-only references, normalized records, receipts, and cross-plane joins."
+  },
+  "r5_control_recovery": [
+    {
+      "task_id": "task_067",
+      "r5_status": "permanent_infra_invalid",
+      "r6_attempts": 1,
+      "r6_status": "valid_task_failure"
+    },
+    {
+      "task_id": "task_074",
+      "r5_status": "permanent_infra_invalid",
+      "r6_attempts": 1,
+      "r6_status": "valid_task_failure"
+    },
+    {
+      "task_id": "task_068",
+      "r5_status": "recovered_after_retry",
+      "r6_attempts": 1,
+      "r6_status": "valid_task_failure"
+    },
+    {
+      "task_id": "task_093",
+      "r5_status": "recovered_after_retry",
+      "r6_attempts": 1,
+      "r6_status": "valid_success"
+    }
+  ],
+  "spec_assessment": {
+    "simulation_timeout_classification": "not_a_spec_defect: the frozen contract maps only official infrastructure_error directly to Infra Invalid; a complete timeout simulation remains a valid task failure",
+    "empty_final_control": "effective: all three observed empty-final events were repaired once in the same native session with exact aggregate usage and cost",
+    "reply_normalization": "confirmed_spec_and_adapter_gap: v4 correctly failed closed, but repeated explicit and uniquely recoverable wrapper representations show that a narrowly defined v5 policy is required for plug-in-grade robustness",
+    "failed_attempt_lineage": "confirmed_evidence_schema_gap: failed attempt cost and native traces exist, but task-attempt terminal events do not directly bind session_id_hash and per-call task identity",
+    "cost_and_timeout_observability": "complete_for_r6: no unresolved calls, unknown provider cost, max-token stop, host idle timeout, or provider retry occurred"
+  },
+  "required_next_controls": [
+    "keep R6 immutable and HOLD; do not generate candidates from its incomplete Update-Source evidence",
+    "define a v5 reply normalization policy that accepts only an exact whole-reply missing-name grammar when the explicit tool name is currently allow-listed and the post-insertion JSON validates",
+    "define a separately pinned schema-aware alias only for the explicit call_discoverable_agent_tool wrapper shape; preserve the explicit subtool name and arguments, rely on the benchmark unlock authority, and reject unknown, mixed, partial, or ambiguous shapes",
+    "version the task-attempt and model-usage evidence schemas so every failed or completed attempt directly binds task, trial, seed, attempt index, and DSH session hash without time-window inference",
+    "add no-model positive and adversarial fixtures for both v5 forms, unknown tools, ambiguous payloads, malformed nested arguments, mixed replies, cost aggregation, and append-only lineage",
+    "after clean-room acceptance, create a new Protocol, Study, Experiment, and Baseline and symmetrically rerun all 25 Update-Source positions; do not rerun only task_053 or task_069 and do not grant a third attempt",
+    "run candidates, the 560-trial core matrix, and ablations only after the new Update-Source batch passes the Evidence Integrity Gate"
+  ],
+  "contains_raw_customer_data": false,
+  "artifact_digest": "sha256:220f9c4f360cc3f94a2dea270c7e62014f8f6f44332eb6ed0f9fa8f976109de7"
+}

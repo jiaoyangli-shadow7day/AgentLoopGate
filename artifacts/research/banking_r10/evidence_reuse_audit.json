@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "R10_EVIDENCE_REUSE_AUDIT_1",
+  "source_experiment_id": "EXP_BANKING_R10",
+  "recorded_at": "2026-08-23T06:00:00Z",
+  "contains_raw_customer_data": false,
+  "source_identity": {
+    "protocol_digest": "sha256:ab548c787da64f2ae3326753eca5f7c7b159c159ec84a96e9b287cb1459a8672",
+    "study_digest": "sha256:188c4bec10d842208c3adb173c9a824b2660d251a794b6a38fb2ae954773395a",
+    "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+    "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+    "source_revision": "tree:sha256:128128fc6c649132dd1f73351cbc07afdbff974bcac6154dd831beb0241489da",
+    "baseline_snapshot_id": "R10_A0"
+  },
+  "target_identity": null,
+  "target_identity_status": "not_frozen",
+  "source_batch_audit": [
+    {
+      "batch_id": "B_145C664C1F8B470102DE",
+      "stage": "update_source",
+      "batch_digest": "sha256:b0aa5596e7c3a0e3c1622b721b782cccbdb5329eae6f117f3dc53fd576750d50",
+      "cost_digest": "sha256:6e582e32b61a23c71ae7f1806071d008c8f4d0e51af9961bd0fbc1dff407e787",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_EA4D8A0EB9C0C42857BD",
+      "stage": "update_check",
+      "batch_digest": "sha256:363935fd0a2a63590e955d528bf2f8aeb237b7fd8d13407dbdbb79e1803c33ca",
+      "cost_digest": "sha256:15c7732a10b6a7c1251e61a0552b0ee0e47a1ad9482240bf62b74f7994cd8dc0",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_26B6863D85A17687AC61",
+      "stage": "update_check",
+      "batch_digest": "sha256:db9ed1264557bd9af5a9dd5acc6bc2c4c38e1183d4a197d0b8086d9b21f99c94",
+      "cost_digest": "sha256:a5227db652984755ae3676d1848127c9bc0979e4fb0266a2ed217cc70c3bec33",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_AA31CAD95872F7185078",
+      "stage": "update_check",
+      "batch_digest": "sha256:b6117c80793ac1bbdbfcb6cf120d31b7050c7015b57991e48bdf3752548b3c8c",
+      "cost_digest": "sha256:eb44f5786ce495fc25633a25ec317ff3326daa6cccd5c5bd8cb24a5c4c48f9ed",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_D3177EF5CD677126F38F",
+      "stage": "update_check",
+      "batch_digest": "sha256:4765a5d8edc4a6995db4cbef82f13803c0ba0df6fdea883d1757513aaea98ab0",
+      "cost_digest": "sha256:928da0f8ab93642f3f37b07b4810495acae8924343610772d190d6ccda393a58",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_60B386895A4CA0DF48E3",
+      "stage": "selection",
+      "batch_digest": "sha256:b81187690bd646cc49f170505c057194c6f23002b58f56c29d106d5de9d57702",
+      "cost_digest": "sha256:774f520fe3f87bf336e1cfec14a1fb3b81bbd315ed11852fd8ac85d450d2fe1e",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    },
+    {
+      "batch_id": "B_6F8C6928CFF75886A3CD",
+      "stage": "selection",
+      "batch_digest": "sha256:96bfacb806fd8df3ac715684ea9a441c1e544dab2324b0a96a0e65de8fb23437",
+      "cost_digest": "sha256:6ef6eae40d24159336923d5e7b953fd634a9ee43b77b77a648095565386bd466",
+      "integrity_complete": true,
+      "infra_invalid_count": 0,
+      "whole_attempt_cost_status": "exact"
+    }
+  ],
+  "reuse_classes": {
+    "immutable_historical_evidence": [
+      "raw_results",
+      "host_traces",
+      "evidence_receipts_and_joins",
+      "batch_and_cost_artifacts",
+      "task_attempt_and_model_usage_ledgers",
+      "timings_errors_retries_and_operator_journal"
+    ],
+    "engineering_claim_evidence": [
+      "fail_closed_evidence_integrity",
+      "direct_agent_user_token_and_cost_lineage",
+      "retry_and_failure_observability",
+      "deepseek_harness_native_trace_persistence_telemetry_coexistence"
+    ],
+    "hypothesis_only": [
+      "c1_and_c2_task_outcome_patterns",
+      "r10_failure_bundles",
+      "runtime_duration_and_cost_budget_estimates"
+    ],
+    "decision_grade_reuse": []
+  },
+  "decision_grade_blockers": [
+    "no amended target Experiment/Protocol/Study/Baseline identity is frozen",
+    "corrected Harness capability binding changes baseline composition",
+    "corrected Candidate Check rejects C2 and deduplicates C1/C3",
+    "R10 has no A0 Selection batch",
+    "R10 candidate Selection was not produced under abstention and whole-attempt/tail-risk policy",
+    "source revision differs from the immutable R10 evaluation revision"
+  ],
+  "minimum_paid_checkpoint_after_owner_authorization": {
+    "purpose": "produce a semantically valid candidate ladder and corrected baseline-bound Selection decision before any Release tail",
+    "new_update_source_positions": 25,
+    "new_update_check_positions": 40,
+    "new_selection_positions": 60,
+    "total_positions_before_release": 125,
+    "external_updater_generation": "required_and_separately_metered",
+    "estimated_sequential_wall_clock_hours": "15-25",
+    "estimate_basis": {
+      "r10_update_source_hours": "2.23",
+      "r10_four_update_check_batches_hours": "4.79",
+      "projected_four_selection_batches_hours": "7.4",
+      "allowance": "candidate generation, preflight, retries, and variance"
+    },
+    "release_tail_positions_if_candidate_selected": 450,
+    "release_tail_authorization": "separate_owner_authorization_after_selection_review",
+    "stop_condition": "HOLD immediately when no candidate passes corrected Selection"
+  },
+  "conclusion": "R10 is reusable as immutable historical and engineering evidence, but no R10 model outcome is automatically reusable as a decision-grade input to the corrected selector.",
+  "artifact_digest": "sha256:7d1526df696087a612a78517e30cf9a3d45c81cedb2031b360e3eb0dd6c13295"
+}

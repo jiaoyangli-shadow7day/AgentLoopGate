@@ -1,8 +1,8 @@
 # AgentLoopGate v1.0：Vibe Coding 执行规格
 
 > 文档类型：产品目标 + 工程合同 + 实验协议 + 开发任务单  
-> 版本：v1.0 Execution Core r23  
-> 日期：2026-08-20  
+> 版本：v1.0 Execution Core r35
+> 日期：2026-08-23
 > 周期：8 周，单人项目  
 > 默认实验载体：τ³-bench `banking_knowledge`  
 > 首个社区宿主：DeepSeek Harness 原生 Cordis 插件  
@@ -80,6 +80,11 @@ AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治�
 
 项目成功不要求必须产生一个可发布的新版本。若全部候选都不满足 Gate，真实的 `HOLD` 结论也是有效结果。
 
+“选择”不是强制从候选中挑出一个相对最好者。AgentLoopGate 必须把同池、同任务、同 Trial 的 A0
+作为 Selection 基线；只有候选在不丢失 A0 稳定成功任务的前提下产生新的稳定成功，并通过完整性、
+关键违规、全 Attempt 成本、重试、超时和尾延迟约束，才可以成为 `RC_agentloopgate`。否则选择器
+必须 `HOLD/ABSTAIN`，并在任何 Release 付费批次开始前停止。
+
 ### 1.4 五个不可删的核心支柱
 
 1. **目标函数先于优化**：先冻结 Objective Contract，再看候选结果。
@@ -138,8 +143,8 @@ AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治�
 |---|---|---|
 | P0-15 | Benchmark Adapter | 统一 Adapter 接口；τ³ 是参考实现；JSONL Outcome Adapter 支持社区自有确定性评测 |
 | P0-16 | Trial Reset | 每次 Trial 从相同初始状态开始并生成 `initial_state_digest` |
-| P0-17 | Infra Invalid | 基础设施失败不计 Agent 成败；保留原记录并有限重试 |
-| P0-18 | Outcome-first | 合法替代路径只要结果正确且不违规，不因非必要路径差异判失败 |
+| P0-17 | Infra Invalid | Provider/Runner、Host Turn 预算、协议兼容或证据链失败不计 Agent 成败；Benchmark 已形成完整结果的任务级 `timeout` 依 Adapter 合同判为有效失败；两者均保留原记录、费用/时间边界，Infra Invalid 有限重试，修复后以版本化协议对称重跑 |
+| P0-18 | Outcome-first / Eval Incident | 合法替代路径只要结果正确且不违规，不因非必要路径差异判失败；Outcome/路径冲突自动建 Incident，未解决前同时阻断 Candidate 与 Ship |
 | P0-19 | 多池评测 | Pilot、Update-Source、Update-Check、Selection、Release-ID、Release-OOD 物理互斥 |
 | P0-20 | 可靠性与回归 | Release 使用 `Pass^k`；Replay 检测遗忘；灾难性回退触发 HOLD |
 
@@ -174,7 +179,9 @@ v1 只要求以下八类交付，不再为同一证据生成多份文档：
 2. 可独立运行的 `agentloopgate` Python CLI；
 3. `Objective Contract`、数据池 Manifest、Asset Manifest 与冻结 Hash；
 4. A0 基线、至少 3 个候选、同一 Snapshot 梯子与双选择器对照；
-5. ID/OOD/Replay/安全/成本结果、至少一个真实拒绝案例，以及 DeepSeek 插件 × Banking Pilot 纵向验证；
+5. 安全/成本结果、至少一个真实拒绝案例，以及 DeepSeek 插件 × Banking Pilot 纵向验证；若
+   Selection 选出候选，还必须有真实 ID/OOD/Replay 结果；若 Selection 弃权，则必须改为提供
+   正常终态的 Selection-HOLD 报告、逐候选原因、完整成本/时间/重试证据和 Release 零启动证明；
 6. 最终 Decision Record 与可回滚 Snapshot；
 7. 可安装、可卸载、兼容原生 Trace 的 DeepSeek Harness 插件包及一份集成说明；
 8. No-key Demo、四张核心图和 2—3 分钟演示。
@@ -456,6 +463,18 @@ Replay 从 Update-Source 预注册 10 个代表性任务，不新增数据池。
 - Outcome 与路径 Grader 冲突时创建 Eval Incident，不得默认归因于 Agent；
 - v1 不使用软性 LLM Grader 参与 Ship/Hold。
 
+正式诊断必须把“有效 Run、官方 Outcome 失败、DB 不匹配、且全部 Expected Action Check 均匹配”
+至少识别为保守的 `evaluator_conflict`。这只是触发调查，不得直接把失败改判为成功；调查必须在
+冻结的初始状态上执行脱敏状态差分，并区分顺序/额外副作用、Agent 行为、Evaluator 算法与 Task
+Fixture 缺陷。任何一个未解决 Eval Incident 都必须在把 FailureBundle 交给 AHE/ACE 之前阻断整个
+候选生成阶段，不能只过滤冲突 Bundle 后继续用同一批次的其他失败生成候选。
+
+若确定是 Task/Gold/Evaluator 缺陷，原始 Raw、官方 Outcome、成本与重试记录保持不可变；修复必须
+以独立、内容寻址的 Evaluator/Task Overlay 表示，校验上游 commit、原 Task Hash、Overlay Hash 和
+适用 Task 集，并进入新的 ExecutionProtocol、Experiment、Baseline 与 Batch 身份。禁止就地修改
+被 pin 的上游 checkout，也禁止使用候选轨迹反推或补写 Gold。零模型因果隔离只用于 Incident
+裁决，不能在旧实验中覆盖官方分数；决策级证据必须按第 5.5 节对受影响 A0 与全部候选对称重跑。
+
 τ³ 参考实现固定使用 `tau2-bench v1.0.1`、commit
 `fc0055dc4e0a316c3f83133267fbd6faaa770992`。运行时通过
 `uv run --with socksio==1.0.0` 注入精确依赖，使宿主使用 SOCKS 代理时仍保持可复现；不得
@@ -464,12 +483,19 @@ Replay 从 Update-Source 预注册 10 个代表性任务，不新增数据池。
 `reward_info.reward` 在官方容差内等于 `1` 作为严格成功；`action_checks` 默认只进入离线诊断，
 只有 `reward_basis` 明确包含 `ACTION` 时才参与上游 Outcome。仅官方
 `termination_reason=infrastructure_error` 直接映射为 τ³ Infra Invalid；AgentLoopGate 自身发现的
-Reset、Evidence 或 Evaluator 完整性错误仍按第 5.5 节映射。有效运行的成本取 `agent_cost`，Token
-从 Agent 消息的 `usage` 汇总，延迟取 `duration`。有效运行缺少正式 Gate 所需的成本或评测证据时
-必须标记评测不完整，不得静默补零。对于没有形成可计费 τ³ 结果的 Infra Invalid，`agent_cost`
+Reset、Evidence 或 Evaluator 完整性错误仍按第 5.5 节映射。τ³ Raw Result 的 `agent_cost/user_cost`
+是宿主展示与交叉核对证据，不再作为协议 1.6+ 的成本权威；有效运行的 Agent 与 User 成本必须从
+最终保留 Simulation 所绑定的直接 Task Attempt 模型调用账本，按冻结 Token 单价重算。Token 从
+已验证调用事件的 `usage` 汇总，延迟取 `duration`。有效运行缺少正式 Gate 所需的成本或评测证据时
+必须标记评测不完整，不得静默补零。对于没有形成可计费 τ³ 结果的 Infra Invalid，Raw `agent_cost`
 可以保持未知（`null`），不得推断为零；它不进入业务成功率或有效运行成本 Gate，但必须保留
 Infra Invalid 状态、执行时间、失败类型、重试拓扑以及可验证的 DeepSeek Harness Trace/Token
 事实。失败尝试的 Trace 推导成本只能作为恢复成本旁证，不得回填为 τ³ `agent_cost`。
+
+Protocol `1.7+` 的 `EvaluationSummary.mean_cost` 必须等于该批次所有有效 Run 的直接 Agent 与 User
+精确费用之和除以有效 Run 数，并绑定对应 Cost Artifact Digest 与 `cost_status=exact`。候选曲线、
+选择器与最终 Cost Gate 只能消费这个绑定值；不得重新读取 RunRecord 或 τ³ Raw Result 的成本字段。
+跨多个批次计算平均成本时必须按各批次 `valid_run_count` 加权，不得对“批次均值”再做无权平均。
 
 社区 JSONL Outcome 必须声明独立 Evaluator 身份、被评系统身份、Pool、Snapshot，并引用可校验
 Digest 的 Evaluator Evidence Artifact。Evaluator 与被评系统相同、Evidence 缺失或上下文不匹配时
@@ -487,12 +513,27 @@ Digest 的 Evaluator Evidence Artifact。Evaluator 与被评系统相同、Evide
 
 ### 5.5 Infra Invalid
 
-以下情况标记 `infra_invalid`，不进入成功/失败分母：Reset Hash 不符、依赖服务不可用、Evaluator 崩溃、Trace 缺失、共享资源故障或 Provider 系统错误。
+以下情况标记 `infra_invalid`，不进入成功/失败分母：Reset Hash 不符、依赖服务不可用、Evaluator
+崩溃、Trace 缺失、共享资源故障、Provider/Runner 系统错误、模型以 `max-tokens` 终止、Turn 超时，
+或模型已返回可解析内容但冻结的 Reply/Trace 协议无法无损消费。不得把这些错误记为 Task Failure，
+也不得用无效运行的零分指导候选方向。
 
-- 每个任务最多自动重试 1 次；
+- 每个 `(Experiment, Batch, task_id, trial, seed)` 最多自动重试 1 次，即初次执行加 1 次重试；
+- 该预算是跨进程、跨 `--auto-resume` 的全局预算，Resume 只能消费剩余额度，不能重新领取；
+- 每次真实 Task Attempt 必须在调用模型前写入独立的 append-only Task Attempt Ledger；已写
+  `STARTED` 而无终态的 Attempt 也保守计入预算，防止进程中断后重复付费或无限重跑；
+- Task Attempt Ledger 必须在首次 Agent 调用前追加实际 DSH Session Hash 绑定；Agent 与 User
+  Model Usage Ledger 的每个调用事件必须直接带 `task_id/trial/seed/attempt_index`，失败尝试不得依赖
+  时间窗或会话命名规则才能归属到任务位置；
 - 原失败记录必须保留；
 - 超过上限则该批次 HOLD；
 - 修复 Grader 或环境 Bug 后，必须对 A0 与全部受影响候选对称重跑。
+
+“受影响”按内容寻址的 Task/Evaluator 依赖闭包计算，不等于无条件重跑全部 97 个任务：未改变
+Task、Gold、Evaluator、初始状态、Harness Snapshot、模型、预算和 Gate 的既有 Run 可以保留为
+历史证据，但不得被拼接进一个伪装成原生完整 Batch 的新结果。若正式统计需要合并未受影响证据，
+必须使用预先实现并通过 Fixture 验证的 Composite Evidence Artifact，逐 Run 绑定来源 Experiment、
+原始字节 Hash 与适用性证明；P0 若没有该能力，就在新实验中重跑完整受影响 Pool，不得手工拼表。
 
 即使批次因 Infra Invalid 或缺失有效 Trial 而 HOLD，也必须封存原始结果、Trace、RunRecord、
 Evidence Join、完整性问题和 HOLD 原因，不能让“封存失败”遮蔽“评测失败”。纯证据表示层修复
@@ -500,12 +541,44 @@ Evidence Join、完整性问题和 HOLD 原因，不能让“封存失败”遮�
 对同一份不可变原始字节重新摄取并生成 HOLD Artifact，无需再次调用模型；该快速裁决不能把
 HOLD 改写为通过，也不能替代后续获得决策级证据所需的对称重跑。
 
-任何新的付费正式实验还必须引用冻结、可验 Digest 的 `ExecutionProtocol`，至少固定并校验
-重试次数/间隔、Turn 超时、并发、Resume、时区、成本缺失策略和延迟证据口径；其 Digest 必须
-进入 `FormalBatchSpec` 和 Batch ID。旧实验若未绑定 Protocol，只允许 existing-only 验真，不能
-继续产生新的正式运行。Banking R2 显式使用 concurrency=1、max_retries=1、retry_delay=1s、
-DSH turn timeout=180s；变更这些值必须新建 Protocol、Experiment 和 Baseline 身份。
+每次正式调用无论成功或失败，都必须先把宿主原生 Session Trace 与 Runner Envelope 刷盘，再
+写终态。Adapter 应从已验证的原生 Trace/Envelope 恢复输入、缓存命中、输出 Token、模型费用、
+finish reason 和耗时；可验证值进入 Attempt 的已知费用，无法验证的范围保留为 `unknown`，不得
+记为零。τ³ Raw Result 的 `agent_cost/user_cost` 与直接模型调用账本是不同口径：Raw 值只作为
+宿主展示与差异审计证据；协议 1.6+ 的有效运行成本 Gate 必须沿
+`retained Simulation → completed Task Attempt → Agent/User model calls` 直接归因，并由冻结价格
+重算。全部直接账本与可验证 Raw 值共同支持整次 Attempt 的费用核对。报告必须分别列出直接有效
+运行成本、Raw 对照值与不一致计数、全 Attempt 已知下界、未知费用范围和本地计算时间。
+User Simulator 必须另写进程级 append-only 调用账本，使被 τ³ 重试、替换或中断的运行仍保留
+`STARTED/COMPLETED/FAILED`、Token、费用、耗时与错误终态；不得只依赖最终 Raw Result。
 
+协议冻结的输入、缓存命中与输出单价必须在任何付费 User Simulator 调用之前可读且为非负有限
+Decimal；缺失或非法必须在调用前失败。每个 `exact` 调用必须同时具有三个可验证 Token 计数，其
+费用只允许按冻结单价计算，动态远程价格表、Provider/LiteLLM 返回的 `result.cost` 和 Raw Result
+均不得覆盖该值。只要任一正 Token 对应正冻结单价，精确费用就必须大于零；否则 reconciliation
+必须失败并使批次 HOLD。缺 Token 或无法验证费用必须记为 `unavailable/partial`，不得降为零。
+
+成本有两个不得混淆的判定面：`valid_cost_status` 只判断进入分母的有效 Run 是否具备精确 Agent
+与 User 成本，直接服务业务成本 Gate；`whole_attempt accounting_status` 判断包括无效、重试、
+中断和未保留调用在内的运营总成本是否完全可观测。前者非 `exact` 必须 HOLD；后者允许以
+`partial` 的明确下界进入报告，前提是所有未知范围逐项披露、没有把未知记零，且 Evidence
+Integrity 与有效 Run 成本均通过。`partial` 运营下界本身不得冒充精确总成本，也不得参与候选
+优劣排序；当 `whole_attempt accounting_status=exact`、Agent/User 未结算调用均为 0 时，精确的
+全 Attempt 总成本必须作为 Selection 的次级运营证据，同时仍不能覆盖正确性和安全硬门。
+
+任何新的付费正式实验还必须引用冻结、可验 Digest 的 `ExecutionProtocol`，至少固定并校验
+模型精确 ID、每 Turn 最大输出 Token、Turn/Simulation 超时、重试次数/间隔、并发、Resume、
+时区、跨 Resume 的全局 Task Attempt 上限、网络路由、Reply/Trace 协议版本、User 调用账本、
+成本 Gate 范围、冻结价格权威、直接 Task Attempt 成本归属、Raw 对照策略、正 Token 零成本拒绝
+策略、成本缺失策略和延迟证据口径；其 Digest 必须进入
+`FormalBatchSpec` 和 Batch ID。正式冻结前，必须在不泄露 Formal Task/Gold 的 Pilot 或确定性
+复杂度 Fixture 上覆盖短回复、长推理、多 Tool 与状态修改四档，验证模型不会系统性触顶且完整
+调用可在超时内落盘。校准只决定执行预算，不参与候选选择或结果打分。正式 preflight 必须使用
+无模型 Fixture 强制覆盖：上游返回零但存在正 Token 时按冻结价格重算、缺单价时调用前失败、Raw
+与直接账本不一致时直接账本保持权威，以及伪造的“正 Token + exact 0”账本被拒绝。
+
+旧实验若未绑定 Protocol，只允许 existing-only 验真，不能继续产生新的正式运行。Banking R2
+显式使用 concurrency=1、max_retries=1、retry_delay=1s、agent max output tokens=4096、DSH turn
 ### 5.6 最小评估审计
 
 P0 不建设大型评估审计平台，但必须完成：
@@ -513,7 +586,9 @@ P0 不建设大型评估审计平台，但必须完成：
 - 97 个任务的 Manifest、Task、Grader 与初始状态 Hash 自动审计；
 - 7 个 Pilot 的 Reference/Reset/合法替代路径 Fixture；
 - 正式运行中所有 Critical Violation、灾难性回退、Outcome 冲突和 Infra Invalid 的人工复核；
-- 所有未解决 Eval Incident 阻止最终 Ship。
+- 所有未解决 Eval Incident 同时阻止 Candidate 生成与最终 Ship；
+- Fixture 覆盖“全部 Action 匹配但 DB 不匹配”自动建 Incident、冲突 Bundle 不外发、以及任一
+  未解决 Incident 阻断其他 FailureBundle 进入 Updater。
 
 ### 5.7 候选实验流程
 
@@ -524,16 +599,22 @@ P0 不建设大型评估审计平台，但必须完成：
 5. 在 Update-Check 筛查，最多保留 6 个候选；
 6. 同一轮候选必须从同一个冻结 A0 形成兄弟 Snapshot，避免把前序候选的影响混入后序候选；
    本轮 Gate 选出的版本才可成为下一轮父 Snapshot，跨轮形成 `A0 → A1 → ... → An`；
-7. 冻结后在 Selection 比较候选；
-8. 在同一梯子上生成 `RC_native` 与 `RC_agentloopgate`；
-9. 对两者和 A0 运行 Release-ID/OOD，不能隐藏任一选择器的失败；
-10. 运行 Replay、Gate，输出最终决策；
-11. 若 Ship，执行回滚演练；若 Hold，保留失败证据。
+7. 冻结后在 Selection 对 A0 与全部候选执行同池、同任务、同 Trial 的对称评测；
+8. 在同一候选梯子上生成 `RC_native`；AgentLoopGate 以 A0 为下界生成
+   `RC_agentloopgate` 或显式 `HOLD/ABSTAIN`；
+9. 若 AgentLoopGate 弃权，在启动任何 Release 付费批次前停止并封存理由；只有新的、预注册的
+   科学比较计划和 Owner 授权才可继续运行 Updater-native Release 分支；
+10. 若选出候选，对 `RC_native`、`RC_agentloopgate` 和 A0 运行 Release-ID/OOD，不能隐藏任一
+   选择器的失败；
+11. 运行 Replay、Gate，输出最终决策；
+12. 若 Ship，执行回滚演练；若 Hold，保留失败证据。
 
 ### 5.8 最小候选要求
 
 - 最少 3 个、最多 6 个真实候选；
 - 每个候选只有一个可证伪主假设；
+- 同一 Parent、FailureBundle 与行为语义指纹下的同义改写只算一个候选；不能用文案近义改写
+  填满 3—6 个候选名额；
 - 至少覆盖 2 个 Harness 资产族；
 - 至少 1 个候选被真实 Gate 拒绝；
 - 不强制必须有通过 Gate 的候选。
@@ -680,7 +761,25 @@ Adapter 必须将外部输出规范化成 CandidateRecord，并保存：
 两种选择器读取完全相同的 Candidate Ladder：
 
 - `RC_native`：按外部 Updater 原生更新/选择信号得到；
-- `RC_agentloopgate`：按冻结 Objective、Selection、Replay、安全与成本得到。
+- `RC_agentloopgate`：按冻结 Objective、A0 Selection 基线、安全与运营非劣约束得到；允许为空。
+
+AgentLoopGate Selector 必须满足：
+
+1. A0 和候选的 `stable_task_outcomes` 任务集合完全一致，且 Evaluation Integrity 完整；
+2. 候选不能把 A0 的任一稳定成功任务变为失败；`stable_success_task_count` 必须严格高于 A0；
+3. 关键违规必须为 0；
+4. 成本同时保存有效 Run 的直接 Agent+User 均值和精确 whole-Attempt 总额；排序/约束还必须读取
+   Task Attempt 重试数、Timeout 数、p95 与最大延迟，不能只看 retained mean cost 与 p50；
+5. 先按正确性，再按 Timeout、重试、p95、最大延迟、whole-Attempt 成本排序；成本不是第一 Gate；
+6. 没有候选全部满足时输出 `HOLD/ABSTAIN`，`agentloopgate_candidate_id=null`，并保存逐候选原因；
+7. Selection 基线、策略、候选输入、Cost/Task-Attempt/Batch 引用和最终选择共同进入不可变 Digest。
+
+`HOLD/ABSTAIN` 是治理层成功拒绝提名候选的正常终态，不是基础设施异常，也不使用错误退出码。
+编排器必须写出可幂等验真的 `selection_hold_outcome.json` 与 JSON/Markdown 报告，至少绑定
+Protocol、Study、Source Revision、A0、全部候选、Selection、Lineage、所有已完成 Batch、候选
+终态、每个成本 Artifact，以及 Updater 与正式批次的已知模型成本。未知费用必须逐项披露为
+`partial/unavailable`，不得记零。该终态必须声明并验证 `release_batch_count=0` 与
+`model_calls_after_selection=0`；重复 Resume 只验真已有 Artifact，不能触发 Release 或新模型调用。
 
 若被 pin 的 Updater 不暴露结构化 score/selector（AHE `0.1.0` 的单次
 `run_evolve_agent` 即如此），Adapter 必须把这一字段记为 `unsupported`，并以该方法明确的
@@ -688,6 +787,12 @@ continuation/emission 顺序作为 `RC_native`，同时保存信号来源。禁�
 Update-Check 分数反向伪造“Updater-native score”。
 
 比较目标是证明“治理选择层是否改变发布判断”，不是宣称 AgentLoopGate 发明了更好的自进化算法。
+
+任何 `harness/tools/**` 候选必须绑定宿主当前 Turn 的真实 Tool Schema。Manifest 必须为工具路由
+声明 `runtime_capability_routing` 语义校验；运行时逐项验证 `capability_ref`，未知目标 fail closed。
+为了保持跨 DeepSeek Harness、τ³ 和其他宿主的可移植性，Candidate Check 不允许候选硬编码未绑定的
+`capability:` 清单。工具路由资产仍可作为模型上下文，但其“目标存在”必须由运行时 Registry 校验，
+不能仅凭 YAML 文案声称已经执行了路由治理。
 
 ### 7.6 AHE → ACE Tripwire
 
@@ -872,6 +977,11 @@ Observer 根据 pin 后官方事件图映射：
 - Session/Snapshot/Plugin Composition 标识；
 - `session.id`、事件 `seq`、事件时间和父子/来源关系。
 
+DSH→τ³ 运行协议版本必须由一个共享常量/Schema 定义，生产端写入每个实际模型生成消息，消费端
+显式列出兼容版本，测试逐版本覆盖。缺少来源标记与存在但版本不受支持是两个不同错误：前者为
+`provenance_missing`，后者为 `protocol_version_unsupported`；禁止消费者用散落的硬编码版本把已
+存在的 provenance 误报为缺失。协议版本改变执行或证据语义时必须按第 16 节新建实验身份。
+
 Observer 只负责事实采集，不推断任务是否成功。Outcome 由 Benchmark/Evaluator Adapter 或人类批准的确定性结果导入。
 
 社区自有任务通过 `agentloopgate run ingest --file <results.jsonl>` 导入 Outcome。该入口只接受第 9 节 Schema，不执行用户提供的代码或 Shell；任务 ID、Pool、Snapshot 和 Evidence Ref 必须能校验。这样插件可以服务 τ³ 之外的 DeepSeek Harness 项目，同时不让宿主或模型自行给自己打分。
@@ -959,8 +1069,9 @@ P0 不要求 Web UI，也不要求把 AgentLoopGate 页面嵌入 DeepSeek Harnes
    Harness `headless` Session；DSH 负责模型调用、会话恢复和原生 Persistence；
    首轮同时加载当前 Snapshot 中登记的 Harness 资产；资产必须按固定白名单和顺序读取、限制总
    字节数，其内容 Hash 必须进入 DSH `composition_digest`，否则候选评测无效；
-3. DSH Session Log 记录模型输入、模型 JSON 回复与 Usage；τ³ Raw Result 记录由 τ³ 实际执行的
-   Tool Call、环境状态与成本。禁止声称 τ³ 工具是 DSH 原生 Tool Event；
+3. DSH Session Log 记录模型输入、模型 JSON 回复、finish reason、Usage 与生成耗时；即使 Runner
+   或 Reply Adapter 失败，已完成调用的原生记录和可验证 Usage 也必须先刷盘；τ³ Raw Result 记录
+   由 τ³ 实际执行的 Tool Call、环境状态与成本。禁止声称 τ³ 工具是 DSH 原生 Tool Event；
 4. AgentLoopGate Observer 为 DSH Session 生成 SourceTraceRef；τ³ Adapter 为 Raw Result 生成
    独立 SourceTraceRef；两侧分别生成 Evidence Receipt 与 RunRecord；
 5. τ³ Evaluator 是最终状态、必要 Action 和政策结果的唯一 Outcome 权威，DSH 或插件不得自评；
@@ -1076,14 +1187,38 @@ EvidenceReceipt 至少记录：`receipt_id`、`source_trace_id`、`run_id`、已
 ```
 
 `source=dsh` 时必须记录 `runtime_profile` 和 `composition_digest`，Session 身份只通过 SourceTraceRef 保存 Hash；不得保存明文 Credential。`source=tau3` 时 SourceTraceRef 指向 τ³ Raw Result/Trace Artifact。
-DSH `latency_ms` 只累计带 `agentloopgate_protocol=dsh-tau3/1.0` 来源标记的实际模型生成耗时；
-τ³ 在自定义 Agent 首轮前注入的零成本静态 greeting 不属于 DSH 模型调用，必须排除。除这一个
-`turn_idx=0` 静态 greeting 外，缺少 DSH 来源标记或生成耗时的 assistant 消息一律使证据导入失败。
+DSH `latency_ms` 只累计带受支持 `agentloopgate_protocol` 来源标记的实际模型生成耗时；P0 明确兼容
+`dsh-tau3/1.0` 与 `dsh-tau3/1.1` 的现有证据，新的生产端默认写 `dsh-tau3/1.1`。τ³ 在自定义
+Agent 首轮前注入的零成本静态 greeting 不属于 DSH 模型调用，必须排除。除这一个 `turn_idx=0`
+静态 greeting 外，缺少来源标记、版本不受支持或生成耗时缺失的 assistant 消息一律使证据导入
+失败，并分别报告 `provenance_missing`、`protocol_version_unsupported` 或 `latency_missing`。
 
 DSH→τ³ Reply Adapter 只能做无可执行语义的有界规范化：移除单层 JSON fence、接纳 JSON
 字符串内的未转义控制字符、把非空且非 JSON-like 的纯文本包装为 `content`，或把唯一键
-为当前 allow-list Tool 名且值为参数对象的显式简写展开成 `name/arguments`。不得从自然语言
-猜测 Tool Call；损坏的 JSON、未知 Tool、混合 `content/tool_calls` 一律失败关闭并保留原生 Trace。
+为当前 allow-list Tool 名且值为参数对象的显式简写展开成 `name/arguments`。此外，允许把
+`tool_calls` 元素中键集合严格等于 `{function, arguments}`、`function` 为当前 allow-list 中非空
+字符串且 `arguments` 为对象的 DeepSeek 显式别名规范化为 `{name, arguments}`；也允许把键集合
+为 `{name, <一个或多个参数键>}`、`name` 为 allow-list Tool 且不含 `arguments`、`function`、
+`content`、`tool_calls` 的扁平显式调用收拢为 `{name, arguments:{<参数键>...}}`。生产 Prompt 应让客户回复
+直接使用非 JSON 纯文本，只让 Tool Call 使用 JSON，避免把长客户文本塞入易损的 JSON 字符串。
+不得从自然语言猜测 Tool Call；未知 Tool、空扁平参数、保留键混入、损坏的 Tool JSON、非对象
+参数或混合 `content/tool_calls` 默认失败关闭并保留原生 Trace。Reply Policy v5 额外只允许以下两条
+由 R6 原生 Trace 校准、整条回复锚定且唯一可逆的规则：
+
+1. 整条回复严格形如 `{"tool_calls":[{"<allow-listed-tool>","arguments":<object>}]}` 时，只补入
+   缺失的固定字段标签 `"name":`，随后必须通过标准 JSON、严格 Reply Schema 与当前 Turn
+   allow-list 校验；不得修复其他语法错误、补括号、补引号或改参数；
+2. 整条回复严格形如
+   `{"tool_calls":[{"call_discoverable_agent_tool":"<explicit-subtool>","arguments":<object>}]}`，
+   且通用 wrapper 在当前 Turn allow-list、subtool 是非空安全标识符时，允许确定性展开为
+   `{name:"call_discoverable_agent_tool", arguments:{agent_tool_name:<explicit-subtool>,
+   arguments:<该 object 的 canonical JSON string>}}`。subtool 必须由回复明示，实际执行仍由 τ³
+   的 unlock 状态和工具 Schema 授权；不得从 reasoning、Knowledge Base 或 Formal Gold 推断。
+
+除这两个完整形状外，未知 Tool、多个或混合调用、值或参数缺失、额外键、数组参数、损坏的
+`content` JSON 或其他损坏 Tool JSON 一律失败关闭。错误必须区分 JSON 语法失败、Schema 不兼容、
+未知 Tool 与混合回复，不得把已成功解析但形状不兼容的回复笼统报告为“无效 JSON”。损坏的
+`content` JSON 也不得猜测补全；模型应在下一预注册重试中改用纯文本。
 
 ### 9.2.1 PilotEvidenceJoin
 
@@ -1441,8 +1576,11 @@ uv run agentloopgate doctor --json
 
 **依赖：** T03、T04、T06。  
 **修改范围：** `agentloopgate/evaluation/`、`agentloopgate/gates/`。  
-**实现：** Pass^1/Pass^k、ID/OOD/Replay、Critical、成本、双选择器与第 4.4 节 Gate。  
-**验收：** 固定 Fixture 覆盖每一个 Gate pass/fail；决策顺序稳定；综合分不能覆盖硬门。
+**实现：** Pass^1/Pass^k、ID/OOD/Replay、Critical、成本、带 A0 基线与弃权的双选择器，以及
+第 4.4 节 Gate。
+**验收：** 固定 Fixture 覆盖每一个 Gate pass/fail；无提升、稳定任务回退、重试/超时增加、
+whole-Attempt 成本或 p95 超限均能产生逐项原因；无合格候选时必须在 Release 前 `HOLD`；综合分
+不能覆盖硬门。
 
 ### T09：Snapshot、Rollback 与报告
 
@@ -1462,8 +1600,8 @@ uv run agentloopgate doctor --json
 
 **依赖：** T10。  
 **修改范围：** `integrations/deepseek-harness/`、`agentloopgate/runtime/`、`agentloopgate/cli.py`、`docs/deepseek-harness.md`。  
-**实现：** pin 官方版本/commit；确认实际 Bundle、Service、Session Event、Persistence、Telemetry、Tool、Command、Headless seam；实现 Service、Provider、四个只读 Tool和 `agentloopgate init/doctor` Bootstrap。  
-**验收：** build/typecheck/test；Bundle 在全新 Headless Profile 加载；工具通过 Bridge 返回正确结构；Doctor 正确报告三档 Readiness；插件不注册竞争性的 `ctx.sessionTelemetry` Backend。
+**实现：** pin 官方版本/commit；确认实际 Bundle、Service、Session Event、Persistence、Telemetry、Tool、Command、Headless seam；实现 Service、Provider、四个只读 Tool和 `agentloopgate init/doctor` Bootstrap；集中定义 DSH→τ³ 协议版本与有界 Reply 规范化。
+**验收：** build/typecheck/test；Bundle 在全新 Headless Profile 加载；工具通过 Bridge 返回正确结构；Doctor 正确报告三档 Readiness；插件不注册竞争性的 `ctx.sessionTelemetry` Backend；`dsh-tau3/1.0`/`1.1` 消费、纯文本客户回复、`function/arguments` 与 allow-list 扁平参数安全别名、未知 Tool/保留键拒绝和非成功 Runner Envelope 的 Usage 恢复均有测试。
 
 ### T12：Observer、权限与生命周期 Conformance
 
@@ -1477,12 +1615,15 @@ uv run agentloopgate doctor --json
 **依赖：** T04—T12。  
 **修改范围：** 配置、候选、运行 Artifact；冻结后禁止改核心代码。  
 **实现：** 先完成第 8.10 节 DeepSeek 插件 × 3—7 个 Banking Pilot 纵向验证，并为每个
-Task/Trial 生成 `PilotEvidenceJoin`；再冻结合同/数据，运行 A0，生成 3—6 候选，完成 Selection、
-双 RC、Release-ID/OOD、Replay 与 Decision。  
+Task/Trial 生成 `PilotEvidenceJoin`；再用未泄露 Formal Task/Gold 的复杂度 Fixture/Pilot 校准并
+冻结模型输出预算、Turn/Simulation 超时、Reply/Trace 协议与费用恢复口径；随后冻结合同/数据，
+运行 A0，生成 3—6 候选并完成 Selection；若 AgentLoopGate 选出 RC，再完成双 RC、
+Release-ID/OOD、Replay 与 Decision；若弃权，则封存正常 Selection-HOLD 终态并结束付费路径。
 **验收：** Banking Pilot 能从正式 Decision 经 Join 同时回链 DeepSeek Session Event 与 τ³ Outcome，
 且可证明 τ³ 执行了真实工具；关闭插件后原生 Trace 仍工作；至少一个真实提案被 Candidate
 Check 拒绝，或一个已登记候选被正式 Gate `HOLD/REJECT`；
-所有结论可追溯；若无 Ship 候选则诚实 HOLD。
+所有结论可追溯；正式批次不系统性触发 `max-tokens`/Turn 超时，失败调用的已知 Token、费用、
+finish reason、执行路径和墙钟时间可审计；若无 Ship 候选则诚实 HOLD。
 
 ### T14：公开发布与 Clean-room
 
@@ -1537,7 +1678,8 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 
 1. A0—An 的 Pass^1、Pass^k 与成本曲线；
 2. 检索 → 政策 → 工具 → 正确状态失败漏斗；
-3. Update/Selection/ID/OOD/Replay 候选对照；
+3. Update/Selection 候选对照；仅在 Selection 选出候选时追加 ID/OOD/Replay，对弃权路径明确画出
+   “Selection HOLD → Release 未启动”；
 4. Gate 瀑布与最终 Ship/Hold 理由。
 
 ### 13.4 P0 完成条件
@@ -1548,7 +1690,9 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 - Python Core 从 Run 到 Decision 一条命令可重放；
 - 至少一个真实外部 Updater 接入；
 - 至少 3 个真实候选、至少 2 个资产族、至少 1 个真实拒绝；
-- ID/OOD/Replay、Pass^k、安全、成本和 Eval Integrity 可审计；
+- ID/OOD/Replay、Pass^k、安全、成本和 Eval Integrity 的软件能力与确定性 Fixture 可审计；真实
+  Selection 若选出候选，真实 ID/OOD/Replay 也必须可审计；若弃权，则 Selection-HOLD 终态、逐候选
+  原因、总已知模型成本、未知费用范围、时间/重试和 Release 零启动证明必须可审计；
 - Ship/Hold 结论唯一，且可回滚；
 - DeepSeek Harness 原生 Bundle 可安装/加载/调用/卸载；
 - 开发者现有 DeepSeek Session Persistence 和 OTel Telemetry 在安装前后继续工作；
@@ -1557,6 +1701,7 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 - 插件不能打开 Final、改 Gate 或 Promote；
 - 插件关闭后 Core 完整可用；
 - 3—7 个 Banking Pilot 完成 τ³ Turn → DeepSeek 模型 Session/原生 Trace → τ³ Tool/Outcome → 双侧 Evidence Join → Gate 的纵向链路；
+- 新正式实验绑定经复杂度校准的输出/超时预算和单一 DSH→τ³ 协议版本事实源；所有成功、Task Failure、Infra Invalid、重试、Token、费用下界、未知费用范围、执行路径和墙钟时间完整保存；
 - No-key Demo、README、许可证、第三方声明和公开结果包可用。
 
 以下均不能替代上述条件：漂亮架构图、大量文档、Fixture 的假提升、未运行的测试、只读插件壳、手写 Candidate 冒充外部 Updater。
@@ -1569,7 +1714,6 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 
 - T00—T03；
 - τ³ 最小 Pilot；
-- AHE 启动 Spike；
 - DeepSeek Harness Bundle/Service/Session/Persistence/Telemetry/Headless seam Spike；
 - Pilot 后冻结 Objective 候选阈值和版本。
 
@@ -1601,7 +1745,8 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 ### 第 6 周：Selection 与 Release
 
 - 冻结候选；
-- 运行双选择器、Release-ID/OOD、Pass^k 和 Replay；
+- 运行双选择器；只有 Selection 选出候选才运行 Release-ID/OOD、Pass^k 和 Replay，否则封存
+  Selection-HOLD 并停止新增付费批次；
 - 生成真实 Decision；
 - 若 Ship，回滚演练。
 
@@ -1632,6 +1777,9 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 | Telemetry Backend 冲突 | 插件加载后原 OTel 消失或 duplicate provider | AgentLoopGate 不注册 `ctx.sessionTelemetry` Backend，改用 Session Event 旁路订阅 |
 | 原生 Trace 被重复或改写 | 安装插件前后逻辑 SessionEvent 不一致 | 对比事件类型/序号/Hash；不一致即阻止发布插件 |
 | Trace 补录不完整 | Cursor 出现序号缺口或 SourceTraceRef 不可验证 | 标记 `evidence_incomplete`，阻止对应 Run 进入 Gate |
+| 执行预算与任务复杂度不匹配 | Pilot/正式运行系统性触发 `max-tokens` 或 Turn 超时 | 停止新付费批次；封存原证据；在未泄露 Fixture/Pilot 校准后新建 Protocol/Experiment/Baseline 并对称重跑 |
+| Reply/Trace 协议漂移 | 生产端版本、消费端版本或结构化回复 Schema 不一致 | 区分缺失、版本不支持与 Schema 错误；仅做 allow-list 内无语义规范化；语义变化新建实验身份 |
+| 失败费用不可审计 | 已完成模型调用在异常路径丢失 Usage/费用，或未知值被记零 | 先刷原生 Trace/Envelope 与双模型调用账本；有效 Run 成本不精确则 HOLD；全 Attempt 只能形成下界时逐项披露未知范围，不冒充精确值 |
 | “即插即用”承诺过度 | 无 Evaluator 仍声称可治理 | Doctor 三档 Readiness；只承诺即插即观察/体检、配置后治理 |
 | Observer 字段不足 | 无法得到 Outcome | 继续记录 Session/Tool 事实，由 Evaluator Adapter 导入 Outcome；不让 Observer 猜分 |
 | 插件影响 Agent | Observer/Bridge 异常阻塞 Turn | 异步批量、有限缓冲、fail open；修复前不发布插件 |
@@ -1656,7 +1804,7 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 ### 16.2 正式候选前必须冻结
 
 - τ³、AHE/ACE、DeepSeek Harness 精确版本与 commit；
-- 模型、检索配置和预算；
+- 模型、检索配置、每 Turn 最大输出 Token、Turn/Simulation 超时和并发预算；
 - Objective Contract 与 Gate 阈值；
 - 六池任务与 Hash；
 - Replay 任务；
@@ -1664,8 +1812,12 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 - Asset Manifest、Mutation Policy、Risk 与 Diff Budget；
 - AHE/ACE 选择状态；
 - Trial 数、Infra Invalid 与重试规则；
+- 跨进程 Resume 的全局 Task Attempt 上限与网络路由策略；
+- Task Attempt、Agent/User Model Usage Ledger 的 Schema 版本、逐调用任务身份与 DSH Session
+  绑定策略；
 - 双选择器规则；
-- DeepSeek 插件权限策略与 Bridge Protocol 版本；
+- DeepSeek 插件权限策略、Bridge Protocol 与 DSH→τ³ Reply/Trace 协议版本；
+- Runner 非成功终态、Usage/费用恢复和未知费用报告口径；
 - Trace `reference/mirror` 模式、Redaction Policy、Cursor/去重、Evidence Verify 与原生 Telemetry 共存规则；
 - Banking Pilot 的 3—7 个任务、DSH Profile 和 Trace/Outcome Join Key。
 
@@ -1678,6 +1830,241 @@ Headless Conformance 的真实命令在 T11 根据 pin 后官方 CLI 写入 pack
 3. 不改变数值结论的报告、脱敏和安装文档修复。
 
 每次变更必须保留旧结果并写入机器可读 Experiment Log。
+
+### 16.4 R2 A4 之后的修复边界
+
+Banking R2 A4 使用冻结的 4096 输出 Token、180 秒 Turn 超时和 `dsh-tau3/1.1` 生产标记完成了
+一次失败协议诊断；它的原始 Result、DSH Session Trace、模型用量账本、Attempt 终态和 Incident
+必须永久保持不可变。修复消费端协议版本判断属于表示层修复，可以在同一原始字节上生成不高于
+`HOLD` 的恢复 Artifact；提高 Token/超时、改变 Reply 兼容或失败费用恢复会影响执行行为，必须在
+新 Protocol、Experiment 与 Baseline 身份下进行。新实验保持原 Objective、Split、Gate、任务和
+Trial 对称性；不得挑选性复用 A4 成功项、删除 Infra Invalid 或把未知费用改写为零。
+所有派生证据路径也必须随新 Experiment 隔离；旧 Experiment 的 write-once 目录只能读、不能写。
+
+### 16.5 R3 之后的恢复与成本边界
+
+Banking R3 以协议 `1.2` 和 8192 输出 Token 完成 Update-Source：25 个任务位置中 22 个有效、
+3 个 Infra Invalid，结论为不可推进的 `HOLD`。该结果同时证明了两个协议缺口：τ³ 的
+`max_retries=1` 只约束单个进程，外层 `--auto-resume` 会对 Infra Invalid 重新应用预算；最终
+Raw Result 不能保存被丢弃 Attempt 内的 User Simulator 调用成本。R3 的 Batch、Attempt、模型
+账本、Raw Result、成本下界和 HOLD 不得重写。
+
+后续正式实验必须使用新 Protocol/Experiment/Baseline 身份，并同时满足：
+
+1. 通过 append-only Task Attempt Ledger 在 `(Batch, task, trial, seed)` 维度执行全局两次上限；
+2. 通过独立 User Model Usage Ledger 记录最终 Raw Result 之外的 Simulator 调用；
+3. 把有效 Run 精确成本作为 Gate，把全 Attempt 已知下界与未知范围作为独立运营披露；
+4. 依据 R3 的五个触顶任务和 pinned DeepSeek provider 的 256k 默认上限，将 Agent 每 Turn 输出
+   预算校准为 32768，并保持 300 秒 Turn、1800 秒 Simulation 超时；
+5. R3 已确认本机代理 `127.0.0.1:10823` 曾瞬时失联，而同机直连健康；因此该实验冻结
+   `direct_no_proxy`，只清除子进程代理变量，不修改系统或用户网络设置；
+6. Objective、Split、Gate、任务、Trial、模型、温度、Provider 重试和四项消融保持不变。
+
+以上修订只解决可观测性、执行预算与恢复拓扑，不得用 R3 的 Formal Gold、成功/失败结果选择
+候选或调整成功判据。若新基线仍有 Infra Invalid，继续封存为 HOLD，不得通过追加 Resume 绕过
+全局预算。
+
+### 16.6 R4 之后的 Reply 兼容边界
+
+Banking R4 以协议 `1.3`、全局两次 Task Attempt 上限、独立 Agent/User 调用账本、
+`direct_no_proxy` 和 32768 输出 Token 完成 Update-Source。25 个任务位置中 24 个有效、1 个
+Infra Invalid，结论为 `HOLD`。全 Attempt 的 796 次 Agent 调用和 233 次 User Simulator 调用均有
+精确 Usage/费用，整次模型成本为 USD `0.69178802080000000240`；R3 的代理、输出预算、跨 Resume
+重试和失败费用可观测性缺口均已被修复。R4 Batch、Raw Result、双模型账本、Task Attempt Ledger、
+成本报告和 HOLD 不得重写。
+
+唯一 Infra Invalid 位置在第一次 Attempt 生成了语法不完整的 JSON，第二次 Attempt 生成了
+`{<tool-name>: <same-tool-name>, arguments: {...}}`。前者没有唯一可恢复语义，必须继续 fail closed；
+后者只有在以下条件全部成立时才允许规范化为 `{name: <tool-name>, arguments: {...}}`：
+
+1. 对象键必须且只能是动态工具名与 `arguments`；
+2. 动态工具名必须在当前 Turn 的精确 allow-list 内；
+3. 动态键的值必须是与键逐字相等的字符串；
+4. `arguments` 必须是对象且内容原样保留；
+5. 未知工具、值不相等、额外键、非对象参数或无效 JSON 一律拒绝。
+
+这是一条可证明唯一映射、无参数补全、无工具猜测的表示层兼容规则，但它会改变正式执行能否继续，
+因此必须命名为新的 Reply Normalization Policy，并使用新 Protocol/Experiment/Baseline 身份完成
+25 个 Update-Source 位置的对称重跑。新实验保持 R4 的 Objective、Split、Gate、任务、Trial、模型、
+温度、输出/超时、网络、全局重试和成本口径不变；不得只重跑失败位置，不得把 R4 的 HOLD 改写为
+成功，不得对语法损坏的 Attempt 做推测性修复。R4 的脱敏根因 Artifact 必须作为新协议校准依据，
+但 R4 的 Formal Gold、成功/失败结果仍不得用于候选选择或成功判据调整。
+
+### 16.7 R5 之后的 Empty-Final 与嵌套超时边界
+
+Banking R5 使用 Reply Policy v4 完成了新的 25 位置 Update-Source：23 个有效、2 个 Infra Invalid，
+7 个成功、16 个有效 Task Failure，结论为 `HOLD`。R4 唯一阻断位置 `task_078` 在 R5 第一次
+Attempt 即走完 832.19 秒的完整路径并被 evaluator 判为有效 Task Failure，证明 v4 消除了特定的
+冗余工具名表示阻断，而没有改变真实业务成败。R5 Batch、Raw Result、双模型账本、Task Attempt
+Ledger、成本下界和 HOLD 不得重写。
+
+R5 的 23 个有效 Run 成本精确：Agent USD `0.512214029600000021`，User Simulator USD
+`0.0943866400000000017`。全 Attempt 已知模型成本下界为 USD `0.65718674880000000402`；两次
+外层 300 秒超时在 Envelope/Usage 返回前终止 DSH，费用未知且不得填零。R5 同时证明两个新的协议
+缺口：
+
+1. 四次被旧分类称为 invalid JSON 的终态均为 56 个 reasoning token、0 个最终文本字符；这是
+   `empty_final_response_after_reasoning`，不是可修复的 JSON 语法。不得从 reasoning 推断工具或回复；
+2. pinned `@deepseek-ai/dsh-llm-deepseek@0.1.0-rc.8` 的宿主
+   `streamIdleTimeoutMs` 默认为 300000，而 R5 外层 subprocess timeout 也恰为 300 秒。两个超时
+   同时竞争，外层可能先杀死 DSH，使宿主无法完成自己负责的 abort、Trace 持久化和终态返回。
+
+后续正式实验必须使用新 Protocol/Experiment/Study/Baseline 身份，并满足：
+
+1. 把 DSH provider 的 `streamIdleTimeoutMs` 显式冻结为 300000；外层 subprocess timeout 冻结为
+   360 秒，使宿主先拥有取消权，并预留有界的 Trace 持久化与进程退出余量；这不等于允许模型在
+   300 秒无数据后继续生成；
+2. 空最终文本必须使用独立错误类型，不得再记为 invalid JSON；如果存在非零 reasoning Usage，仍
+   逐调用保留 Token、费用、时长和原生 Session 引用；
+3. 每个 tau3 Agent Turn 最多允许一次同 Session 的 final-only 修复调用。修复 Prompt 只能要求
+   “补交缺失的最终 reply”，不得复制 reasoning、猜测工具、补全参数或查看 Formal Gold；原调用与
+   修复调用必须分别写入 append-only Agent Model Usage Ledger；
+4. 修复成功时，tau3 Raw Result 中该 Turn 的 Agent token、费用和时长必须聚合两次调用，避免有效
+   Run 成本漏记；修复失败仍按原 Task Attempt 失败并受全局两次位置上限约束；
+5. 无效 JSON、未知工具、歧义结构、修复后仍为空、Host Idle Timeout 或证据不完整继续 fail closed；
+6. Objective、Split、Gate、25 个任务、Trial、模型、温度、32768 输出 Token、1800 秒 Simulation、
+   `direct_no_proxy`、Provider 内部重试为 0、全局 Task Attempt 两次上限、成本 Gate 与四项消融均
+   保持不变。
+
+新的无模型校准必须覆盖：一次 empty-final 后修复成功的聚合 Usage/费用；连续两次 empty-final 的
+有界失败；修复回复为坏 JSON/未知工具时拒绝；显式 v4 仍保持旧语义；DSH 内层 idle timeout 小于
+外层 timeout 并被 child environment 与 Composition Digest 绑定。完成 clean-room 后，对全部 25 个
+Update-Source 位置对称重跑；不得只重跑 `task_067`、`task_074`，不得追加第三次 Task Attempt。
+
+### 16.8 R6 之后的显式 Reply 表示与失败尝试 Lineage 边界
+
+Banking R6 使用协议 `1.4`、显式 300,000 ms DSH idle timeout、360 秒外层 Turn timeout 和一次
+同 Session final-only 修复完成 25 个 Update-Source 位置：24 个有效、1 个 Infra Invalid、4 个成功、
+20 个有效 Task Failure，结论为 `HOLD`。全 Attempt 的 828 次 Agent 调用与 237 次 User Simulator
+调用均有终态和精确费用；整次观察模型成本为 USD `0.76983436480000000316`，Provider 重试和未结算
+调用均为 0。R6 Batch、Raw Result、双模型账本、Task Attempt Ledger、原生 DSH Session、Evidence
+Join、成本报告、根因 Artifact 和 HOLD 不得重写。
+
+R6 证明 R5 的两项控制真实生效：3 次 empty-final 全部被一次同 Session 修复，原调用和修复调用的
+Usage/费用既独立落账又聚合进入有效 Run；没有调用触及 32,768 输出上限、300 秒 Host idle timeout
+或未知费用。R5 永久无效的 `task_067`、`task_074` 在 R6 首次 Attempt 即形成有效 Task Failure，说明
+该修复只恢复执行完整性，没有伪造业务成功。`task_019` 的完整 `termination_reason=timeout` 按 §5.3
+是有效 Task Failure；它不是 Infra Invalid，也不构成 Simulation 预算 Spec 缺口。
+
+R6 唯一永久 Infra Invalid 为 `task_069`。`task_053` Attempt 1 与 `task_069` Attempt 1 均明确输出了
+allow-listed wrapper 和完整参数，但在单一 Tool Call 对象里遗漏固定的 `name` 字段标签；
+`task_069` Attempt 2 则明确输出了 `call_discoverable_agent_tool`、被调用 subtool 和完整底层参数，
+但使用了 wrapper alias 形状。v4 依据冻结规则正确 fail closed；重复出现的显式、唯一可判定表示说明
+P0 的“即插即用”仍缺一个更窄的 v5 规范化规则，而不是需要放宽成功判据或推断 reasoning。
+
+R6 还证明现有失败证据的归属不够直接：失败 Attempt 的费用、模型调用和原生 Session 均存在，
+但 Task Attempt 终态没有直接绑定 DSH Session Hash，Agent/User 调用事件也没有直接绑定任务位置；
+当前只能依靠不可变时间窗与确定性 Session 命名复核。公开论文级证据禁止依赖这种旁路推导。
+
+后续正式实验必须使用新 Protocol/Experiment/Study/Baseline 身份，并同时满足：
+
+1. Reply Policy 冻结为
+   `bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias`，且只实现 §9.2 两个精确形状；
+2. Task Attempt Ledger 升级后，每次 Attempt 必须记录 `STARTED → SESSION_BOUND → terminal`；
+   `SESSION_BOUND` 在首次 Agent 调用前写入实际 Session Hash；无模型调用的早期失败可无 Session，
+   但必须显式标注；
+3. Agent 与 User Model Usage Ledger 新版本对每个调用的 STARTED/terminal 事件强制绑定相同的
+   `task_id/trial/seed/attempt_index`；任务归属、失败费用和修复费用不得再靠时间窗推断；
+4. 新的无模型校准必须覆盖两个 R6 形状的正例，以及未知 wrapper/subtool、混合回复、多调用、
+   额外键、数组或损坏参数、非唯一语法和未 unlock subtool 的反例；必须证明 raw reply 不被覆盖、
+   执行权限仍由 τ³ 掌握；
+5. Objective、Split、Gate、25 个任务、Trial、模型、温度、32768 输出 Token、300000/360/1800
+   超时顺序、`direct_no_proxy`、Provider 内部重试 0、全局 Task Attempt 两次上限、empty-final 修复、
+   成本 Gate 与四项消融保持不变；
+6. 完成 clean-room 后对全部 25 个 Update-Source 位置对称重跑；不得只重跑 `task_053/task_069`，
+   不得追加第三次 Attempt。新基线 Evidence Integrity Gate 通过前，不得生成候选或运行 Core 560。
+
+### 16.9 R7 之后的冻结价格与直接成本归属边界
+
+Banking R7 使用协议 `1.5` 完成 25 个 Update-Source 位置并通过 Evidence Integrity Gate，随后由固定
+诊断生成 3 个 AHE 候选，A0 Update-Check 也形成 10/10 有效结果。R7 的这些 Batch、Raw Result、
+Agent/User/Task Attempt 账本、原生 DSH Session、候选、费用、时间和诊断均为不可变历史证据。
+
+首个候选 Update-Check 期间，LiteLLM 远程价格表超时且本地表没有 `deepseek-v4-flash`，导致上游
+User Simulator 在 42,394 input 与 2,068 output Token 非零时返回 13 个 `cost=0`。旧 User hook
+错误地把动态返回值写成 `exact 0`；按已冻结单价重算应为 USD `0.00651420`。操作员在任何候选
+Simulation checkpoint 前停止批次；该批次是 FAILED/partial，保留一个未终结 Agent 调用，不得
+Resume 成有效证据，也不得进入 Selection/Core 560。这个事件是实现与 preflight 缺口，不改变
+Objective、Split、业务成功判据、Reply v5 或 Gate。
+
+后续新的付费正式实验必须使用 Protocol `1.6+`、新的 Experiment/Study/Baseline 身份，并同时满足：
+
+1. User Simulator hook 在任何付费调用前读取冻结单价，只用已验证 Token 重算费用；动态价格表与
+   上游 `result.cost` 不具权威；
+2. 成本 Artifact 使用 schema `1.3+`，从最终保留 Simulation 绑定的 completed Task Attempt 选择
+   Agent/User ledger `1.2` 调用；失败、重试、未保留和未终结调用仍完整进入 whole-Attempt 口径；
+3. 每个 direct `exact` 调用必须和冻结价格重算值一致；正 Token 对应正单价时 `exact 0` 必须拒绝；
+   Raw `agent_cost/user_cost` 只列为对照，并报告 raw/direct mismatch；
+4. 无模型校准和 clean-room 必须覆盖 §5.5 的四个成本 Fixture，并绑定成本实现、账本、Batch、协议、
+   Service 与 AHE doctor 的文件 Digest；
+5. AHE doctor 必须从隔离工作目录真实导入 pinned checkout 的 `evolve`；正式 child environment 必须
+   注入该 checkout 的 `PYTHONPATH`，且 `direct_no_proxy` 同时清除大小写代理变量；
+6. R7 已完成且语义不受影响的历史证据不得删除或伪装成 R8。新的决策级比较从受成本实现影响的
+   最早阶段重跑；若新 Protocol/Source 身份使基线不可直接比较，则补齐同身份 A0 对称证据。禁止
+   因文案、排版或可从不可变原始字节重建的表示层修改机械地把全部研究从零重跑；也禁止选择性
+   复用能改变结论的旧结果。每次重跑范围及其依赖理由必须写入 append-only Operator Journal。
+
+### 16.10 R8 之后的 Cost Gate 输入绑定
+
+R8 在任何付费 Batch 开始前的源代码审计发现：Cost Artifact 已能按 §5.5 从直接 Task Attempt
+Agent/User 调用重算有效费用，但 Batch `EvaluationSummary.mean_cost`、候选曲线和最终 Cost Gate
+仍读取 τ³ Raw `RunRecord.cost`。因此 R8 只保留为无模型校准、预检与 fail-closed 证据，不产生正式
+比较结论；不得在当前实现上继续 R8 付费执行，也不得把 R7 Raw cost 重新包装为新 Gate 结果。
+
+后续新的付费正式实验必须使用 Protocol `1.7+`、新的 Experiment/Study/Baseline 身份，并满足：
+
+1. Cost Artifact 使用 schema `1.4+`，同时给出有效 Agent、有效 User、二者总和与按有效 Run 数
+   计算的精确均值；非 `exact` 时不得构造可用于排序的精确均值；
+2. Evaluation Summary 使用 schema `1.1+`，绑定 `direct_task_attempt_model_calls`、Cost Digest、
+   Cost Status 与直接 Agent+User 均值；
+3. Selection、候选曲线和最终 Gate 必须只读取上述 Summary 值；最终跨 Batch 均值按有效 Run 数
+   加权。任何 Summary 缺少直接来源、Digest 或 `exact` 状态时必须 fail closed；
+4. 无模型回归必须故意令 Raw cost 与直接 Agent+User cost 不相等，并证明 Batch Summary 与最终
+   Gate 输入采用后者；校准必须绑定 Evaluation、Ledger、Batch、Orchestrator 与 Service 实现；
+5. 修复不改变 Objective、Split、Outcome、Reply v5、Trace 共存、任务集合、模型、Gate 阈值、
+   Core 560 或四项消融，只收紧成本证据到决策的端到端归属；
+6. R7/R8 的全部成功、失败、部分、费用、时间与命令纠正记录继续保持不可变。只有受该语义依赖的
+   新正式比较使用新身份重跑，纯文案与不影响证据的表示层修改仍不触发模型调用。
+
+### 16.11 R10 C2 之后的 Selection 设计修正与付费暂停
+
+R10 已完成 Update-Source 25 个位置、A0/C1/C2/C3 Update-Check 各 10 个位置，以及 C1/C2
+Selection 各 15 个位置，共 95 个正式任务位置；C3 Selection、Release-ID、Release-OOD 与 Replay
+均未启动。到 C2 封存为止，可验证模型总成本为 USD `3.0651904832`，本地计算费用仍为未计量；
+所有批次的 Raw、Batch、Cost、Task Attempt、Agent/User Usage、DSH Session、Evidence Join、
+外层墙钟时间、错误与重试必须保持不可变。
+
+C1 与 C2 在 Selection 都是 7/15，但成功任务发生互换，不能解释为稳定方向性提升。零模型设计审计
+进一步确认：
+
+1. 冻结的 R10 Study 在 Selection 只安排了 3 个候选，没有 A0 同池基线；
+2. 当时的 Selector 必须从合格候选中选一个，没有 `HOLD/ABSTAIN`；
+3. 当时排序只读取稳定成功数、有效 Run 平均成本与 p50，未读取 whole-Attempt 成本、失败尝试、
+   重试、Timeout、p95 与最大延迟；
+4. C1 `C_AHE_AED3D43F759E` 与尚未运行 Selection 的 C3 `C_AHE_23F1F9DC6BD4` 在修订后的
+   行为语义指纹下相同，都是 read-after-write 成功声明门，不能作为两个独立修改方向；
+5. C2 `C_AHE_A3C057997F5B` 在工具路由 YAML 中硬编码通用开发工具名，而 Banking Runtime 的
+   实际工具集合由每个 Task 的动态 Tool Schema 提供；它在修订后的 Candidate Check 下为
+   `REJECT_UNBOUND_CAPABILITY`。因此 C2 的 7/15 只能保留为历史执行证据，不能支持“工具路由修改
+   指导出正确自进化方向”的因果主张。
+
+这属于 SPEC/Selection 设计缺口，不是通过继续跑 C3 或 Release 就能补救的随机波动。自 C2 完成起，
+所有新增付费实验进入 `PAID_HOLD`；禁止用旧 R10 Selector 生成 RC，禁止启动 C3/Release/OOD/Replay，
+也禁止修改 R10 Protocol、Study、Batch 或已有候选来事后满足新规则。
+
+下一次付费实验必须使用新的 Experiment/Study/Baseline 身份，Study schema `1.2+` 的 Selection
+矩阵为 A0 + 3 个语义不同且通过 capability 绑定的候选，即 15 × 1 × 4 = 60 个 Selection 位置；
+在其余旧矩阵逻辑不变时 Core 目标由 560 变为 575。Selection Policy 至少冻结：严格稳定成功增益、
+零稳定任务回退、whole-Attempt 成本比、p95 比、重试增量与 Timeout 增量。若没有候选通过，必须在
+Release 前结束为 `HOLD/ABSTAIN`。该结果按 §7.5 作为成功退出的正常治理终态封存，不能伪装成
+基础设施失败，也不能为了获得“完整 Release 曲线”而绕过弃权继续调用模型。
+
+R10 的 Evidence Governance、Trace/Persistence/Telemetry 共存、直接 Token/成本归属、失败恢复、
+批次完整性和运行时间证据仍可用于工程可靠性与历史审计；候选效果结果可用于提出新假设和估算执行
+预算，但在完成跨身份等价性证明前，不得作为新 Selector 的决策级复用。是否复用任一模型结果必须
+先生成逐 Artifact 的 Evidence Reuse Audit；不能证明相同 Objective、Split、任务、Trial、模型、
+执行语义、Harness Composition 与 Evaluator 身份的证据，只能标记为 `historical_context`。任何最小
+补充付费计划仍需 Owner 明确授权。
 
 ---
 

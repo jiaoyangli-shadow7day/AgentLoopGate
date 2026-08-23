@@ -25,6 +25,7 @@ class HarnessAsset(StrictModel):
     risk_tier: RiskTier
     allowed_operations: list[AssetOperation] = Field(min_length=1)
     rollback_unit: ArtifactId
+    semantic_validator: Literal["runtime_capability_routing_v1"] | None = None
 
     @model_validator(mode="after")
     def patterns_are_safe_and_operations_unique(self) -> HarnessAsset:
@@ -37,7 +38,7 @@ class HarnessAsset(StrictModel):
 
 
 class HarnessAssetManifest(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     assets: list[HarnessAsset] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -48,11 +49,22 @@ class HarnessAssetManifest(StrictModel):
         patterns = [pattern for asset in self.assets for pattern in asset.path_patterns]
         if len(patterns) != len(set(patterns)):
             raise ValueError("asset path patterns must be unique")
+        validators = [
+            asset
+            for asset in self.assets
+            if asset.semantic_validator == "runtime_capability_routing_v1"
+        ]
+        if self.schema_version == "1.1" and len(validators) != 1:
+            raise ValueError(
+                "manifest 1.1 requires exactly one runtime capability routing asset"
+            )
+        if self.schema_version == "1.0" and validators:
+            raise ValueError("manifest 1.0 cannot contain semantic validators")
         return self
 
 
 class MutationPolicy(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     max_files: int = Field(ge=1)
     max_changed_lines: int = Field(ge=1)
     auto_executable_risks: list[RiskTier] = Field(min_length=1)
@@ -60,6 +72,8 @@ class MutationPolicy(StrictModel):
     protected_paths: list[NonEmpty] = Field(min_length=1)
     trust_kernel_paths: list[NonEmpty] = Field(min_length=1)
     forbidden_content_patterns: list[NonEmpty] = Field(min_length=1)
+    reject_unbound_static_capabilities: Literal[True] | None = None
+    semantic_deduplication: Literal[True] | None = None
 
     @model_validator(mode="after")
     def risk_and_paths_are_safe(self) -> MutationPolicy:
@@ -70,6 +84,14 @@ class MutationPolicy(StrictModel):
         for pattern in self.protected_paths + self.trust_kernel_paths:
             if pattern.startswith("/") or ".." in pattern.split("/"):
                 raise ValueError("policy paths must be safe project-relative patterns")
+        semantic = (
+            self.reject_unbound_static_capabilities,
+            self.semantic_deduplication,
+        )
+        if self.schema_version == "1.1" and not all(item is True for item in semantic):
+            raise ValueError("mutation policy 1.1 requires semantic candidate controls")
+        if self.schema_version == "1.0" and any(item is not None for item in semantic):
+            raise ValueError("mutation policy 1.0 cannot contain semantic controls")
         return self
 
 
@@ -95,10 +117,11 @@ class CandidateCheckCode(StrEnum):
     REJECT_LEAKAGE = "REJECT_LEAKAGE"
     REJECT_CHANGE_BUDGET = "REJECT_CHANGE_BUDGET"
     REJECT_TRUST_KERNEL_DRIFT = "REJECT_TRUST_KERNEL_DRIFT"
+    REJECT_UNBOUND_CAPABILITY = "REJECT_UNBOUND_CAPABILITY"
 
 
 class CandidateCheckResult(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     disposition: CheckDisposition
     code: CandidateCheckCode
     message: NonEmpty
@@ -111,4 +134,14 @@ class CandidateCheckResult(StrictModel):
     risk_tier: RiskTier | None
     rollback_units: list[ArtifactId]
     auto_executable: bool
+    semantic_tags: list[NonEmpty] | None = None
+    semantic_fingerprint: Digest | None = None
 
+    @model_validator(mode="after")
+    def semantic_evidence_matches_version(self) -> CandidateCheckResult:
+        semantic = (self.semantic_tags, self.semantic_fingerprint)
+        if self.schema_version == "1.1" and any(item is None for item in semantic):
+            raise ValueError("candidate check 1.1 requires semantic evidence")
+        if self.schema_version == "1.0" and any(item is not None for item in semantic):
+            raise ValueError("candidate check 1.0 cannot contain semantic evidence")
+        return self

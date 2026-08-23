@@ -5,6 +5,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
+from pydantic import Field, model_validator
+
 from agentloopgate.adapters import OutcomeDiagnostics
 from agentloopgate.contracts import canonical_digest
 from agentloopgate.diagnosis import DiagnosticSignals, FailureDiagnoser, RankedFailureBundle
@@ -14,12 +16,28 @@ from agentloopgate.splits.models import TaskDescriptor
 
 
 class FormalDiagnosisArtifact(StrictModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.0", "1.1"] = "1.1"
     batch_id: ArtifactId
     snapshot_id: ArtifactId
     signals: list[DiagnosticSignals]
     ranked_bundles: list[RankedFailureBundle]
+    unresolved_evaluation_incident_run_ids: list[ArtifactId] = Field(
+        default_factory=list
+    )
     diagnosis_digest: Digest
+
+    @model_validator(mode="after")
+    def incident_index_matches_signals(self) -> FormalDiagnosisArtifact:
+        expected = sorted(item.run_id for item in self.signals if item.evaluator_conflict)
+        if self.schema_version == "1.1" and (
+            self.unresolved_evaluation_incident_run_ids != expected
+        ):
+            raise ValueError("diagnosis incident index does not match conflict signals")
+        if self.schema_version == "1.0" and (
+            self.unresolved_evaluation_incident_run_ids or expected
+        ):
+            raise ValueError("legacy diagnosis cannot carry evaluation incidents")
+        return self
 
 
 def diagnose_formal_records(
@@ -48,12 +66,16 @@ def diagnose_formal_records(
     if len(snapshot_ids) != 1:
         raise ValueError("formal diagnosis records must belong to one snapshot")
     ranked = FailureDiagnoser().build_bundles(failures) if failures else []
+    unresolved_incidents = sorted(
+        item.run_id for item in failures if item.evaluator_conflict
+    )
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "batch_id": batch_id,
         "snapshot_id": next(iter(snapshot_ids)),
         "signals": failures,
         "ranked_bundles": ranked,
+        "unresolved_evaluation_incident_run_ids": unresolved_incidents,
     }
     return FormalDiagnosisArtifact.model_validate(
         {**payload, "diagnosis_digest": canonical_digest(payload)}
@@ -74,6 +96,13 @@ def _signals(
         any(item.matched for item in diagnostic.action_checks)
         if selected_correctly
         else None
+    )
+    evaluator_conflict = bool(
+        record.run_validity is RunValidity.VALID
+        and record.success is False
+        and diagnostic.db_match is False
+        and diagnostic.action_checks
+        and all(item.matched for item in diagnostic.action_checks)
     )
     return DiagnosticSignals(
         schema_version="1.0",
@@ -108,7 +137,7 @@ def _signals(
         recovery_required=False,
         recovery_succeeded=None,
         user_claim_overtrust=False,
-        evaluator_conflict=False,
+        evaluator_conflict=evaluator_conflict,
         user_value_loss=Decimal(1),
         risk_weight=Decimal(2 if task.high_risk else 1),
         fixability=Decimal(1),

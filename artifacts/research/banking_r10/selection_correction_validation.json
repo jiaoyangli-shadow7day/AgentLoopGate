@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "R10_SELECTION_CORRECTION_VALIDATION_1",
+  "recorded_at": "2026-08-23T06:15:00Z",
+  "contains_raw_customer_data": false,
+  "model_calls": 0,
+  "provider_model_cost_usd": "0",
+  "local_compute_cost_status": "unmetered_unknown",
+  "corrected_source_revision": "tree:sha256:45686a6475075d22d193a0acc5676818bff16abc9c89fc47582957c5634add45",
+  "checks": {
+    "python_tests": {
+      "command": "uv run pytest -q",
+      "passed": 170,
+      "failed": 0
+    },
+    "python_static": {
+      "command": "uv run ruff check .",
+      "status": "passed"
+    },
+    "clean_room": {
+      "command": "./scripts/verify_p0.sh",
+      "status": "passed",
+      "python_sdist": true,
+      "python_wheel": true,
+      "wheel_install_and_cli_init": true,
+      "deepseek_harness_typecheck": true,
+      "deepseek_harness_test_files": 5,
+      "deepseek_harness_tests": 13,
+      "deepseek_harness_headless_conformance": true,
+      "deepseek_harness_build": true,
+      "deepseek_harness_pack": true,
+      "public_tree_files_scanned": 255,
+      "public_tree_secret_or_pii_findings": 0
+    }
+  },
+  "behavioral_coverage": [
+    "selector holds when no candidate has a strict stable-success gain",
+    "selector rejects stable-task regression despite positive net success",
+    "selector ranks eligible candidates with timeout/retry/p95/max/whole-cost evidence",
+    "selector holds retry or exact whole-attempt cost regression",
+    "selector rejects incomplete enhanced evidence",
+    "candidate check rejects unbound static capability targets",
+    "runtime validates capability_ref against the current task tool schema",
+    "candidate registry rejects same-parent same-bundle semantic duplicates",
+    "study 1.2 requires A0 plus three candidates and Core575",
+    "immutable R10 protocol remains readable but cannot authorize resume after runtime drift"
+  ],
+  "paid_execution_status": "paused",
+  "validation_status": "passed",
+  "artifact_digest": "sha256:74bce370213acf2ec23d7de6cccebfbe700bbd70964a47955021c6a22716de27"
+}

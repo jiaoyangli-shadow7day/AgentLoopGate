@@ -24,7 +24,13 @@ from tau2.data_model.tasks import Task
 from tau2.environment.tool import Tool
 
 from agentloopgate.contracts import canonical_digest
-from agentloopgate.runtime import DshTau3TurnClient, DshTau3TurnConfig
+from agentloopgate.runtime import (
+    DSH_TAU3_PROTOCOL_CURRENT,
+    DshTau3TurnClient,
+    DshTau3TurnConfig,
+    bind_current_task_attempt_session,
+    validate_runtime_capability_binding,
+)
 
 _HARNESS_PATHS = (
     "harness/system_prompt.md",
@@ -63,6 +69,7 @@ class AgentLoopGateDshAgent(HalfDuplexAgent[AgentLoopGateState]):
     def set_seed(self, seed: int) -> None:
         base = self.client.session_id(self.namespace, self.task.id, seed)
         self._session_id = _fresh_session_id(base)
+        bind_current_task_attempt_session(self._session_id)
 
     def get_init_state(
         self,
@@ -89,7 +96,11 @@ class AgentLoopGateDshAgent(HalfDuplexAgent[AgentLoopGateState]):
             ),
             domain_policy=self.domain_policy if first_turn else None,
             tool_schemas=[tool.openai_schema for tool in self.tools] if first_turn else None,
-            harness_context=_load_harness_context() if first_turn else None,
+            harness_context=(
+                _load_harness_context({tool.name for tool in self.tools})
+                if first_turn
+                else None
+            ),
         )
         started = time.monotonic()
         result = self.client.run_turn(
@@ -119,7 +130,7 @@ class AgentLoopGateDshAgent(HalfDuplexAgent[AgentLoopGateState]):
                 "completion_tokens": result.output_tokens,
             },
             raw_data={
-                "agentloopgate_protocol": "dsh-tau3/1.1",
+                "agentloopgate_protocol": DSH_TAU3_PROTOCOL_CURRENT,
                 "dsh_session_id_hash": canonical_digest(
                     {"session_id": self._session_id}
                 ),
@@ -169,6 +180,15 @@ def _client_from_environment() -> DshTau3TurnClient:
             timeout_seconds=_positive_int(
                 "AGENTLOOPGATE_DSH_TURN_TIMEOUT_SECONDS"
             ),
+            reply_normalization_policy=_required_environment(
+                "AGENTLOOPGATE_REPLY_NORMALIZATION_POLICY"
+            ),
+            empty_final_repair_policy=_required_environment(
+                "AGENTLOOPGATE_EMPTY_FINAL_REPAIR_POLICY"
+            ),
+            empty_final_repair_limit=_non_negative_int(
+                "AGENTLOOPGATE_EMPTY_FINAL_REPAIR_LIMIT"
+            ),
             usage_ledger_path=(
                 Path(os.environ["AGENTLOOPGATE_MODEL_USAGE_LEDGER"])
                 if os.environ.get("AGENTLOOPGATE_MODEL_USAGE_LEDGER")
@@ -189,7 +209,18 @@ def _positive_int(name: str) -> int:
     return value
 
 
-def _load_harness_context() -> str:
+def _non_negative_int(name: str) -> int:
+    raw = _required_environment(name)
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a non-negative integer") from exc
+    if value < 0:
+        raise RuntimeError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _load_harness_context(runtime_capabilities: set[str]) -> str:
     root = Path(_required_environment("AGENTLOOPGATE_HARNESS_ROOT")).resolve()
     sections: list[str] = []
     total = 0
@@ -205,6 +236,8 @@ def _load_harness_context() -> str:
             content = encoded.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise RuntimeError(f"frozen harness asset is not UTF-8: {relative}") from exc
+        if relative == "harness/tools/routing.yaml":
+            validate_runtime_capability_binding(content, runtime_capabilities)
         sections.append(f"<asset path=\"{relative}\">\n{content.rstrip()}\n</asset>")
     return "\n\n".join(sections)
 

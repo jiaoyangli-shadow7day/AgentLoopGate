@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "calibration_id": "CAL_BANKING_R5_REPLY_COMPATIBILITY_1",
+  "recorded_at": "2026-08-21T23:42:13Z",
+  "scope": "incident_driven_reply_representation_compatibility",
+  "formal_exclusion": true,
+  "quality_selection": false,
+  "formal_gold_or_reward_used": false,
+  "contains_raw_customer_data": false,
+  "objective_digest": "sha256:9065911cc14f620fb4f840cb35c0fbeac86fe8a59145d4d182c5a5f1a637544f",
+  "split_digest": "sha256:f63532b9953a488e0bfddbd09b0ca62eb9ed6d229db35f69835e1666751973c1",
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "dsh_commit": "141eb6fef83422698aef7a981029e843e8161534",
+  "agent_model": "deepseek-official/deepseek-v4-flash",
+  "user_model": "deepseek/deepseek-v4-flash",
+  "supersedes_calibration_digest": "sha256:bbde5c453f7896e981a0c7224e8a44b22d0ae75d0dfb1b6b99bb271c8afae210",
+  "source_evidence": {
+    "r4_batch_id": "B_AE1B74E4FC79C7428E3E",
+    "r4_batch_digest": "sha256:f2962be4d042da55abf58f54f54f30aa5082d21ca46f6a3cb05ab9f9d95868a8",
+    "r4_cost_digest": "sha256:856344c250a37f59ea81337cae76d37dd91a6e2419aa41a9dfd4592aaf235685",
+    "r4_raw_sha256": "605dbc9aaf44a8ea6e45c93deed2ec0e285365cd8b5faeb66a0d372872481cc4",
+    "r4_model_usage_sha256": "d1c8359f8fefa24d18b74c7e7cd858444fade6f7e60b2db341b2da7424359b6e",
+    "r4_user_model_usage_sha256": "d1d1aa78cae9fd78f99dcb36a8c96cebf741846147769452955f19f44237c99f",
+    "r4_task_attempt_ledger_sha256": "5f844cfb54b2aa8f7966708fc646a239335b4c7b58c83d79bb95c394e9ee24c9",
+    "r4_reply_diagnosis_digest": "sha256:b93ed7f097bc8dcba1e9605c2a7c10da1bb05c023bd5839386d9b3264896c454",
+    "r4_reply_diagnosis_file_sha256": "d777e2223d53d6f822798c5718f523f25400fc24b726747231bbebe35e575121",
+    "valid_task_positions": 24,
+    "infra_invalid_task_positions": 1,
+    "whole_attempt_model_cost_usd": "0.69178802080000000240",
+    "whole_attempt_accounting_status": "exact",
+    "disposition": "hold"
+  },
+  "incident_findings": [
+    "The first exhausted task attempt emitted invalid JSON syntax and has no unique executable interpretation.",
+    "The second attempt emitted valid JSON with exactly one allow-listed dynamic tool-name key equal to its own string value plus an unchanged arguments object.",
+    "Reply policy v3 rejected the second shape even though its mapping to canonical name and arguments is unique.",
+    "No R4 reward, task success, expected action, or formal gold was used to define the mapping."
+  ],
+  "accepted_controls": {
+    "dsh_tau3_protocol_version": "dsh-tau3/1.1",
+    "reply_normalization_policy": "bounded_allow_list_v4_redundant_allow_listed_name",
+    "agent_max_output_tokens": 32768,
+    "turn_timeout_seconds": 300,
+    "simulation_timeout_seconds": 1800,
+    "max_concurrency": 1,
+    "max_task_retries": 1,
+    "global_task_attempt_limit": 2,
+    "resume_retry_budget_policy": "global_task_position_attempt_cap",
+    "network_route_policy": "direct_no_proxy",
+    "runner_failure_usage_policy": "recover_verified_envelope",
+    "user_failure_usage_policy": "append_only_model_call_ledger",
+    "cost_gate_scope": "valid_runs_exact_whole_attempt_reported"
+  },
+  "normalization_contract": {
+    "accepted_shape": {
+      "exact_keys": ["<allow-listed-tool-name>", "arguments"],
+      "dynamic_value": "must exactly equal <allow-listed-tool-name>",
+      "arguments": "must be an object and is copied without mutation"
+    },
+    "rejected_shapes": [
+      "invalid JSON syntax",
+      "unknown dynamic tool name",
+      "dynamic value different from the dynamic key",
+      "non-object arguments",
+      "missing or additional keys"
+    ]
+  },
+  "no_model_acceptance": {
+    "positive_fixture": "accepted and mapped to the identical allow-listed name and unchanged arguments object",
+    "legacy_v3_fixture": "same shape remains rejected under explicit v3 policy",
+    "negative_fixtures": [
+      "unknown tool rejected",
+      "mismatched redundant value rejected",
+      "extra key rejected",
+      "non-object arguments rejected",
+      "malformed JSON rejected"
+    ],
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0"
+  },
+  "acceptance_basis": [
+    "The rule performs no JSON repair, tool-name inference, argument synthesis, or argument mutation.",
+    "The exact per-turn allow-list remains authoritative before any executable call can leave the adapter.",
+    "The policy is explicitly bound through the formal protocol, child environment, runtime config, composition digest, and evidence records.",
+    "R4 remains immutable and a new experiment must symmetrically rerun all 25 Update-Source positions."
+  ],
+  "limitations": [
+    "The no-model fixtures prove the transformation and fail-closed boundaries, not provider frequency or task quality.",
+    "Malformed JSON remains Infra Invalid after the frozen retry budget is exhausted.",
+    "The R5 paid symmetric rerun is required before this policy can support any downstream candidate claim.",
+    "Local compute monetary cost remains unmetered; process time and memory must be reported separately."
+  ],
+  "artifact_digest": "sha256:faf997e978ff721b56d561f9734ebbc64806cbdea80e413fcf02e36752c0196e"
+}

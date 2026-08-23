@@ -40,6 +40,7 @@ from agentloopgate.experiment import (
     FormalBatchError,
     FormalExperimentOrchestrator,
     FormalExperimentService,
+    FormalSelectionHoldOutcome,
     FormalStage,
     FormalWorkflowBlocked,
     inspect_formal_preflight,
@@ -536,6 +537,29 @@ def pilot_run(
         str,
         typer.Option("--snapshot", help="Pilot snapshot identity."),
     ] = "S_PILOT_DSH_A0",
+    turn_timeout_seconds: Annotated[
+        int,
+        typer.Option(
+            "--turn-timeout-seconds",
+            min=1,
+            help="Calibration-only DSH Turn timeout; formal runs use the frozen protocol.",
+        ),
+    ] = 180,
+    agent_max_output_tokens: Annotated[
+        int,
+        typer.Option(
+            "--agent-max-output-tokens",
+            min=1,
+            help="Calibration-only model output cap; formal runs use the frozen protocol.",
+        ),
+    ] = 4096,
+    model_usage_ledger: Annotated[
+        Path | None,
+        typer.Option(
+            "--model-usage-ledger",
+            help="Project-relative append-only model usage JSONL for Pilot calibration.",
+        ),
+    ] = None,
     resume: Annotated[
         bool,
         typer.Option("--resume", help="Resume an interrupted run with the same frozen inputs."),
@@ -594,6 +618,8 @@ def pilot_run(
         model=model,
         experiment_namespace=run_name,
         pricing=pricing,
+        turn_timeout_seconds=turn_timeout_seconds,
+        agent_max_output_tokens=agent_max_output_tokens,
     )
     adapter = DshTau3Adapter(root, checkout=resolved_checkout, pilot=pilot)
     try:
@@ -610,6 +636,11 @@ def pilot_run(
             run_name=run_name,
             max_concurrency=1,
             resume=resume,
+            model_usage_ledger=(
+                _resolve_under_root(root, model_usage_ledger)
+                if model_usage_ledger is not None
+                else None
+            ),
         )
         context = BenchmarkRunContext(
             pool=Pool.PILOT,
@@ -655,6 +686,13 @@ def pilot_run(
         "dsh_run_count": len(result.dsh_records),
         "evidence_join_ids": [join.join_id for join in result.evidence_joins],
         "result_artifact": result_path.resolve().relative_to(root).as_posix(),
+        "model_usage_ledger": (
+            request.model_usage_ledger.relative_to(root).as_posix()
+            if request.model_usage_ledger is not None
+            else None
+        ),
+        "turn_timeout_seconds": turn_timeout_seconds,
+        "agent_max_output_tokens": agent_max_output_tokens,
         "gate_decision": None,
     }
     _emit(
@@ -745,7 +783,7 @@ def experiment_protocol_verify(
 def experiment_study_verify(
     config: Annotated[
         Path,
-        typer.Option("--config", help="Frozen Banking R2 study-plan YAML."),
+        typer.Option("--config", help="Frozen Banking study-plan YAML."),
     ] = Path("configs/banking_r2_study.yaml"),
     json_output: Annotated[
         bool,
@@ -768,7 +806,7 @@ def experiment_study_verify(
         payload,
         as_json=json_output,
         human=(
-            f"Banking R2 study verified: {plan.study_id}; "
+            f"Banking study verified: {plan.study_id}; "
             f"{plan.core_target_trial_count} target trials; digest={plan.study_digest}."
         ),
     )
@@ -782,11 +820,11 @@ def experiment_ablation_integrity(
     ] = Path("."),
     study: Annotated[
         Path,
-        typer.Option("--study", help="Frozen Banking R2 study-plan YAML."),
+        typer.Option("--study", help="Frozen Banking study-plan YAML."),
     ] = Path("configs/banking_r2_study.yaml"),
     protocol: Annotated[
         Path,
-        typer.Option("--protocol", help="Frozen Banking R2 execution protocol."),
+        typer.Option("--protocol", help="Frozen Banking execution protocol."),
     ] = Path("configs/experiment_protocol_banking_r2.yaml"),
     output: Annotated[
         Path,
@@ -832,11 +870,11 @@ def experiment_ablation_plugin(
     ] = Path("."),
     study: Annotated[
         Path,
-        typer.Option("--study", help="Frozen Banking R2 study-plan YAML."),
+        typer.Option("--study", help="Frozen Banking study-plan YAML."),
     ] = Path("configs/banking_r2_study.yaml"),
     protocol: Annotated[
         Path,
-        typer.Option("--protocol", help="Frozen Banking R2 execution protocol."),
+        typer.Option("--protocol", help="Frozen Banking execution protocol."),
     ] = Path("configs/experiment_protocol_banking_r2.yaml"),
     output: Annotated[
         Path,
@@ -948,7 +986,7 @@ def experiment_stage(
                         *(["--snapshot", snapshot] if snapshot is not None else []),
                     ]
                 )
-                if service.config.schema_version == "1.1"
+                if service.config.schema_version in {"1.1", "1.2"}
                 else service.ensure_baseline()
             )
             result = service.run_stage(stage, snapshot_id=snapshot or baseline_id)
@@ -998,14 +1036,14 @@ def experiment_baseline_freeze(
     ] = Path("."),
     config: Annotated[
         Path,
-        typer.Option("--config", help="Formal R2 experiment configuration YAML."),
+        typer.Option("--config", help="Versioned formal experiment configuration YAML."),
     ] = Path("configs/formal_experiment_r2.yaml"),
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a stable JSON object."),
     ] = False,
 ) -> None:
-    """Freeze or verify the non-active R2 evaluation baseline without a model call."""
+    """Freeze or verify a non-active evaluation baseline without a model call."""
 
     try:
         orchestrator = FormalExperimentOrchestrator(project, config_path=config)
@@ -1116,6 +1154,17 @@ def experiment_run(
             exit_code=5,
         )
     payload = outcome.model_dump(mode="json")
+    if isinstance(outcome, FormalSelectionHoldOutcome):
+        _emit(
+            payload,
+            as_json=json_output,
+            human=(
+                f"Formal experiment {outcome.experiment_id}: HOLD at Selection; "
+                f"native={outcome.native_candidate_id}; governed candidate=null; "
+                "Release/OOD/Replay batches=0."
+            ),
+        )
+        return
     _emit(
         payload,
         as_json=json_output,

@@ -1,0 +1,173 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R7_REPLY_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R6",
+  "source_diagnosis_artifact": "artifacts/research/banking_r6/execution_diagnosis.json",
+  "source_diagnosis_digest": "sha256:220f9c4f360cc3f94a2dea270c7e62014f8f6f44332eb6ed0f9fa8f976109de7",
+  "contains_raw_customer_data": false,
+  "reply_normalization_policy": "bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias",
+  "task_attempt_ledger_schema_version": "1.1",
+  "model_usage_ledger_schema_version": "1.2",
+  "task_attempt_session_binding_policy": "append_before_first_agent_call_v1",
+  "model_call_task_identity_policy": "direct_task_trial_seed_attempt_v1",
+  "accepted_reply_shapes": [
+    "one whole tool-call reply missing only the fixed name label, with exactly one currently allow-listed explicit tool identifier and one object-valued arguments field; insert only the fixed label, then require strict JSON, schema, and allow-list validation",
+    "one whole call_discoverable_agent_tool wrapper reply containing exactly one explicit safe subtool identifier and one object-valued arguments field; preserve both as canonical wrapper arguments, then rely on the benchmark unlock authority and strict wrapper schema"
+  ],
+  "rejected_reply_shapes": [
+    "unknown or currently unavailable wrapper tool",
+    "mixed content and executable tool calls",
+    "multiple calls in either new compatibility shape",
+    "partial, array-valued, scalar-valued, or malformed arguments",
+    "unsafe, missing, inferred, or ambiguous discovered subtool identifier",
+    "extra keys outside the exact accepted whole-reply grammars",
+    "reasoning text used to infer customer content, a tool, or arguments",
+    "any failed normalization that does not subsequently pass the canonical reply schema and exact per-turn tool allow-list"
+  ],
+  "lineage_assertions": [
+    "each task attempt has exactly one STARTED event before any session binding or terminal event",
+    "the actual DeepSeek Harness session hash is appended before the first Agent model call",
+    "a task terminal event preserves the bound session hash and source locator or explicitly records not_bound when failure preceded session creation",
+    "every Agent and User model-call event directly carries task_id, trial, seed, and task_attempt_index",
+    "each model call has exactly one STARTED event, at most one terminal event, terminal-after-start ordering, and immutable session, model, and direct task identity",
+    "DeepSeek Harness native session JSONL remains authoritative and is referenced by hash rather than replaced or rewritten"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_pilot.py": "sha256:4f085344e94f8602a9e4d7ad6a4b6469f07389428899e10ec458488c97ed67e8",
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:332390206ae47e5a6b2333e29e76158b97d301b6af5f4f23a4f66d368922ac00",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/experiment/protocol.py": "sha256:eb2eb79e0db84a42e9ed97fe6b4748283cff9fa1bc0fd67b97c880bb2708ba5f",
+    "agentloopgate/experiment/service.py": "sha256:9e867e6d364392df03c842b7c1ede1db40e441074a10cea24ad20d4bca7baa56",
+    "agentloopgate/experiment/ledger.py": "sha256:34bd7fee1ea2ad9000786d8955b074b86d05bfb9df5d9e9e220bf6c9a6d0434f",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:d21a4e1ff5f035054384d54498bb110b4e808803574f31d5613b448fabc7430d",
+    "examples/tau3-banking/agent.py": "sha256:5054ea34f57c0a9d7b047071e757d18dc502ba463daab7715a8154a98b0c8438",
+    "integrations/deepseek-harness/test/headless-conformance.mjs": "sha256:60fd3c41353b7f30b5171db3f751d0aff02738fa96f69ff67908bc8fa94ef0d6"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-22T06:30:17Z",
+    "focused_python_tests": 50,
+    "full_python_tests": 140,
+    "typescript_tests": 13,
+    "ruff": "passed",
+    "python_sdist_to_wheel_clean_room": "passed",
+    "dsh_headless_bundle_conformance": "passed",
+    "public_tree_secret_scan": "passed",
+    "r6_backward_evidence_validation": "passed",
+    "attempts": [
+      {
+        "attempt_id": "R7-NM-001",
+        "scope": "focused_reply_v5",
+        "status": "passed",
+        "tests_passed": 10,
+        "resource_metrics_status": "not_captured",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-002",
+        "scope": "focused_reply_lineage",
+        "status": "failed",
+        "tests_passed": 46,
+        "tests_failed": 1,
+        "failure": "stale adapter child-environment expectation still pinned Reply Policy v4",
+        "resource_metrics_status": "not_captured",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-003",
+        "scope": "focused_reply_lineage",
+        "status": "passed",
+        "tests_passed": 48,
+        "resource_metrics_status": "not_captured",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-004",
+        "scope": "focused_lifecycle",
+        "status": "passed",
+        "tests_passed": 48,
+        "pytest_seconds": "0.41",
+        "resource_metrics_status": "partially_captured",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-005",
+        "scope": "r6_backward_evidence",
+        "status": "passed",
+        "validated_events": 2184,
+        "wall_seconds": "0.45",
+        "user_cpu_seconds": "0.18",
+        "system_cpu_seconds": "0.05",
+        "maximum_resident_set_bytes": 51937280,
+        "peak_memory_footprint": 10027488,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-006",
+        "scope": "strict_calibration_static",
+        "status": "failed",
+        "failure": "one import-order lint error; bytecode compilation did not run",
+        "wall_seconds": "0.2",
+        "resource_metrics_status": "partially_captured",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-007",
+        "scope": "strict_calibration_static",
+        "status": "passed",
+        "wall_seconds": "0.36",
+        "user_cpu_seconds": "0.03",
+        "system_cpu_seconds": "0.04",
+        "maximum_resident_set_bytes": 27820032,
+        "peak_memory_footprint": 1245496,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-008",
+        "scope": "focused_protocol_runtime_adapter",
+        "status": "passed",
+        "tests_passed": 50,
+        "pytest_seconds": "0.43",
+        "wall_seconds": "1.03",
+        "user_cpu_seconds": "0.39",
+        "system_cpu_seconds": "0.20",
+        "maximum_resident_set_bytes": 60620800,
+        "peak_memory_footprint": 1245496,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R7-NM-009",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 140,
+        "typescript_tests_passed": 13,
+        "local_mock_requests": 1,
+        "wall_seconds": "25.12",
+        "user_cpu_seconds": "12.57",
+        "system_cpu_seconds": "6.03",
+        "maximum_resident_set_bytes": 352681984,
+        "peak_memory_footprint": 1343824,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ],
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "cost_status": "not_applicable",
+    "local_compute_monetary_cost": "unmetered"
+  },
+  "limitations": [
+    "no-model fixtures prove accepted and rejected syntax, evidence lifecycle, hashing, and accounting behavior but not the future provider frequency of either compatibility shape",
+    "R7 must symmetrically rerun all 25 frozen Update-Source positions before any candidate generation or claim that Reply Policy v5 removes the observed Infra Invalid",
+    "local compute monetary cost remains unmetered and must be reported separately from exact provider-model cost"
+  ],
+  "artifact_digest": "sha256:91b9c5de24dd65b66cad9925607c0c032823e5464a843b94601439a1e0dcf80f"
+}

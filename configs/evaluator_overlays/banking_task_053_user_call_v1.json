@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "overlay_id": "BANKING_TASK_053_USER_CALL_V1",
+  "benchmark_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "incident_artifact": "artifacts/research/banking_r9/eval_incident_task_053.json",
+  "incident_digest": "sha256:1dc739fb6c4f21dab6b5f3e23175f9a9f39f08121b51186b08dde8a54202ef14",
+  "affected_task_ids": [
+    "task_053"
+  ],
+  "insertions": [
+    {
+      "task_id": "task_053",
+      "source_task_file_digest": "sha256:3abd0036c8fefbfb5ae1094f2fdbc6ff023e0442cd08b9b56e62b97ef6714b98",
+      "after_action_id": "053_13",
+      "action": {
+        "action_id": "053_13_user_call",
+        "requestor": "user",
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\"}"
+        }
+      }
+    }
+  ],
+  "overlay_digest": "sha256:1f4c96e3ee85862e1fa3ed4e1d2fd7be00844ca88cbb9f583d64b0867921b62d"
+}

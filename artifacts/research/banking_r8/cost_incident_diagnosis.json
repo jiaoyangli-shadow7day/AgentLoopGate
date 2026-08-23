@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R8_COST_INCIDENT_DIAGNOSIS",
+  "source_experiment_id": "EXP_BANKING_R7",
+  "source_batch_id": "B_7CCD439B253A2AA11C5E",
+  "source_attempt_id": "ATT_593ABA688C99404C9E1E7939326E0E59",
+  "source_candidate_id": "C_AHE_3B4A6CC94534",
+  "source_snapshot_id": "S_A030424F70397EC7",
+  "recorded_at": "2026-08-22T10:22:31Z",
+  "contains_raw_customer_data": false,
+  "incident_class": "false_exact_zero_user_model_cost",
+  "observation": {
+    "user_terminal_calls": 13,
+    "user_input_tokens": 42394,
+    "user_cache_read_tokens": 0,
+    "user_output_tokens": 2068,
+    "incorrect_ledger_cost_usd": "0",
+    "frozen_price_recomputed_cost_usd": "0.00651420",
+    "agent_terminal_calls": 17,
+    "agent_unresolved_calls": 1,
+    "known_agent_cost_lower_bound_usd": "0.0110569704",
+    "candidate_simulations_checkpointed": 0
+  },
+  "root_cause": {
+    "implementation": "the tau3 User hook copied a dynamic third-party result.cost into the direct usage ledger",
+    "environment_trigger": "the remote LiteLLM price map timed out and its local fallback did not map deepseek-v4-flash",
+    "spec_gap": "the frozen pricing digest did not yet have an executable positive-token zero-cost invariant or a required false-zero preflight fixture",
+    "business_semantics_changed": false
+  },
+  "immutable_evidence": {
+    "agent_usage_ledger_sha256": "b073763d1053d7b82fc0a61a8dfbabd44de424a0b6b76c2259e06b5453969911",
+    "user_usage_ledger_sha256": "831a72c66e13e5b0d3eb26747d455f078fe38cf259fcb9f40362b949fc862395",
+    "task_attempt_ledger_sha256": "b96feeff1e28fcf8524cb9737133d34ebbd2bda7e567942f84242d5f7ff834d5",
+    "attempt_started_event_sha256": "2d0e11879b0210d9afb1c9f632df203a2f7406e127af6c2e0f348f6dd708718f",
+    "attempt_failed_event_sha256": "a23601132d45813ea8dc042d2adc780d7e8982df410e787144f9118ee7d81c30",
+    "native_session_file_sha256": "cf6f903d85994e709b844f086ddc9a4ae7cce816723f3ea5c86a47246e9dae25",
+    "native_session_id_hash": "sha256:a9ac41f50d096406d07b6b0a66005c7139c206f35842d89dbfe201ffd5ce24ca"
+  },
+  "disposition": {
+    "source_batch_status": "failed_partial",
+    "resume_as_valid_evidence": false,
+    "selection_or_core_use_permitted": false,
+    "automatic_deployment_permitted": false,
+    "r7_history_rewritten": false
+  },
+  "required_correction": [
+    "compute User cost only from verified tokens and frozen protocol prices",
+    "derive valid cost from direct final task-attempt Agent and User calls",
+    "reject exact call costs that do not match frozen-price recomputation",
+    "treat retained raw cost as comparison evidence and report mismatches",
+    "add deterministic false-zero and missing-price preflight fixtures",
+    "use a new protocol and experiment identity for affected paid comparisons"
+  ],
+  "artifact_digest": "sha256:a8bc371ba7674ecfde6bdd0a18521433f28064b8d8680cc591539059da9fa1c9"
+}
