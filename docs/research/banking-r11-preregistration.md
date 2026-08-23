@@ -1,11 +1,30 @@
 # Banking R11 corrected checkpoint preregistration
 
-Status: frozen inputs, `PAID_HOLD`; no paid authorization exists.
+Status: immutable partial execution and sealed Update-Source `HOLD`.
 
 R11 is the first experiment identity that implements the corrected,
 baseline-bound Selection policy discovered after R10 C2. It does not erase or
 reinterpret R10. R10 remains immutable historical and engineering evidence;
 none of its model outcomes is a decision-grade R11 input.
+
+## Execution record and terminal boundary
+
+Under a narrowly scoped Owner authorization, only the existing 25-position
+Update-Source batch was run. Its immutable batch ID is
+`B_669A312AC9B41B2F6207`; the batch contains 24 valid runs and one Infra Invalid
+(`task_020`) and is sealed as `HOLD` for `infra_invalid:1` and
+`missing_valid_trials`. Exact valid-run direct costs are Agent USD
+`0.5385791880` and User Simulator USD `0.08244740`; the whole observed-attempt
+provider-cost lower bound is USD `0.7266205472000000021`. Local-compute
+monetary cost remains `unmetered_unknown`.
+
+No external Updater, Update-Check, Selection, Release-ID, Release-OOD, or Replay
+call was made. The batch cannot advance to another R11 stage and must never be
+rerun under the same identity. A lineage-recovery implementation defect was
+fixed and the existing evidence was sealed without model calls; the repair does
+not alter the frozen Protocol, Study, raw evidence, or result meaning. Any
+complete successor study must use a new frozen experiment identity and a new
+Owner authorization.
 
 ## Frozen identity
 
@@ -91,7 +110,12 @@ frozen-input checks and deliberately fails on two absent authorities: the API
 credential is not present in this process and the Owner authorization artifact
 does not exist. Credential presence alone would still be insufficient.
 
-The machine-readable preregistration is
+The machine-readable pre-execution preregistration is
 `artifacts/research/banking_r11/pre_run_preregistration.json`. No command in this
+changed repository visibility, published a Release, or submitted a report.
 preparation invoked a model, created paid authorization, promoted a Snapshot,
+changed repository visibility, published a Release, or submitted a report.
+The subsequent bounded Update-Source execution is recorded above and in the
+append-only private experiment evidence; it did not perform any of those other
+actions.
 changed repository visibility, published a Release, or submitted a report.

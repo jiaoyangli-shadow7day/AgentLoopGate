@@ -2,7 +2,8 @@
 
 > R2 is historical evidence only and must never be presented as the current
 > AgentLoopGate result. This configuration-driven, fail-closed contract applies
-> to the next valid corrected terminal evidence (currently Banking R11),
+> to the next valid corrected terminal evidence (a new Banking successor; R11
+> Update-Source is an immutable partial HOLD),
 > including a real Selection-HOLD outcome. The builder and independent verifier
 > have separate fail-closed paths for a full formal Outcome and for the smaller
 > pre-Release Selection-HOLD terminal; neither may be created before its

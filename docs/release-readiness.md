@@ -3,8 +3,10 @@
 Status date: 2026-08-23
 
 Current paid-evidence checkpoint: immutable `EXP_BANKING_R10`, stopped after
-candidate C2 Selection. Corrected `EXP_BANKING_R11` inputs are frozen but not
-authorized. Current execution policy: `PAID_HOLD`.
+candidate C2 Selection, plus immutable `EXP_BANKING_R11` Update-Source evidence.
+R11 has 24 valid runs and one Infra Invalid and is sealed as a batch `HOLD`;
+it cannot advance to Update-Check or Selection. Current execution policy:
+`PAID_HOLD` pending a new successor identity and explicit Owner authorization.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -15,7 +17,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 
 | Requirement | State | Authoritative evidence | Remaining work |
 |---|---|---|---|
-| Preserve all historical attempts and incidents | PASS | R2–R10 immutable Snapshot/Batch/Raw/Trace/Attempt/Cost artifacts and append-only journals | Recheck hashes in the final publication seal |
+| Preserve all historical attempts and incidents | PASS | R2–R11 immutable Snapshot/Batch/Raw/Trace/Attempt/Cost artifacts and append-only journals | Recheck hashes in the final publication seal |
 | R10 execution through C2 Selection | SEALED HISTORICAL EVIDENCE | 25 Update-Source + 40 Update-Check + 30 Selection positions; C3 Selection and all Release stages absent | Never rewrite or resume under the corrected selector identity |
 | Complete cost accounting through R10 C2 | PASS | Exact known model cost USD `3.0651904832`; batch, updater, task-attempt, Agent/User usage and retry evidence retained | Local compute monetary cost remains `unmetered_unknown` |
 | Positive self-evolution direction | NOT ESTABLISHED | C1 and C2 both 7/15 with different success sets; C1/C3 semantic duplicate; C2 unbound capability | A new corrected experiment is required before any positive claim |
@@ -26,7 +28,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
 | Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | Post-result-package local check: 185 Python and 13 TypeScript tests; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed. Commit `9a48956` passed private CI run `32620190226`, job `97147090957`, in 58 s | Rerun after any later execution-source change |
 | Secret and direct-PII audit | PASS FOR CURRENT TREE | Post-result-package audit scanned 272 files with zero findings and withheld paths/values | Rerun for the final public result package |
-| Corrected pre-Release paid checkpoint | FROZEN / NOT AUTHORIZED | `EXP_BANKING_R11`; Protocol `68b03d…63ea`; Study `97de7e…5ebb`; source `c392a3…bee0`; Evaluation Baseline `R11_A2`; 25 + 40 + 60 = 125 positions plus separately metered Updater; machine preregistration `pre_run_preregistration.json` | Obtain explicit Owner authorization before Updater or any formal position |
+| Corrected pre-Release paid checkpoint | R11 SOURCE HOLD / SUCCESSOR REQUIRED | R11 Protocol `68b03d…63ea`, Study `97de7e…5ebb`, Batch `B_669A312AC9B41B2F6207`; 24 valid results, 1 Infra Invalid, exact sealed costs | Freeze a successor identity; obtain explicit Owner authorization before its Updater or formal positions |
 | Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL | Integrity and plugin-coexistence ablations exist; corrected selector behavior is fixture-tested | Derive selector/diagnosis statistics from the next sealed evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
@@ -37,19 +39,23 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 
 ## What the current evidence proves
 
-R10 supports the engineering claim that AgentLoopGate can preserve DeepSeek
-Harness native traces, retain failure/retry/time/cost evidence, fail closed on
-integrity problems, and audit candidate decisions. It does not support the
-scientific claim that the observed candidates found the correct self-evolution
-direction. The corrected selector exists precisely because continuing the old
-experiment would have manufactured a winner without showing improvement over
-A0.
+R10 and the R11 Source HOLD support the engineering claim that AgentLoopGate
+can preserve DeepSeek Harness native traces, retain failure/retry/time/cost
+evidence, recover and seal immutable evidence, fail closed on integrity
+problems, and audit candidate decisions. They do not support the scientific
+claim that an observed candidate found the correct self-evolution direction.
+The corrected selector exists precisely because continuing the old experiment
+would have manufactured a winner without showing improvement over A0.
 
 ## Cost interpretation
 
 - Known provider/model cost through R10 C2: exact USD `3.0651904832`.
-- Model cost for the Selection correction and current clean-room work: USD `0`;
-  all such operations made zero external model calls.
+- R11 Source observed-attempt provider-cost lower bound: USD
+  `0.7266205472000000021`; direct valid Agent/User costs are USD
+  `0.5385791880` and USD `0.08244740`. It is a held, incomplete batch, not a
+  cross-stage result or an effectiveness claim.
+- Model cost for the Selection correction, evidence sealing, and clean-room work:
+  USD `0`; those operations made zero external model calls.
 - Local CPU, filesystem, package, and wall-clock monetary cost:
   `unmetered_unknown`, never represented as zero.
 - Any future partial or unavailable cost must remain a lower bound with named
@@ -57,12 +63,12 @@ A0.
 
 ## Required completion order
 
-1. Keep R10 and every prior failure immutable; preserve the completed R11
-   no-model documentation, artifact, and private-CI seal.
-2. Treat the content-addressed R11 Protocol, Study, Experiment, `R11_A2`,
-   semantic candidate plan, and paid-scope estimate as frozen. Do not start it
-   without explicit Owner authorization.
-3. If authorized, run only the 125-position pre-Release checkpoint plus the
+1. Keep R10, R11, and every prior failure immutable; preserve their artifacts,
+   cost records, recovery records, and private-CI seals.
+2. Do not rerun or extend R11. Freeze a successor Protocol, Study, Experiment,
+   Evaluation Baseline, semantic candidate plan, and paid-scope estimate that
+   incorporate the repaired recovery implementation without reinterpreting R11.
+3. If authorized, run only the successor 125-position pre-Release checkpoint plus the
    separately metered external Updater. Current sequential estimate is 15–25
    hours; actual token, retry, time, path, and cost records remain mandatory.
 4. Review the corrected Selection result. On `HOLD`, seal the normal terminal

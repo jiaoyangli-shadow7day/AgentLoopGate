@@ -32,12 +32,12 @@ DeepSeek Harness Trace 共存与 fail-closed 行为可用，但尚未证明正�
 下一步见 [docs/release-readiness.md](docs/release-readiness.md)，R10 修正证据见
 [`artifacts/research/banking_r10/`](artifacts/research/banking_r10/)。
 
-修正检查点已进一步冻结为 `EXP_BANKING_R11`：Protocol、Study、源码身份和未激活的 Evaluation
-Baseline `R11_A2` 均已内容寻址；第一段范围为 125 个正式位置及单独计量的外部 Updater，预计顺序
-执行 15–25 小时。它目前仍是 `PAID_HOLD`，不存在 Owner 授权 Artifact，Updater 和正式位置均未
-启动，R11 已知模型成本为 USD `0`。冻结详情见
-[`docs/research/banking-r11-preregistration.md`](docs/research/banking-r11-preregistration.md)；冻结输入
-不代表授权，凭证存在也不能启动实验。
+修正检查点 `EXP_BANKING_R11` 的冻结输入保持不可变。经 Owner 限定授权后，仅其 25 个
+Update-Source 位置被执行；24 个位置产生有效结果，`task_020` 为 Infra Invalid，故该批次已按协议
+封存为 `HOLD`，不得进入 Update-Check 或 Selection。它证明了恢复、成本核算与 fail-closed
+治理路径，而不证明正向自进化效果。R11 不会重跑或被原地修补；后继完整验证必须使用新的冻结实验
+身份。R11 的精确身份、成本和恢复记录见
+[`docs/research/banking-r11-preregistration.md`](docs/research/banking-r11-preregistration.md)。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 
@@ -177,8 +177,8 @@ uv run agentloopgate contract freeze configs/objective_contract.yaml \
   --confirm "FREEZE OBJECTIVE" --json
 ```
 
-历史 R10 配置和 Artifact 只允许验真，不允许因当前源码变化而 Resume 成新付费结果。查看已经
-冻结、但尚未授权的 R11 协议与 Study：
+历史 R10 配置和 Artifact 只允许验真，不允许因当前源码变化而 Resume 成新付费结果。R11 的
+Update-Source 原始证据只允许验真和封存，不允许重跑；查看其冻结协议与 Study：
 
 ```sh
 uv run agentloopgate experiment protocol-verify \
@@ -187,10 +187,10 @@ uv run agentloopgate experiment study-verify \
   --config configs/banking_r11_study_v1.yaml --json
 ```
 
-R11 已生成新的 Protocol/Study/Experiment/Baseline 身份并通过无模型 preflight 的冻结输入检查；
-正式运行仍必须获得 Owner 对该精确付费范围的明确授权。仓库目前故意不提供“复制即可启动下一轮”的命令。
-最低授权检查点是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及 A0+3 候选共 60 个
-Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OOD/Replay。若没有候选满足
+R11 已形成不可变的部分执行与 `HOLD` 证据；它不能作为新的付费执行入口。后继实验必须重新冻结
+Protocol/Study/Experiment/Baseline，并获得 Owner 对该精确范围的明确授权。仓库故意不提供“复制即可
+启动下一轮”的命令。最低授权检查点是 25 个 Update-Source、A0+3 候选共 40 个 Update-Check，以及
+A0+3 候选共 60 个 Selection 位置；只有 Selection 选出候选，才另行授权 Release-ID/OOD/Replay。若没有候选满足
 严格增益与非回退规则，编排器以成功退出码封存 `selection_hold_outcome.json` 和 JSON/Markdown
 报告，记录逐候选原因、完整成本证据，并证明未启动 Release 或新的模型调用。
 

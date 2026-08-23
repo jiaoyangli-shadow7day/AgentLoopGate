@@ -1,9 +1,10 @@
 # AgentLoopGate technical report outline
 
-> Result-free R11 report plan. Bracketed fields may be populated only from a
-> verified `EXP_BANKING_R11` terminal outcome and its sanitized manifest. R10
-> remains historical engineering evidence, not the current evaluation or a
-> source of R11 result values.
+> Result-free successor-study report plan. R11 Update-Source is an immutable
+> partial `HOLD`, not a terminal evaluation. Bracketed fields may be populated
+> only from a verified terminal outcome and its sanitized manifest under a new
+> frozen successor identity. R10 and R11 remain historical engineering evidence,
+> not sources of successor result values.
 
 This outline is ready for a workshop paper, systems paper draft, or open-source
 technical report. Until terminal evidence exists, every bracketed result field
@@ -33,7 +34,7 @@ automatically transfer to other domains.
    integrity.
 3. Integration: a DeepSeek Harness plugin coexists with native JSONL/SQLite and
    OTel Trace while the Python core remains the governance fact source.
-4. Evaluation: frozen Banking R11 first evaluates A0 plus three bounded
+4. Evaluation: the frozen Banking successor first evaluates A0 plus three bounded
    candidates over 125 pre-Release positions. A `HOLD` is a valid terminal;
    the 450-position Release-ID/OOD/Replay tail is conditional on `SELECT` and
    a second Owner authorization.
@@ -81,7 +82,7 @@ automatically transfer to other domains.
 
 ### 5. Experimental method
 
-- Frozen R11 identities, `R11_A2`, and the R10/R11 supersession chronology.
+- Frozen successor identities and the R10/R11/successor chronology.
 - The 25-position Update-Source, 40-position Update-Check, and 60-position
   A0-bound Selection checkpoint.
 - A0 and three semantically distinct, runtime-capability-bound candidates;
@@ -106,7 +107,7 @@ contrast and evidence reuse—not two independent variants.
 
 #### RQ2: Does a selected change improve reliable task outcomes?
 
-Populate this table only if R11 reaches `SELECT`, receives the separately
+Populate this table only if the successor reaches `SELECT`, receives the separately
 authorized Release tail, and seals the required pools. On a terminal `HOLD`,
 the table is intentionally absent and the report must not substitute R10 data.
 

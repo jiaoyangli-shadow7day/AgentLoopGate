@@ -2112,19 +2112,31 @@ Formal Config schema `1.2+` 允许经过复核的新 Evaluation Baseline 与当�
 重新验真 Live Bytes；该例外只用于尚未激活的正式评测输入。它不得绕过单独的人类 Promotion
 Approval，也不得改变活动 Snapshot Registry。旧 schema 继续要求与活动 Snapshot 相同。
 
-R11 的第一段 Owner 付费 Scope 必须同时、逐项授权：25 个 Update-Source、40 个 Update-Check、
-60 个 Selection，共 125 个正式任务位置，以及同一 Scope 内单独计量的外部 AHE Updater 生成调用。
-外部 Updater 不计入 125，但必须记录每次 Token、价格、成本、重试、耗时、执行路径和 Lineage；
-编排器必须在首次 AHE 调用前再次验证 `external_updater_generation_authorized=true`。凭证存在、输入
-已冻结或 preflight 通过都不能替代 Owner 授权。
+R11 的原计划第一段 Owner Scope 为 25 个 Update-Source、40 个 Update-Check、60 个 Selection，
+共 125 个正式任务位置，以及同一 Scope 内单独计量的外部 AHE Updater 生成调用。实际授权后来被
+限定为既有 25 个 Update-Source 的执行和封存；它不授权 Updater、Update-Check 或 Selection。外部
+Updater 不计入 125，但后继实验若授权该能力，必须记录每次 Token、价格、成本、重试、耗时、执行
+路径和 Lineage，并在首次 AHE 调用前再次验证
+`external_updater_generation_authorized=true`。凭证存在、输入已冻结或 preflight 通过都不能替代
+Owner 授权。
 
-截至本修订，R11 已通过 `R11-NM-008` 零模型 Clean-room（183 个 Python、13 个 TypeScript 测试，
-269 文件 Secret/PII 扫描零发现），并故意停在 `PAID_HOLD`：当前进程无 API Key，授权目录中也没有
-Artifact，外部 Updater 与 125 个正式位置均未开始，已知 R11 模型成本为 USD `0`；本地计算货币成本
-为 `unmetered_unknown`。顺序执行时间 15–25 小时、中心成本约 USD 4.05、工作范围 USD 3.5–6.5
-仅用于计划，均不是 Gate、授权或停止条件。机器可验预注册与完整边界见
-`artifacts/research/banking_r11/pre_run_preregistration.json` 和
-`docs/research/banking-r11-preregistration.md`。
+R11 曾通过 `R11-NM-008` 零模型 Clean-room（183 个 Python、13 个 TypeScript 测试，
+269 文件 Secret/PII 扫描零发现）。随后在 Owner 的限定授权下，仅执行了其 25 个
+Update-Source 位置：24 个有效、`task_020` 一个 Infra Invalid。原始结果、Agent/User Usage、
+Task-Attempt 和成本账本均已不可变封存；直接有效 Agent/User 成本分别为 USD `0.5385791880` 和
+USD `0.08244740`，整次观察到的 provider 成本下界为 USD `0.7266205472000000021`，本地计算货币
+成本为 `unmetered_unknown`。因 `infra_invalid:1` 与 `missing_valid_trials`，该 Batch 必须是 `HOLD`，
+不得进入 Update-Check、Selection 或 Release。
+
+封存过程中发现“Infra Invalid 没有 completed task-attempt lineage”会使恢复路径错误失败；修复仅允许
+`existing_only` 在验真既有 Evidence 时跳过修复后运行时代码的字节绑定，仍严格校验 Protocol、Study、
+Pricing、Snapshot、Raw 和 Artifact Digest，且绝不允许新的付费执行使用该例外。此实现修复不会改变
+R11 的输入、原始事实或 `HOLD` 含义。R11 不能重跑、不能被原地补齐；后继完整实验必须建立新的冻结
+身份与新的 Owner 付费授权。顺序执行时间 15–25 小时、中心成本约 USD 4.05、工作范围 USD 3.5–6.5
+仍只适用于后继完整 checkpoint 的计划，不是 Gate、授权或停止条件。机器可验预注册、R11 封存记录与
+完整边界见 `artifacts/research/banking_r11/pre_run_preregistration.json`、
+`docs/research/banking-r11-preregistration.md` 和
+`runs/experiments/EXP_BANKING_R11/`。
 
 ---
 
