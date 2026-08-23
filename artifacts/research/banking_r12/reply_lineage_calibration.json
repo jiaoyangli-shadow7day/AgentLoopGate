@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_REPLY_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R11",
+  "source_diagnosis_artifact": "artifacts/research/banking_r6/execution_diagnosis.json",
+  "source_diagnosis_digest": "sha256:220f9c4f360cc3f94a2dea270c7e62014f8f6f44332eb6ed0f9fa8f976109de7",
+  "contains_raw_customer_data": false,
+  "reply_normalization_policy": "bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias",
+  "task_attempt_ledger_schema_version": "1.1",
+  "model_usage_ledger_schema_version": "1.2",
+  "task_attempt_session_binding_policy": "append_before_first_agent_call_v1",
+  "model_call_task_identity_policy": "direct_task_trial_seed_attempt_v1",
+  "accepted_reply_shapes": [
+    "one whole tool-call reply missing only the fixed name label, with exactly one currently allow-listed explicit tool identifier and one object-valued arguments field",
+    "one whole call_discoverable_agent_tool wrapper reply containing exactly one explicit safe subtool identifier and one object-valued arguments field"
+  ],
+  "rejected_reply_shapes": [
+    "unknown or currently unavailable wrapper tool",
+    "mixed content and executable tool calls",
+    "multiple calls in either compatibility shape",
+    "partial, array-valued, scalar-valued, or malformed arguments",
+    "unsafe, missing, inferred, or ambiguous discovered subtool identifier",
+    "extra keys outside the exact accepted whole-reply grammars",
+    "reasoning text used to infer customer content, a tool, or arguments"
+  ],
+  "lineage_assertions": [
+    "each task attempt has exactly one STARTED event before session binding or terminal state",
+    "the actual DeepSeek Harness session hash is appended before the first Agent call",
+    "every Agent and User call directly carries task, trial, seed, and attempt identity",
+    "DeepSeek Harness native session JSONL remains authoritative and is referenced rather than replaced",
+    "an Infra Invalid retained simulation may bind to the final failed task attempt only under the frozen infrastructure-error rule"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_pilot.py": "sha256:4f085344e94f8602a9e4d7ad6a4b6469f07389428899e10ec458488c97ed67e8",
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:2fc67b8aef2c6b5ff1009046b40d6d48449a0006362d0b611ff963ed7ebc49ac",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/experiment/protocol.py": "sha256:6b199fa38f43e891ef7351ec6351bfdb1b64ad8591ea3a50aaf4a41f674b70a1",
+    "agentloopgate/experiment/service.py": "sha256:0c0d843476ed8110b864ca2ca2b087cdf012ce3cbe11f9507afa0c8d7a6d4782",
+    "agentloopgate/experiment/ledger.py": "sha256:7f49ea4c3bf5c89d43640ed7132925ac40dcf31810cddb7cd4b371da9777a73d",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:3c7bd3e9e85366fba4f9b8378efda002e91cc8236a7aaeb9af61adecbc213147",
+    "examples/tau3-banking/agent.py": "sha256:b59c152ca661a6f5145db29035ab18c489ebb92bcd45aeaa8b916420c8aa3138",
+    "integrations/deepseek-harness/test/headless-conformance.mjs": "sha256:60fd3c41353b7f30b5171db3f751d0aff02738fa96f69ff67908bc8fa94ef0d6"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-23T09:51:02Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "attempts": [
+      {
+        "attempt_id": "R12-NM-002",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 189,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel_install": "passed",
+        "dsh_headless_bundle_conformance": "passed",
+        "plugin_build_and_pack": "passed",
+        "secret_pii_scan": "passed_274_files_zero_findings",
+        "real_seconds": "17.99",
+        "user_cpu_seconds": "14.16",
+        "system_cpu_seconds": "3.17",
+        "maximum_resident_set_bytes": 361594880,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "no-model fixtures prove syntax, evidence lifecycle, hashing, recovery, and accounting behavior but not future provider reply frequency",
+    "R12 paid evidence must use its own frozen protocol, source identity, and explicit Owner authorization",
+    "local compute monetary cost is unmetered_unknown and separate from provider-model cost"
+  ],
+  "artifact_digest": "sha256:55d41dc5bbaf400b709d2a9972fdde8b2468179618fc05a9683341c79cf0a290"
+}

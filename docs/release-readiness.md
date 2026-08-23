@@ -28,7 +28,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
 | Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX | Post-result-package local check: 185 Python and 13 TypeScript tests; sdist→wheel, archive guard, Bundle build/pack and DSH conformance passed. Commit `9a48956` passed private CI run `32620190226`, job `97147090957`, in 58 s | Rerun after any later execution-source change |
 | Secret and direct-PII audit | PASS FOR CURRENT TREE | Post-result-package audit scanned 272 files with zero findings and withheld paths/values | Rerun for the final public result package |
-| Corrected pre-Release paid checkpoint | R11 SOURCE HOLD / SUCCESSOR REQUIRED | R11 Protocol `68b03d…63ea`, Study `97de7e…5ebb`, Batch `B_669A312AC9B41B2F6207`; 24 valid results, 1 Infra Invalid, exact sealed costs | Freeze a successor identity; obtain explicit Owner authorization before its Updater or formal positions |
+| Corrected pre-Release paid checkpoint | R12 FROZEN / PAID_HOLD | R12 Protocol `6c86b4…d3f2`, Study `423ca8…32a4`, source `d7f8e3…65bd`, Evaluation Baseline `R12_A0`; Cost-Lineage Calibration 1.2 binds the R11 incident and repair | Obtain explicit Owner authorization before the R12 Updater or any formal position |
 | Real Release-ID/OOD/Replay | CONDITIONAL / NOT AUTHORIZED | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT`, after a second Owner review; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL | Integrity and plugin-coexistence ablations exist; corrected selector behavior is fixture-tested | Derive selector/diagnosis statistics from the next sealed evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
@@ -65,10 +65,10 @@ would have manufactured a winner without showing improvement over A0.
 
 1. Keep R10, R11, and every prior failure immutable; preserve their artifacts,
    cost records, recovery records, and private-CI seals.
-2. Do not rerun or extend R11. Freeze a successor Protocol, Study, Experiment,
-   Evaluation Baseline, semantic candidate plan, and paid-scope estimate that
-   incorporate the repaired recovery implementation without reinterpreting R11.
-3. If authorized, run only the successor 125-position pre-Release checkpoint plus the
+2. Do not rerun or extend R11. Preserve the frozen R12 Protocol, Study,
+   Experiment, `R12_A0`, semantic candidate plan, and paid-scope estimate; any
+   execution-source change supersedes this identity rather than editing it.
+3. If authorized, run only the R12 125-position pre-Release checkpoint plus the
    separately metered external Updater. Current sequential estimate is 15–25
    hours; actual token, retry, time, path, and cost records remain mandatory.
 4. Review the corrected Selection result. On `HOLD`, seal the normal terminal

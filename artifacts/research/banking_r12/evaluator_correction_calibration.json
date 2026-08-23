@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_EVALUATOR_CORRECTION_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R9",
+  "source_incident_artifact": "artifacts/research/banking_r9/eval_incident_task_053.json",
+  "source_incident_digest": "sha256:1dc739fb6c4f21dab6b5f3e23175f9a9f39f08121b51186b08dde8a54202ef14",
+  "evaluator_overlay_artifact": "configs/evaluator_overlays/banking_task_053_user_call_v1.json",
+  "evaluator_overlay_digest": "sha256:1f4c96e3ee85862e1fa3ed4e1d2fd7be00844ca88cbb9f583d64b0867921b62d",
+  "contains_raw_customer_data": false,
+  "evaluator_conflict_policy": "all_expected_actions_matched_db_mismatch_hold_v1",
+  "evaluator_correction_policy": "versioned_overlay_symmetric_affected_rerun_v1",
+  "affected_task_ids": [
+    "task_053"
+  ],
+  "assertions": [
+    "a valid failed run with DB mismatch and all expected actions matched is classified as an unresolved evaluator incident",
+    "any unresolved evaluator incident blocks the whole candidate-generation stage and final Ship decision",
+    "the overlay is bound to the immutable incident, benchmark commit, source task-file digest, affected task, and insertion anchor",
+    "the overlay mutates only a deep-copied in-memory Task inside the isolated runner and leaves the upstream checkout unchanged",
+    "the immutable affected trajectory is regraded without model calls and must pass both corrected action and DB evaluation",
+    "all baseline and candidate executions in the new experiment receive the identical overlay through the same runtime boundary",
+    "unrelated task criteria and source files remain byte-identical"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evaluator_overlay.py": "sha256:271790dc4fe03a0ed8772fabcebd65daadf2bc54e7df69f3ccd8a3cba1bb3b17",
+    "agentloopgate/experiment/diagnostics.py": "sha256:deb1f310d8f97b10c2a552f3e4cb922c8b0645a015bd01466cf77d2e6a5ec262",
+    "agentloopgate/experiment/orchestrator.py": "sha256:1f95c2561a2d31f4d42c74032f675417e99c6da122fd7aa47b27e24193ba00bc",
+    "agentloopgate/experiment/protocol.py": "sha256:6b199fa38f43e891ef7351ec6351bfdb1b64ad8591ea3a50aaf4a41f674b70a1",
+    "agentloopgate/experiment/service.py": "sha256:0c0d843476ed8110b864ca2ca2b087cdf012ce3cbe11f9507afa0c8d7a6d4782",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:3c7bd3e9e85366fba4f9b8378efda002e91cc8236a7aaeb9af61adecbc213147",
+    "examples/tau3-banking/run.py": "sha256:be199a66877b4c74203e6760a6ce51a07034bc20e94bd2964e114062955261da"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-23T09:51:02Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "conflict_detected": "passed",
+      "candidate_generation_blocked": "passed",
+      "upstream_checkout_unchanged": "passed",
+      "overlay_source_digest_verified": "passed",
+      "immutable_trajectory_regrade_passes": "passed",
+      "unrelated_task_scope_unchanged": "passed"
+    },
+    "affected_trajectory_regrade": {
+      "task_id": "task_053",
+      "original_expected_action_checks": 16,
+      "corrected_expected_action_checks": 17,
+      "matched_corrected_action_checks": 17,
+      "corrected_db_match": true,
+      "corrected_reward": "1",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R12-NM-002",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 189,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_274_files_zero_findings",
+        "real_seconds": "17.99",
+        "user_cpu_seconds": "14.16",
+        "system_cpu_seconds": "3.17",
+        "maximum_resident_set_bytes": 361594880,
+        "peak_memory_footprint_bytes": 1474896,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "the correction is scoped only to task_053 at the pinned benchmark commit and cannot be generalized without a new incident and overlay",
+    "a no-model regrade proves evaluator consistency for the immutable trajectory but does not predict future model behavior",
+    "local compute monetary cost remains unmetered and separate from provider-model cost"
+  ],
+  "artifact_digest": "sha256:41d81b4284fb5c0ff4e6226a19d091bac097d0fb2c9792d6d44074a097436902"
+}

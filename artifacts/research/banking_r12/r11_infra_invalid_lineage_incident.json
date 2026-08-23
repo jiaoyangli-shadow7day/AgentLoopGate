@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R12_R11_INFRA_INVALID_LINEAGE_INCIDENT",
+  "source_experiment_id": "EXP_BANKING_R11",
+  "source_batch_id": "B_669A312AC9B41B2F6207",
+  "source_attempt_id": "ATT_E1F16863A19040D1BE03F9F0A644958C",
+  "recorded_at": "2026-08-23T09:51:02Z",
+  "contains_raw_customer_data": false,
+  "incident": {
+    "error_type": "ValueError",
+    "error_message": "retained simulation has no completed task-attempt lineage",
+    "affected_task_id": "task_020",
+    "retained_termination_reason": "infrastructure_error",
+    "terminal_task_attempt_state": "failed",
+    "terminal_task_attempt_index": 2,
+    "batch_disposition": "hold",
+    "hold_reasons": [
+      "infra_invalid:1",
+      "missing_valid_trials"
+    ]
+  },
+  "diagnosis": {
+    "category": "implementation_lineage_recovery_defect",
+    "specification_defect": false,
+    "cause": "direct cost lineage required a completed task-attempt even when the retained simulation was explicitly infrastructure_error and the final frozen task attempt correctly ended failed",
+    "protocol_pin": "infra_invalid_cost_policy:null_excluded",
+    "integrity_effect": "initial sealing failed closed; no task result was excluded or reclassified"
+  },
+  "repair": {
+    "lineage_commit": "763597c",
+    "existing_only_commit": "5d8fd86",
+    "lineage_rule": "an infrastructure_error retained simulation with no completed attempt binds only to the final failed attempt at the same task/trial/seed position",
+    "valid_result_rule_unchanged": "non-infrastructure retained results still require completed task-attempt lineage",
+    "runtime_recovery_rule": "existing-only sealing may bypass repaired runtime-byte bindings while retaining strict Protocol, Study, Calibration, Pricing, Snapshot, Raw, and Artifact digest verification",
+    "new_paid_execution_rule": "runtime binding bypass is forbidden for new paid execution"
+  },
+  "verification": {
+    "unit_test": "test_direct_cost_retains_infra_invalid_final_failed_task_attempt",
+    "runtime_recovery_test": "test_banking_r11_existing_only_allows_runtime_repair_but_keeps_artifacts_pinned",
+    "r12_calibration_fixture": "infra_invalid_failed_attempt_lineage_sealed",
+    "r11_sealed_valid_runs": 24,
+    "r11_sealed_infra_invalid_runs": 1,
+    "r11_total_cost_lower_bound_usd": "0.7266205472000000021",
+    "r11_raw_digest": "sha256:017dce28dd71100e7ddf437c3d24e2d3d43e330713bb59a050ff8c9411c0c9e2",
+    "r11_cost_digest": "sha256:09d732abaebe9e6dec2417fcf69a2cc74fc63711409455928a31baef0359ec01"
+  },
+  "prohibited_interpretations": [
+    "the Infra Invalid position is not a task failure or correctness result",
+    "R11 is not complete Selection evidence",
+    "the recovery does not authorize a rerun or a later paid stage",
+    "the incident does not establish a positive self-evolution direction"
+  ],
+  "artifact_digest": "sha256:c913d790554577dfde9c8547444eda9b286d9e9c80be100c17d1bdf96d9c0988"
+}

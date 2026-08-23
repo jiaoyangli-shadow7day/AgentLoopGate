@@ -755,6 +755,29 @@ def test_cost_lineage_calibration_requires_all_no_model_fixtures() -> None:
         CostLineageCalibration.model_validate(incomplete)
 
 
+def test_cost_lineage_calibration_1_2_requires_infra_invalid_lineage_fixture() -> None:
+    payload = json.loads(
+        Path("artifacts/research/banking_r11/cost_lineage_calibration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["schema_version"] = "1.2"
+    payload["artifact_digest"] = DIGEST_A
+
+    with pytest.raises(
+        ValidationError,
+        match="cost-lineage calibration lacks required passed fixtures",
+    ):
+        CostLineageCalibration.model_validate(payload)
+
+    payload["no_model_acceptance"]["fixtures"][
+        "infra_invalid_failed_attempt_lineage_sealed"
+    ] = "passed"
+    calibration = CostLineageCalibration.model_validate(payload)
+
+    assert calibration.schema_version == "1.2"
+
+
 def test_evaluator_correction_calibration_requires_fail_closed_fixtures(
     tmp_path: Path,
 ) -> None:
@@ -1088,6 +1111,76 @@ def test_banking_r11_freezes_corrected_selection_and_paid_scope() -> None:
     assert study.study_digest == (
         "sha256:97de7e47fd2328f568b74b70f23cc6347adae477d9bc1db81984ec641ca05ebb"
     )
+
+
+def test_banking_r12_freezes_repaired_lineage_and_fresh_baseline() -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r12.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    study = load_study_plan(Path(config.study_plan_config or "missing"))
+    reply = load_reply_lineage_calibration(
+        Path(protocol.reply_lineage_calibration_artifact or "missing")
+    )
+    cost = load_cost_lineage_calibration(
+        Path(protocol.cost_lineage_calibration_artifact or "missing")
+    )
+    evaluator = load_evaluator_correction_calibration(
+        Path(protocol.evaluator_correction_calibration_artifact or "missing")
+    )
+    preregistration = json.loads(
+        Path("artifacts/research/banking_r12/pre_run_preregistration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert config.experiment_id == protocol.experiment_id == "EXP_BANKING_R12"
+    assert config.baseline_snapshot_id == "R12_A0"
+    assert config.paid_execution_authorization_root == (
+        "runs/authorizations/EXP_BANKING_R12"
+    )
+    assert protocol.protocol_digest == (
+        "sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2"
+    )
+    assert study.study_digest == (
+        "sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4"
+    )
+    assert study.supersedes_study_digest == (
+        "sha256:97de7e47fd2328f568b74b70f23cc6347adae477d9bc1db81984ec641ca05ebb"
+    )
+    assert reply.artifact_digest == protocol.reply_lineage_calibration_digest
+    assert cost.schema_version == "1.2"
+    assert cost.no_model_acceptance["fixtures"][
+        "infra_invalid_failed_attempt_lineage_sealed"
+    ] == "passed"
+    assert cost.artifact_digest == protocol.cost_lineage_calibration_digest
+    assert evaluator.artifact_digest == (
+        protocol.evaluator_correction_calibration_digest
+    )
+    assert preregistration["frozen_identity"]["baseline_snapshot_id"] == "R12_A0"
+    assert preregistration["frozen_identity"]["source_revision"] == (
+        "tree:sha256:d7f8e3a0b8a9004fcb1778d90bb773360dda6a5fa1eb7ad68ca9a64eece265bd"
+    )
+    assert preregistration["frozen_identity"]["baseline_snapshot_digest"] == (
+        "sha256:f4af003bf938583b134e6a1eab42bcb0abcf9f10b730e8f1411c61b443922c36"
+    )
+    declared_preregistration_digest = preregistration.pop("artifact_digest")
+    assert declared_preregistration_digest == (
+        "sha256:2c331639045313568fac9cf91dd350731805df666244e2717840523a46ed439e"
+    )
+    assert canonical_digest(preregistration) == declared_preregistration_digest
+    assert preregistration["cost"]["r12_paid_work_started"] is False
+    assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
+
+    pricing = load_pilot_pricing(Path(config.pricing_config))
+    verified = _verified_protocol(
+        Path(".").resolve(),
+        config,
+        objective_digest=protocol.objective_digest,
+        split_digest=protocol.split_digest,
+        pricing=pricing,
+    )
+    assert verified == protocol
 
 
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:

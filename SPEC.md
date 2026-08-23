@@ -2138,6 +2138,29 @@ R11 的输入、原始事实或 `HOLD` 含义。R11 不能重跑、不能被原�
 `docs/research/banking-r11-preregistration.md` 和
 `runs/experiments/EXP_BANKING_R11/`。
 
+### 16.13 R12 后继身份与 Infra Invalid 恢复校准
+
+R11 的部分 `HOLD` 之后，完整验证必须使用新的 `EXP_BANKING_R12`，不得把 R11 的 24 个有效结果或
+`task_020` 作为 R12 决策级复用。R12 的冻结身份为 Protocol
+`sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2`、Study
+`sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4`、Execution Source
+`tree:sha256:d7f8e3a0b8a9004fcb1778d90bb773360dda6a5fa1eb7ad68ca9a64eece265bd` 与
+Evaluation Baseline `R12_A0`
+`sha256:f4af003bf938583b134e6a1eab42bcb0abcf9f10b730e8f1411c61b443922c36`。
+
+Cost-Lineage Calibration schema 1.2 新增强制 fixture
+`infra_invalid_failed_attempt_lineage_sealed`：只有明确为 `infrastructure_error`、不存在 completed
+Attempt 且同一 task/trial/seed 的最终冻结 Attempt 为 failed 时，封存才可绑定该 failed Attempt；所有
+非 Infra Invalid 结果仍必须绑定 completed Attempt。`existing_only` 的运行时字节例外只可验真并封存
+已经存在的原始证据，新付费 Stage 必须保持全部运行时绑定严格一致。
+
+R12 最终冻结源码的 `R12-NM-003` no-key clean-room 通过 190 个 Python、13 个 TypeScript 测试、
+sdist→wheel、DSH conformance/build/pack 和 281 文件 Secret/PII 零发现；耗时 16.11 s real、
+12.42 s user CPU、2.81 s system CPU，最大 RSS 358,694,912 bytes，已知模型调用与费用均为 0，
+本地计算货币成本仍为 `unmetered_unknown`。预检已通过除付费授权外的所有冻结输入、DSH、AHE 与
+凭证进程边界检查；当前没有授权 Artifact，Updater 与任何 R12 正式位置均未启动。机器预注册 Digest
+为 `sha256:2c331639045313568fac9cf91dd350731805df666244e2717840523a46ed439e`。
+
 ---
 
 ## 17. 旧 SPEC 核心保留映射

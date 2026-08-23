@@ -38,6 +38,13 @@ Update-Source 位置被执行；24 个位置产生有效结果，`task_020` 为 
 治理路径，而不证明正向自进化效果。R11 不会重跑或被原地修补；后继完整验证必须使用新的冻结实验
 身份。R11 的精确身份、成本和恢复记录见
 [`docs/research/banking-r11-preregistration.md`](docs/research/banking-r11-preregistration.md)。
+
+后继验证现已无模型冻结为 `EXP_BANKING_R12`：它使用 Cost-Lineage Calibration 1.2 强制验证
+Infra Invalid 最终失败 Attempt 的封存路径，并重新绑定 Protocol、Study、源码、`R12_A0`、
+DeepSeek Harness Profile 与机器预注册。最终 no-key clean-room 通过 190 个 Python、13 个
+TypeScript 测试及 281 文件 Secret/PII 零发现。预检当前仅缺 Owner 对外部 Updater 与
+25/40/60 第一段付费范围的明确授权；R12 尚未调用模型。详情见
+[`docs/research/banking-r12-successor-plan.md`](docs/research/banking-r12-successor-plan.md)。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 

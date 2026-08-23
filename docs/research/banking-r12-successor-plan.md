@@ -1,7 +1,23 @@
 # Banking R12 successor plan
 
-Status: design-only; no paid authorization, model call, promotion, repository
-visibility change, Release, or submission is created by this document.
+Status: frozen no-model identity, `PAID_HOLD`. Protocol, Study, Evaluation
+Baseline, calibrations, isolated DeepSeek Harness profile, and machine
+preregistration are verified. No paid authorization, model call, promotion,
+repository visibility change, Release, or submission was created.
+
+Frozen identity:
+
+- Experiment: `EXP_BANKING_R12`
+- Protocol: `BANKING_R12_PROTOCOL_1`,
+  `sha256:6c86b494bad7766a8b25477c7e0a73217bc5a7f552e995824ed0ee538dcbd3f2`
+- Study: `BANKING_R12_STUDY_1`,
+  `sha256:423ca8b74d38998c038e2824f9d9582275cae9630a6f85c201afa628301732a4`
+- Execution source:
+  `tree:sha256:d7f8e3a0b8a9004fcb1778d90bb773360dda6a5fa1eb7ad68ca9a64eece265bd`
+- Evaluation Baseline: `R12_A0`,
+  `sha256:f4af003bf938583b134e6a1eab42bcb0abcf9f10b730e8f1411c61b443922c36`
+- Machine preregistration:
+  `sha256:2c331639045313568fac9cf91dd350731805df666244e2717840523a46ed439e`
 
 ## Purpose
 

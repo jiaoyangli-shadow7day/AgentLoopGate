@@ -338,7 +338,7 @@ class ReplyLineageCalibration(StrictModel):
 class CostLineageCalibration(StrictModel):
     """No-model evidence for frozen-price, direct-lineage cost authority."""
 
-    schema_version: Literal["1.0", "1.1"]
+    schema_version: Literal["1.0", "1.1", "1.2"]
     artifact_id: ArtifactId
     source_experiment_id: ArtifactId
     source_incident_artifact: NonEmpty
@@ -376,16 +376,18 @@ class CostLineageCalibration(StrictModel):
             "direct_lineage_overrides_raw",
             "positive_token_exact_zero_rejected",
         }
-        if self.schema_version == "1.1":
+        if self.schema_version in {"1.1", "1.2"}:
             if self.cost_gate_input_policy is None:
                 raise ValueError(
-                    "cost-lineage calibration 1.1 requires the Cost Gate input policy"
+                    "cost-lineage calibration 1.1+ requires the Cost Gate input policy"
                 )
             required.add("direct_total_mean_reaches_gate")
         elif self.cost_gate_input_policy is not None:
             raise ValueError(
                 "cost-lineage calibration 1.0 cannot contain a Cost Gate input policy"
             )
+        if self.schema_version == "1.2":
+            required.add("infra_invalid_failed_attempt_lineage_sealed")
         if not isinstance(fixtures, dict) or not all(
             fixtures.get(name) == "passed" for name in required
         ):
