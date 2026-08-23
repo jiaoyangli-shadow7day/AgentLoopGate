@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R14_POSITION_FAIL_FAST_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R13",
+  "source_incident_artifact": "artifacts/research/banking_r13/fail_fast_incident.json",
+  "source_incident_digest": "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653",
+  "contains_raw_customer_data": false,
+  "position_fail_fast_policy": "stop_before_next_position_after_permanent_infra_invalid_v1",
+  "provider_connectivity_preflight_policy": "dns_resolution_api_deepseek_com_v1",
+  "assertions": [
+    "the formal adapter remains frozen at max_concurrency one so a permanent failure can stop before any later position enters its callable",
+    "the stop event is set after the frozen retry budget returns an infrastructure-error result and before the worker can invoke the next queued position",
+    "queued positions are guarded before their task callable and skipped positions create no task-attempt or model-usage event",
+    "the permanent failure result and every prior checkpoint remain in the upstream result while skipped futures are excluded from the returned population",
+    "the trigger is written once as a canonical content-addressed artifact next to the append-only task-attempt ledger",
+    "a resumed process verifies the existing trigger artifact and starts zero new queued positions",
+    "the incomplete result population continues through the existing Formal Batch verifier and seals HOLD with no Updater or downstream stage"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:afe3fa1fc3fc4e66e3a099c8e215936963927f3014a09ed084c3ef06a6d91242",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:0d1d422bca4ef545776db9313899d96aa5780ce7c2566d6e1644c9a68aa24974",
+    "agentloopgate/experiment/batch.py": "sha256:32f711ab55fb0ac2b6beb99fb7c014deff36fd946df3fe462c22dc0f1b23a413",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_monetary_cost": "unmetered_unknown",
+    "fixtures": {
+      "permanent_infrastructure_failure_injected": "passed",
+      "next_position_never_invoked": "passed",
+      "prior_and_failed_attempt_evidence_verified": "passed",
+      "terminal_batch_hold_preserved": "passed",
+      "downstream_model_calls_zero": "passed",
+      "resume_starts_zero_new_positions": "passed",
+      "provider_dns_preflight_no_model": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R14-NM-001",
+        "scope": "focused_fail_fast_and_formal_regression",
+        "status": "passed",
+        "python_tests_passed": 93,
+        "pytest_reported_duration_seconds": "0.47",
+        "process_resource_measurement": "unavailable_not_zero",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R14-NM-002",
+        "scope": "full_python",
+        "status": "passed",
+        "python_tests_passed": 206,
+        "pytest_reported_duration_seconds": "3.54",
+        "real_seconds": "3.79",
+        "user_cpu_seconds": "2.34",
+        "system_cpu_seconds": "0.69",
+        "maximum_resident_set_bytes": 160645120,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      },
+      {
+        "attempt_id": "R14-NM-003",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 205,
+        "typescript_tests_passed": 13,
+        "ruff": "passed",
+        "sdist_to_wheel": "passed",
+        "deepseek_harness_conformance_build_pack": "passed",
+        "secret_and_direct_pii_files_scanned": 307,
+        "secret_and_direct_pii_findings": 0,
+        "real_seconds": "16.14",
+        "user_cpu_seconds": "12.72",
+        "system_cpu_seconds": "2.67",
+        "maximum_resident_set_bytes": 357859328,
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "the calibration injects deterministic local infrastructure failures and does not claim to predict every Provider outage mode",
+    "the policy is valid only with the frozen sequential max_concurrency one scheduler boundary",
+    "DNS preflight detects failure before execution but cannot prevent a mid-task network outage",
+    "the control reduces avoidable tail work but does not establish candidate effectiveness or a positive self-evolution direction"
+  ],
+  "artifact_digest": "sha256:b098b61edb3ec5bfa6fe80c7e96eeac9540b6bd2c162a999996975f2b056e573"
+}

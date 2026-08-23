@@ -7,8 +7,10 @@ Current paid-evidence checkpoint: immutable `EXP_BANKING_R13`. It executed all
 `HOLD` because `task_048` remained Infra Invalid after its frozen retry. The
 external Updater, Update-Check, Selection, Release, and Promote all remained at
 zero. R13 also exposed a batch-internal fail-fast defect: 12 later positions ran
-after the permanent failure. No successor paid identity may be frozen until the
-position-level stop control passes no-model fault injection. The standing
+after the permanent failure. The Protocol 2.0 position-level stop control,
+experiment-scoped candidate diagnostic, and DNS-only Provider precheck now pass
+no-model fault injection and clean-room; no successor paid identity is frozen
+yet. The standing
 private-experiment mandate permits bounded private experiments after all exact
 machine gates pass; it does not permit publication, repository visibility
 changes, or Promote.
@@ -29,11 +31,12 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | A0-bound Selection with abstention | IMPLEMENTED / ZERO-MODEL VERIFIED | Study schema 1.2; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Run only under a new frozen paid identity and exact machine authorization |
 | Candidate semantic and runtime applicability | IMPLEMENTED / ZERO-MODEL VERIFIED | Semantic fingerprint/dedup and runtime Tool Schema capability binding | New external Updater must produce three distinct, bound candidates |
 | Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
+| Position-level permanent-Infra fail-fast | IMPLEMENTED / ZERO-MODEL VERIFIED | Protocol 2.0; injected non-final permanent failure; next positions and resume calls zero; prior/failed Attempt retained; calibration `b098b6…e573` | Bind the calibration into a new frozen successor identity before paid work |
 | Exact paid-execution authorization | IMPLEMENTED / CONSUMED BY TERMINAL R13 | R13 authorization `AUTH_6B5EFF560128F606EEE3`, digest `6fe233…17bfa`; bound only to Updater plus 25/40/60 pre-Release scope; HOLD blocked every downstream stage | Create no successor capability until the fail-fast repair and new frozen identity pass all no-model gates |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL FOR R13 REPAIR SOURCE | 199 Python and 13 TypeScript tests; Ruff; sdist→wheel; Bundle tests/build/pack and DSH conformance passed in 22.38 s | Rerun after the final frozen R13 source and in private Linux CI |
-| Secret and direct-PII audit | PASS FOR CURRENT TREE | 295 files scanned with zero findings and withheld paths/values | Rerun for frozen R13 and the final public result package |
-| Corrected pre-Release paid checkpoint | R12 AND R13 TERMINAL HOLD | R13 terminal seal `a7d431…3454`; 25 executed, 24 valid, one Infra Invalid; Updater/Check/Selection/Release zero; fail-fast incident `9c57bc…d653` | Implement and no-model verify the position-level fail-fast control, then freeze a new successor identity |
+| Full source/release-artifact clean-room | PASS LOCAL FOR PROTOCOL 2.0 REPAIR | 206 Python and 13 TypeScript tests; Ruff; sdist→wheel; Bundle tests/build/pack and DSH conformance passed in 16.14 s | Repeat in private Linux CI and again for the final public tree |
+| Secret and direct-PII audit | PASS FOR CURRENT TREE | 307 files scanned with zero findings and withheld paths/values | Rerun for the frozen successor and final public result package |
+| Corrected pre-Release paid checkpoint | R12 AND R13 TERMINAL HOLD | R13 terminal seal `a7d431…3454`; 25 executed, 24 valid, one Infra Invalid; Updater/Check/Selection/Release zero; fail-fast incident `9c57bc…d653` | Freeze a new Protocol 2.0 successor identity; never resume R13 |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
 | Minimal ablations and uncertainty | PARTIAL / TWO NO-MODEL ABLATIONS SEALED | R12 integrity fixture proves an unsupported `SHIP_RECOMMENDED` is converted to `HOLD`; DSH fixture preserves JSONL/SQLite event hashes, persistence and OTel, with measured local p95 overhead 4.110417/0.740291 ms | Derive selector/diagnosis statistics and uncertainty from sealed R12 paid evidence without causal overclaim |
 | Sanitized public Banking result package | BUILDER READY / RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports both a verified full formal Outcome and the distinct Selection-HOLD terminal | Build only from the terminal result, then rerun the independent verifier and public-tree audit |
@@ -84,10 +87,9 @@ evaluated.
    cost records, recovery records, and private-CI seals.
 2. Do not rerun or extend R11, R12, or R13. Preserve their terminal identities
    and all retained evidence.
-3. Implement Protocol-bound position-level fail-fast, experiment-scoped
-   candidate diagnostics, and a no-model Provider-connectivity precheck. Prove
-   by fault injection that no position starts after a permanent Infra Invalid
-   and that all prior evidence remains sealed.
+3. Preserve the completed Protocol 2.0 fail-fast calibration `b098b6…e573`,
+   including experiment-scoped candidate diagnostics and the
+   DNS-only Provider precheck; any runtime-byte change requires recalibration.
 4. Freeze a new successor Protocol, Study, source, baseline, preregistration,
    clean-room/CI seal, and exact machine capability before any paid call. Run
    only its bounded pre-Release checkpoint with complete token, cost, retry,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -17,9 +18,12 @@ from agentloopgate.runtime import (
 )
 from agentloopgate.runtime.tau3_evidence import (
     _CURRENT_TASK_ATTEMPT,
+    POSITION_FAIL_FAST_POLICY_CURRENT,
     TaskAttemptIdentity,
     _append_task_event,
+    _install_global_attempt_budget,
     _install_user_model_ledger,
+    _verify_position_fail_fast_artifact,
     bind_current_task_attempt_session,
     current_task_attempt_identity_fields,
     task_attempt_count,
@@ -292,6 +296,146 @@ def test_task_attempt_ledger_counts_started_attempts_and_rejects_tampering(
     )
     with pytest.raises(RuntimeError, match="digest mismatch"):
         task_attempt_count(ledger, "task_001", 0, 300)
+
+
+def test_position_fail_fast_stops_before_next_position_and_retains_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger = tmp_path / "task-attempts.jsonl"
+    simulation_module = ModuleType("tau2.data_model.simulation")
+
+    class TerminationReason:
+        INFRASTRUCTURE_ERROR = "infrastructure_error"
+        AGENT_STOP = "agent_stop"
+
+    class SimulationRun(SimpleNamespace):
+        pass
+
+    simulation_module.SimulationRun = SimulationRun
+    simulation_module.TerminationReason = TerminationReason
+    runner_batch = ModuleType("tau2.runner.batch")
+    runner_batch.ThreadPoolExecutor = ThreadPoolExecutor
+    runner_batch.as_completed = as_completed
+
+    def run_with_retry(run_fn, task, trial, seed, **kwargs):
+        max_retries = kwargs.get("max_retries", 0)
+        for attempt in range(max_retries + 1):
+            try:
+                return run_fn()
+            except RuntimeError as exc:
+                if attempt < max_retries:
+                    continue
+                result = SimulationRun(
+                    id=f"infra-{task.id}",
+                    task_id=task.id,
+                    termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
+                    agent_cost=None,
+                    user_cost=None,
+                    messages=[],
+                    info={"error": str(exc)},
+                )
+                save_fn = kwargs.get("save_fn")
+                if save_fn:
+                    save_fn(result)
+                return result
+        raise AssertionError("unreachable")
+
+    runner_batch.run_with_retry = run_with_retry
+    tau2 = ModuleType("tau2")
+    tau2_data_model = ModuleType("tau2.data_model")
+    tau2_runner = ModuleType("tau2.runner")
+    tau2_runner.batch = runner_batch
+    tau2_utils = ModuleType("tau2.utils")
+    utils_module = ModuleType("tau2.utils.utils")
+    utils_module.get_now = lambda: "2026-08-23T00:00:00Z"
+    monkeypatch.setitem(sys.modules, "tau2", tau2)
+    monkeypatch.setitem(sys.modules, "tau2.data_model", tau2_data_model)
+    monkeypatch.setitem(sys.modules, "tau2.data_model.simulation", simulation_module)
+    monkeypatch.setitem(sys.modules, "tau2.runner", tau2_runner)
+    monkeypatch.setitem(sys.modules, "tau2.runner.batch", runner_batch)
+    monkeypatch.setitem(sys.modules, "tau2.utils", tau2_utils)
+    monkeypatch.setitem(sys.modules, "tau2.utils.utils", utils_module)
+    monkeypatch.setenv("AGENTLOOPGATE_TASK_ATTEMPT_LEDGER", str(ledger))
+    monkeypatch.setenv("AGENTLOOPGATE_GLOBAL_TASK_ATTEMPT_LIMIT", "2")
+    monkeypatch.setenv(
+        "AGENTLOOPGATE_POSITION_FAIL_FAST_POLICY",
+        POSITION_FAIL_FAST_POLICY_CURRENT,
+    )
+
+    _install_global_attempt_budget()
+    invoked: list[str] = []
+
+    def execute(task: SimpleNamespace) -> SimulationRun:
+        invoked.append(task.id)
+        if task.id == "task_002":
+            raise RuntimeError("fixture DNS failure")
+        return SimulationRun(
+            id=f"sim-{task.id}",
+            task_id=task.id,
+            termination_reason=TerminationReason.AGENT_STOP,
+            agent_cost=Decimal("0.01"),
+            user_cost=Decimal("0.001"),
+            messages=[],
+        )
+
+    tasks = [SimpleNamespace(id=f"task_{index:03d}") for index in range(1, 5)]
+    executor = runner_batch.ThreadPoolExecutor(max_workers=1)
+    futures = [
+        executor.submit(
+            lambda task=task: runner_batch.run_with_retry(
+                lambda: execute(task),
+                task,
+                0,
+                300,
+                max_retries=1,
+            )
+        )
+        for task in tasks
+    ]
+    results = [future.result() for future in runner_batch.as_completed(futures)]
+    executor.shutdown(wait=True)
+
+    assert invoked == ["task_001", "task_002", "task_002"]
+    assert [result.task_id for result in results] == ["task_001", "task_002"]
+    assert task_attempt_count(ledger, "task_001", 0, 300) == 1
+    assert task_attempt_count(ledger, "task_002", 0, 300) == 2
+    assert task_attempt_count(ledger, "task_003", 0, 300) == 0
+    artifact = _verify_position_fail_fast_artifact(
+        ledger.with_suffix(".position_fail_fast.json"),
+        POSITION_FAIL_FAST_POLICY_CURRENT,
+    )
+    assert artifact["task_id"] == "task_002"
+    assert artifact["attempts_consumed"] == 2
+    assert artifact["next_position_started"] is False
+
+    resumed_batch = ModuleType("tau2.runner.batch")
+    resumed_batch.ThreadPoolExecutor = ThreadPoolExecutor
+    resumed_batch.as_completed = as_completed
+    resumed_batch.run_with_retry = run_with_retry
+    tau2_runner.batch = resumed_batch
+    monkeypatch.setitem(sys.modules, "tau2.runner.batch", resumed_batch)
+    _install_global_attempt_budget()
+    resumed_executor = resumed_batch.ThreadPoolExecutor(max_workers=1)
+    resumed_futures = [
+        resumed_executor.submit(
+            lambda task=task: resumed_batch.run_with_retry(
+                lambda: execute(task),
+                task,
+                0,
+                300,
+                max_retries=1,
+            )
+        )
+        for task in tasks[2:]
+    ]
+    resumed_results = [
+        future.result() for future in resumed_batch.as_completed(resumed_futures)
+    ]
+    resumed_executor.shutdown(wait=True)
+
+    assert resumed_results == []
+    assert invoked == ["task_001", "task_002", "task_002"]
 
 
 def test_task_attempt_schema_1_1_binds_session_and_model_calls_directly(

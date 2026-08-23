@@ -58,9 +58,10 @@ USD `0.6636430192`，全 Attempt 已知成本下界为 USD `0.669212424800000006
 Provider 失败的未知成本范围。25 个 DeepSeek Harness 原生 Trace 引用均已验真。R13 同时暴露出
 批次内部的效率缺口：永久 Infra Invalid 后又运行了 12 个位置，耗时约 1 小时 45 分、588 次模型
 调用、精确已知成本 USD `0.4686327800`。终态与事故证据见
-[`docs/research/banking-r13-terminal.md`](docs/research/banking-r13-terminal.md)；同一身份禁止重跑，
-后继付费实验必须先通过位置级 fail-fast 的无模型验收。这些结果证明证据保全和下游 fail-closed
-有效，但仍不证明候选效果或正向自进化方向。
+[`docs/research/banking-r13-terminal.md`](docs/research/banking-r13-terminal.md)；同一身份禁止重跑。
+后继用 Protocol 2.0 的位置级 fail-fast、当前 Experiment 候选统计和无请求 DNS 预检已经通过
+无模型故障注入与完整 clean-room，但新的实验身份、Baseline 和付费授权尚未冻结。这些结果证明
+证据保全和下游 fail-closed 有效，但仍不证明候选效果或正向自进化方向。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 

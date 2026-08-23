@@ -19,7 +19,7 @@ from agentloopgate.adapters import (
 from agentloopgate.adapters.base import ActionDiagnostic
 from agentloopgate.adapters.evidence import BenchmarkEvidenceStore
 from agentloopgate.bridge import BridgeRequest, BridgeService
-from agentloopgate.contracts import canonical_digest
+from agentloopgate.contracts import canonical_digest, file_digest
 from agentloopgate.experiment import (
     BankingStudyPlan,
     CostLineageCalibration,
@@ -33,11 +33,13 @@ from agentloopgate.experiment import (
     FormalStage,
     PaidExecutionAuthorization,
     PaidExecutionAuthorizationError,
+    PositionFailFastCalibration,
     ReplyLineageCalibration,
     SuccessorIntegrityCalibration,
     computed_cost_lineage_calibration_digest,
     computed_evaluator_correction_calibration_digest,
     computed_paid_execution_authorization_digest,
+    computed_position_fail_fast_calibration_digest,
     computed_protocol_digest,
     computed_reply_lineage_calibration_digest,
     computed_study_digest,
@@ -46,6 +48,7 @@ from agentloopgate.experiment import (
     load_cost_lineage_calibration,
     load_evaluator_correction_calibration,
     load_execution_protocol,
+    load_position_fail_fast_calibration,
     load_reply_lineage_calibration,
     load_study_plan,
     load_successor_integrity_calibration,
@@ -63,6 +66,7 @@ from agentloopgate.experiment.orchestrator import (
 )
 from agentloopgate.experiment.service import (
     _code_revision,
+    _experiment_candidate_count,
     _verified_protocol,
     load_formal_config,
 )
@@ -541,6 +545,111 @@ def test_protocol_1_9_requires_bounded_user_simulator_empty_final_repair() -> No
     missing_sandbox_policy.pop("updater_sandbox_output_policy")
     with pytest.raises(ValidationError, match="Updater sandbox output"):
         FormalExecutionProtocol.model_validate(missing_sandbox_policy)
+
+
+def test_protocol_2_0_requires_content_addressed_position_fail_fast() -> None:
+    payload = yaml.safe_load(
+        Path("configs/experiment_protocol_banking_r13_v1.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload.update(
+        {
+            "schema_version": "2.0",
+            "position_fail_fast_policy": (
+                "stop_before_next_position_after_permanent_infra_invalid_v1"
+            ),
+            "position_fail_fast_incident_artifact": (
+                "artifacts/research/banking_r13/fail_fast_incident.json"
+            ),
+            "position_fail_fast_incident_digest": (
+                "sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653"
+            ),
+            "position_fail_fast_calibration_artifact": (
+                "artifacts/research/banking_r14/position_fail_fast_calibration.json"
+            ),
+            "position_fail_fast_calibration_digest": "sha256:" + "a" * 64,
+            "provider_connectivity_preflight_policy": (
+                "dns_resolution_api_deepseek_com_v1"
+            ),
+        }
+    )
+
+    protocol = FormalExecutionProtocol.model_validate(payload)
+
+    assert protocol.position_fail_fast_policy == (
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    )
+    missing_policy = dict(payload)
+    missing_policy.pop("position_fail_fast_policy")
+    with pytest.raises(ValidationError, match="position-level fail-fast"):
+        FormalExecutionProtocol.model_validate(missing_policy)
+
+    historical = dict(payload, schema_version="1.9")
+    with pytest.raises(ValidationError, match="only protocol 2.0"):
+        FormalExecutionProtocol.model_validate(historical)
+
+
+def test_preflight_candidate_count_is_scoped_to_completed_current_experiment(
+    tmp_path: Path,
+) -> None:
+    def write_attempt(attempt_id: str, experiment_id: str, candidate_id: str) -> None:
+        attempt = tmp_path / "runs/updaters/ahe/attempts" / attempt_id
+        attempt.mkdir(parents=True)
+        started = {
+            "schema_version": "1.0",
+            "attempt_id": attempt_id,
+            "candidate_id": candidate_id,
+            "experiment_id": experiment_id,
+            "state": "started",
+        }
+        terminal = {
+            "schema_version": "1.0",
+            "attempt_id": attempt_id,
+            "candidate_id": candidate_id,
+            "state": "completed",
+        }
+        (attempt / "started.json").write_text(
+            json.dumps({**started, "attempt_digest": canonical_digest(started)}),
+            encoding="utf-8",
+        )
+        (attempt / "terminal.json").write_text(
+            json.dumps({**terminal, "attempt_digest": canonical_digest(terminal)}),
+            encoding="utf-8",
+        )
+        events = tmp_path / "candidates" / candidate_id / "events"
+        events.mkdir(parents=True)
+        (events / "0001.json").write_text("{}\n", encoding="utf-8")
+
+    write_attempt("AHEATT_CURRENT", "EXP_CURRENT", "C_CURRENT")
+    write_attempt("AHEATT_HISTORICAL", "EXP_OLD", "C_OLD")
+
+    assert _experiment_candidate_count(tmp_path, "EXP_CURRENT") == 1
+    assert _experiment_candidate_count(tmp_path, "EXP_NEW") == 0
+
+
+def test_position_fail_fast_calibration_is_content_addressed_and_no_model() -> None:
+    calibration = load_position_fail_fast_calibration(
+        Path(
+            "artifacts/research/banking_r14/position_fail_fast_calibration.json"
+        )
+    )
+
+    assert isinstance(calibration, PositionFailFastCalibration)
+    assert (
+        computed_position_fail_fast_calibration_digest(calibration)
+        == calibration.artifact_digest
+        == "sha256:b098b61edb3ec5bfa6fe80c7e96eeac9540b6bd2c162a999996975f2b056e573"
+    )
+    assert calibration.no_model_acceptance["external_model_calls"] == 0
+    assert calibration.no_model_acceptance["known_model_cost_usd"] == "0"
+    assert calibration.no_model_acceptance["local_compute_monetary_cost"] == (
+        "unmetered_unknown"
+    )
+    assert all(
+        file_digest(Path(relative)) == expected
+        for relative, expected in calibration.runtime_bindings.items()
+    )
 
 
 def test_successor_integrity_calibration_is_content_addressed_and_no_model() -> None:

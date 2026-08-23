@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -37,6 +38,7 @@ from agentloopgate.runtime import (
     DSH_TAU3_PROTOCOL_CURRENT,
     DSH_TAU3_REPLY_POLICY_CURRENT,
     DSH_TAU3_SUPPORTED_PROTOCOLS,
+    POSITION_FAIL_FAST_POLICY_CURRENT,
     USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
     USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT,
     DshTau3TurnClient,
@@ -60,6 +62,8 @@ DSH_COMMIT = "141eb6fef83422698aef7a981029e843e8161534"
 PLUGIN_PACKAGE = "@agentloopgate/dsh-plugin"
 PLUGIN_VERSION = "0.1.0"
 AGENT_NAME = "agentloopgate_dsh"
+PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT = "dns_resolution_api_deepseek_com_v1"
+DEEPSEEK_API_HOST = "api.deepseek.com"
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,12 @@ class DshTau3PilotConfig:
     task_attempt_ledger_schema_version: Literal["1.0", "1.1"] = "1.0"
     model_usage_ledger_schema_version: Literal["1.1", "1.2"] = "1.1"
     evaluator_overlay_path: Path | None = None
+    position_fail_fast_policy: Literal[
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    ] | None = None
+    provider_connectivity_preflight_policy: Literal[
+        "dns_resolution_api_deepseek_com_v1"
+    ] | None = None
 
 
 class PilotPricingConfig(StrictModel):
@@ -167,6 +177,23 @@ class DshTau3Adapter(Tau3Adapter):
                 "User Simulator empty-final repair requires disabled/0 or "
                 f"{USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT}/1"
             )
+        if (
+            pilot.position_fail_fast_policy is not None
+            and pilot.position_fail_fast_policy != POSITION_FAIL_FAST_POLICY_CURRENT
+        ):
+            raise ValueError(
+                "unsupported position-level fail-fast policy: "
+                f"{pilot.position_fail_fast_policy}"
+            )
+        if (
+            pilot.provider_connectivity_preflight_policy is not None
+            and pilot.provider_connectivity_preflight_policy
+            != PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT
+        ):
+            raise ValueError(
+                "unsupported Provider connectivity preflight policy: "
+                f"{pilot.provider_connectivity_preflight_policy}"
+            )
         self.pilot = pilot
 
     def doctor(self) -> AdapterHealth:
@@ -202,6 +229,13 @@ class DshTau3Adapter(Tau3Adapter):
             missing.append("pricing evidence matching the selected DSH provider/model")
         if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
             missing.append("DEEPSEEK_API_KEY process environment")
+        if self.pilot.provider_connectivity_preflight_policy is not None:
+            try:
+                verify_provider_connectivity_preflight(
+                    self.pilot.provider_connectivity_preflight_policy
+                )
+            except OSError as exc:
+                missing.append(f"Provider DNS preflight ({exc})")
         if missing:
             return AdapterHealth(
                 status="unavailable",
@@ -418,6 +452,14 @@ class DshTau3Adapter(Tau3Adapter):
             environment["AGENTLOOPGATE_GLOBAL_TASK_ATTEMPT_LIMIT"] = str(
                 self.pilot.global_task_attempt_limit
             )
+            if self.pilot.position_fail_fast_policy is not None:
+                environment["AGENTLOOPGATE_POSITION_FAIL_FAST_POLICY"] = (
+                    self.pilot.position_fail_fast_policy
+                )
+        elif self.pilot.position_fail_fast_policy is not None:
+            raise BenchmarkUnavailableError(
+                "position-level fail-fast requires a task-attempt ledger"
+            )
         try:
             subprocess.run(
                 self.build_command(request),
@@ -487,6 +529,10 @@ class DshTau3Adapter(Tau3Adapter):
                 ),
                 "evaluator_overlay_digest": (
                     _evaluator_overlay_digest(self.pilot.evaluator_overlay_path)
+                ),
+                "position_fail_fast_policy": self.pilot.position_fail_fast_policy,
+                "provider_connectivity_preflight_policy": (
+                    self.pilot.provider_connectivity_preflight_policy
                 ),
             }
         )
@@ -868,3 +914,17 @@ class DshTau3EvidenceLinker:
 
 def _evaluator_overlay_digest(path: Path | None) -> str | None:
     return load_evaluator_overlay(path).overlay_digest if path is not None else None
+
+
+def verify_provider_connectivity_preflight(policy: str) -> None:
+    """Resolve the frozen Provider endpoint without sending credentials or a request."""
+
+    if policy != PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT:
+        raise ValueError(f"unsupported Provider connectivity policy: {policy}")
+    addresses = socket.getaddrinfo(
+        DEEPSEEK_API_HOST,
+        443,
+        type=socket.SOCK_STREAM,
+    )
+    if not addresses:
+        raise OSError(f"DNS returned no address for {DEEPSEEK_API_HOST}")

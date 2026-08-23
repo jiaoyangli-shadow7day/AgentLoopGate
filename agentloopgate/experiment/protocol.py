@@ -19,7 +19,17 @@ class FormalExecutionProtocol(StrictModel):
     """Every runtime choice that can change formal evidence or its denominator."""
 
     schema_version: Literal[
-        "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9"
+        "1.0",
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.0",
     ]
     protocol_id: ArtifactId
     experiment_id: ArtifactId
@@ -71,6 +81,16 @@ class FormalExecutionProtocol(StrictModel):
     ] | None = None
     successor_integrity_calibration_artifact: NonEmpty | None = None
     successor_integrity_calibration_digest: Digest | None = None
+    position_fail_fast_policy: Literal[
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    ] | None = None
+    position_fail_fast_incident_artifact: NonEmpty | None = None
+    position_fail_fast_incident_digest: Digest | None = None
+    position_fail_fast_calibration_artifact: NonEmpty | None = None
+    position_fail_fast_calibration_digest: Digest | None = None
+    provider_connectivity_preflight_policy: Literal[
+        "dns_resolution_api_deepseek_com_v1"
+    ] | None = None
     reply_lineage_calibration_artifact: NonEmpty | None = None
     reply_lineage_calibration_digest: Digest | None = None
     task_attempt_ledger_schema_version: Literal["1.1"] | None = None
@@ -198,6 +218,14 @@ class FormalExecutionProtocol(StrictModel):
             "successor_integrity_calibration_artifact",
             "successor_integrity_calibration_digest",
         )
+        version_2_0 = (
+            "position_fail_fast_policy",
+            "position_fail_fast_incident_artifact",
+            "position_fail_fast_incident_digest",
+            "position_fail_fast_calibration_artifact",
+            "position_fail_fast_calibration_digest",
+            "provider_connectivity_preflight_policy",
+        )
         runtime_present = [getattr(self, field) is not None for field in version_1_1]
         compatibility_present = [
             getattr(self, field) is not None for field in version_1_2
@@ -211,6 +239,9 @@ class FormalExecutionProtocol(StrictModel):
         user_empty_final_present = [
             getattr(self, field) is not None for field in version_1_9
         ]
+        position_fail_fast_present = [
+            getattr(self, field) is not None for field in version_2_0
+        ]
         if self.schema_version in {
             "1.2",
             "1.3",
@@ -220,6 +251,7 @@ class FormalExecutionProtocol(StrictModel):
             "1.7",
             "1.8",
             "1.9",
+            "2.0",
         } and not (
             all(runtime_present) and all(compatibility_present)
         ):
@@ -234,6 +266,7 @@ class FormalExecutionProtocol(StrictModel):
             "1.7",
             "1.8",
             "1.9",
+            "2.0",
         } and not all(recovery_present):
             raise ValueError(
                 "protocol 1.3+ requires global resume, route, user usage, and "
@@ -247,11 +280,20 @@ class FormalExecutionProtocol(StrictModel):
             "1.7",
             "1.8",
             "1.9",
+            "2.0",
         } and any(recovery_present):
             raise ValueError(
                 "only protocol 1.3+ can contain recovery and cost-gate pins"
             )
-        if self.schema_version in {"1.4", "1.5", "1.6", "1.7", "1.8", "1.9"}:
+        if self.schema_version in {
+            "1.4",
+            "1.5",
+            "1.6",
+            "1.7",
+            "1.8",
+            "1.9",
+            "2.0",
+        }:
             if not all(integrity_present):
                 raise ValueError(
                     "protocol 1.4+ requires DSH idle-timeout and bounded empty-final "
@@ -264,7 +306,7 @@ class FormalExecutionProtocol(StrictModel):
                 )
         elif any(integrity_present):
             raise ValueError("only protocol 1.4+ can contain R6 integrity pins")
-        if self.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9"}:
+        if self.schema_version in {"1.5", "1.6", "1.7", "1.8", "1.9", "2.0"}:
             if not all(lineage_present):
                 raise ValueError(
                     "protocol 1.5 requires reply-lineage calibration and direct "
@@ -276,28 +318,28 @@ class FormalExecutionProtocol(StrictModel):
                 raise ValueError("protocol 1.5 requires Reply Policy v5")
         elif any(lineage_present):
             raise ValueError("only protocol 1.5 can contain R7 lineage pins")
-        if self.schema_version in {"1.6", "1.7", "1.8", "1.9"}:
+        if self.schema_version in {"1.6", "1.7", "1.8", "1.9", "2.0"}:
             if not all(cost_present):
                 raise ValueError(
                     "protocol 1.6 requires frozen-price direct cost-lineage pins"
                 )
         elif any(cost_present):
             raise ValueError("only protocol 1.6+ can contain direct cost-authority pins")
-        if self.schema_version in {"1.7", "1.8", "1.9"}:
+        if self.schema_version in {"1.7", "1.8", "1.9", "2.0"}:
             if not all(gate_cost_present):
                 raise ValueError(
                     "protocol 1.7+ requires a direct Agent+User Cost Gate input pin"
                 )
         elif any(gate_cost_present):
             raise ValueError("only protocol 1.7+ can contain the Cost Gate input pin")
-        if self.schema_version in {"1.8", "1.9"}:
+        if self.schema_version in {"1.8", "1.9", "2.0"}:
             if not all(evaluator_present):
                 raise ValueError(
                     "protocol 1.8 requires evaluator-conflict, incident, and overlay pins"
                 )
         elif any(evaluator_present):
             raise ValueError("only protocol 1.8+ can contain evaluator correction pins")
-        if self.schema_version == "1.9":
+        if self.schema_version in {"1.9", "2.0"}:
             if not all(user_empty_final_present):
                 raise ValueError(
                     "protocol 1.9 requires bounded User Simulator empty-final repair "
@@ -306,6 +348,16 @@ class FormalExecutionProtocol(StrictModel):
         elif any(user_empty_final_present):
             raise ValueError(
                 "only protocol 1.9+ can contain User Simulator empty-final repair pins"
+            )
+        if self.schema_version == "2.0":
+            if not all(position_fail_fast_present):
+                raise ValueError(
+                    "protocol 2.0 requires position-level fail-fast incident, policy, "
+                    "and no-model calibration pins"
+                )
+        elif any(position_fail_fast_present):
+            raise ValueError(
+                "only protocol 2.0+ can contain position-level fail-fast pins"
             )
         if self.schema_version == "1.1" and not all(runtime_present):
             raise ValueError("protocol 1.1 requires every benchmark and updater runtime pin")
@@ -322,6 +374,7 @@ class FormalExecutionProtocol(StrictModel):
                 *gate_cost_present,
                 *evaluator_present,
                 *user_empty_final_present,
+                *position_fail_fast_present,
             ]
         ):
             raise ValueError("protocol 1.0 cannot contain protocol 1.1/1.2 pins")
@@ -566,6 +619,65 @@ class SuccessorIntegrityCalibration(StrictModel):
         return self
 
 
+class PositionFailFastCalibration(StrictModel):
+    """No-model proof that permanent Infra Invalid stops the queued batch."""
+
+    schema_version: Literal["1.0"]
+    artifact_id: ArtifactId
+    source_experiment_id: ArtifactId
+    source_incident_artifact: NonEmpty
+    source_incident_digest: Digest
+    contains_raw_customer_data: Literal[False]
+    position_fail_fast_policy: Literal[
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    ]
+    provider_connectivity_preflight_policy: Literal[
+        "dns_resolution_api_deepseek_com_v1"
+    ]
+    assertions: list[NonEmpty] = Field(min_length=6)
+    runtime_bindings: dict[NonEmpty, Digest] = Field(min_length=3)
+    no_model_acceptance: dict[NonEmpty, Any]
+    limitations: list[NonEmpty] = Field(min_length=1)
+    artifact_digest: Digest
+
+    @model_validator(mode="after")
+    def acceptance_is_publication_grade(self) -> PositionFailFastCalibration:
+        acceptance = self.no_model_acceptance
+        if acceptance.get("status") != "passed":
+            raise ValueError("position fail-fast calibration requires passed acceptance")
+        if acceptance.get("external_model_calls") != 0:
+            raise ValueError("position fail-fast calibration must be no-model")
+        if acceptance.get("known_model_cost_usd") != "0":
+            raise ValueError("no-model position fail-fast calibration requires zero cost")
+        fixtures = acceptance.get("fixtures")
+        required = {
+            "permanent_infrastructure_failure_injected",
+            "next_position_never_invoked",
+            "prior_and_failed_attempt_evidence_verified",
+            "terminal_batch_hold_preserved",
+            "downstream_model_calls_zero",
+            "resume_starts_zero_new_positions",
+            "provider_dns_preflight_no_model",
+        }
+        if not isinstance(fixtures, dict) or not all(
+            fixtures.get(name) == "passed" for name in required
+        ):
+            raise ValueError(
+                "position fail-fast calibration lacks required passed fixtures"
+            )
+        attempts = acceptance.get("attempts")
+        if not isinstance(attempts, list) or not any(
+            isinstance(attempt, dict)
+            and attempt.get("scope") == "full_clean_room"
+            and attempt.get("status") == "passed"
+            for attempt in attempts
+        ):
+            raise ValueError(
+                "position fail-fast calibration requires a passed clean-room attempt"
+            )
+        return self
+
+
 def protocol_digest_payload(protocol: FormalExecutionProtocol) -> dict[str, Any]:
     payload = protocol.model_dump(mode="json", exclude={"protocol_digest"})
     for key in set(payload) - protocol.model_fields_set:
@@ -732,4 +844,37 @@ def load_successor_integrity_calibration(
         raise ValueError(f"cannot read successor integrity calibration: {path}") from exc
     calibration = SuccessorIntegrityCalibration.model_validate(raw)
     verify_successor_integrity_calibration(calibration)
+    return calibration
+
+
+def position_fail_fast_calibration_digest_payload(
+    calibration: PositionFailFastCalibration,
+) -> dict[str, Any]:
+    return calibration.model_dump(mode="json", exclude={"artifact_digest"})
+
+
+def computed_position_fail_fast_calibration_digest(
+    calibration: PositionFailFastCalibration,
+) -> str:
+    return canonical_digest(position_fail_fast_calibration_digest_payload(calibration))
+
+
+def verify_position_fail_fast_calibration(
+    calibration: PositionFailFastCalibration,
+) -> None:
+    computed = computed_position_fail_fast_calibration_digest(calibration)
+    if computed != calibration.artifact_digest:
+        raise ValueError(
+            "position fail-fast calibration digest mismatch: "
+            f"expected {calibration.artifact_digest}, got {computed}"
+        )
+
+
+def load_position_fail_fast_calibration(path: Path) -> PositionFailFastCalibration:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read position fail-fast calibration: {path}") from exc
+    calibration = PositionFailFastCalibration.model_validate(raw)
+    verify_position_fail_fast_calibration(calibration)
     return calibration

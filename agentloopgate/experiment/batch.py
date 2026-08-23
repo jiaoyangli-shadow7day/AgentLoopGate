@@ -294,6 +294,9 @@ class DshFormalBatchExecutor:
             / f"{spec.batch_id}.jsonl"
         )
 
+    def position_fail_fast_path(self, spec: FormalBatchSpec) -> Path:
+        return self.task_attempt_path(spec).with_suffix(".position_fail_fast.json")
+
     def frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal]:
         pricing = self.adapter.pilot.pricing
         return (
@@ -346,6 +349,7 @@ class FormalBatchRunner:
         usage_path = self._model_usage_path(spec)
         user_usage_path = self._user_model_usage_path(spec)
         task_attempt_path = self._task_attempt_path(spec)
+        position_fail_fast_path = self._position_fail_fast_path(spec)
         cost_gate_scope = self._cost_gate_scope()
         handle = None
         if ledger is not None:
@@ -392,7 +396,12 @@ class FormalBatchRunner:
                         cost=cost,
                         cost_artifact=cost_path,
                         result_artifacts=artifact_hashes(
-                            {"raw": raw_path, "batch": path, "cost": cost_path}
+                            {
+                                "raw": raw_path,
+                                "batch": path,
+                                "cost": cost_path,
+                                "position_fail_fast": position_fail_fast_path,
+                            }
                         ),
                         counters=self._cost_counters(cost),
                         attempt_cost_status=CostStatus.NOT_APPLICABLE,
@@ -478,6 +487,7 @@ class FormalBatchRunner:
                             "model_usage": usage_path,
                             "user_model_usage": user_usage_path,
                             "task_attempts": task_attempt_path,
+                            "position_fail_fast": position_fail_fast_path,
                         }
                     ),
                     counters=self._cost_counters(cost),
@@ -509,6 +519,7 @@ class FormalBatchRunner:
                             "model_usage": usage_path,
                             "user_model_usage": user_usage_path,
                             "task_attempts": task_attempt_path,
+                            "position_fail_fast": position_fail_fast_path,
                         }
                     ),
                     recovery_action=(
@@ -570,6 +581,10 @@ class FormalBatchRunner:
         if getattr(self.executor, "direct_cost_lineage", None) is False:
             return None
         method = getattr(self.executor, "task_attempt_path", None)
+        return method(spec) if callable(method) else None
+
+    def _position_fail_fast_path(self, spec: FormalBatchSpec) -> Path | None:
+        method = getattr(self.executor, "position_fail_fast_path", None)
         return method(spec) if callable(method) else None
 
     def _frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal] | None:

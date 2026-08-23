@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -42,8 +43,12 @@ _CACHE_READ_PRICE_ENV = "AGENTLOOPGATE_CACHE_READ_PRICE_PER_MILLION"
 _OUTPUT_PRICE_ENV = "AGENTLOOPGATE_OUTPUT_PRICE_PER_MILLION"
 _USER_EMPTY_FINAL_POLICY_ENV = "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_POLICY"
 _USER_EMPTY_FINAL_LIMIT_ENV = "AGENTLOOPGATE_USER_EMPTY_FINAL_REPAIR_LIMIT"
+_POSITION_FAIL_FAST_POLICY_ENV = "AGENTLOOPGATE_POSITION_FAIL_FAST_POLICY"
 USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT = "bounded_same_call_context_final_only_v1"
 USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT = 1
+POSITION_FAIL_FAST_POLICY_CURRENT = (
+    "stop_before_next_position_after_permanent_infra_invalid_v1"
+)
 _USER_EMPTY_FINAL_REPAIR_PROMPT = (
     "Your preceding simulated-user response contained neither text nor a tool call. "
     "Using the unchanged conversation and user goal, emit only the missing final user "
@@ -81,6 +86,10 @@ class GlobalTaskAttemptBudgetExhausted(RuntimeError):
     """No additional paid attempt is allowed for this task/trial/seed."""
 
 
+class PositionFailFastSkipped(RuntimeError):
+    """A queued position was stopped before its first external model call."""
+
+
 def install_tau3_evidence_hooks() -> None:
     """Install idempotent hooks before handing control to the tau3 CLI."""
 
@@ -91,6 +100,10 @@ def install_tau3_evidence_hooks() -> None:
         _install_user_model_ledger()
     if os.environ.get(_TASK_LEDGER_ENV):
         _install_global_attempt_budget()
+    elif os.environ.get(_POSITION_FAIL_FAST_POLICY_ENV):
+        raise RuntimeError(
+            "position-level fail-fast requires the append-only task-attempt ledger"
+        )
     _INSTALLED = True
 
 
@@ -317,6 +330,12 @@ def _install_global_attempt_budget() -> None:
 
     original = runner_batch.run_with_retry
     ledger = Path(os.environ[_TASK_LEDGER_ENV]).resolve()
+    fail_fast_policy = _position_fail_fast_policy()
+    fail_fast_event = threading.Event()
+    fail_fast_artifact = ledger.with_suffix(".position_fail_fast.json")
+    if fail_fast_policy is not None and fail_fast_artifact.exists():
+        _verify_position_fail_fast_artifact(fail_fast_artifact, fail_fast_policy)
+        fail_fast_event.set()
     try:
         limit = int(os.environ[_ATTEMPT_LIMIT_ENV])
     except (KeyError, ValueError) as exc:
@@ -356,6 +375,16 @@ def _install_global_attempt_budget() -> None:
             save_fn = kwargs.get("save_fn")
             if save_fn:
                 save_fn(failed)
+            if fail_fast_policy is not None:
+                fail_fast_event.set()
+                _write_position_fail_fast_artifact_once(
+                    fail_fast_artifact,
+                    policy=fail_fast_policy,
+                    task_id=task.id,
+                    trial=trial,
+                    seed=seed,
+                    attempts_consumed=consumed,
+                )
             return failed
 
         requested_retries = int(kwargs.get("max_retries", 0))
@@ -422,9 +451,126 @@ def _install_global_attempt_budget() -> None:
             finally:
                 _CURRENT_TASK_ATTEMPT.reset(context_token)
 
-        return original(recorded_run, task, trial, seed, **kwargs)
+        result = original(recorded_run, task, trial, seed, **kwargs)
+        if (
+            fail_fast_policy is not None
+            and result.termination_reason == TerminationReason.INFRASTRUCTURE_ERROR
+        ):
+            fail_fast_event.set()
+            _write_position_fail_fast_artifact_once(
+                fail_fast_artifact,
+                policy=fail_fast_policy,
+                task_id=task.id,
+                trial=trial,
+                seed=seed,
+                attempts_consumed=task_attempt_count(ledger, task.id, trial, seed),
+            )
+        return result
 
     runner_batch.run_with_retry = bounded_run_with_retry
+    if fail_fast_policy is not None:
+        _install_position_fail_fast_scheduler(
+            runner_batch,
+            stop_event=fail_fast_event,
+        )
+
+
+def _position_fail_fast_policy() -> str | None:
+    policy = os.environ.get(_POSITION_FAIL_FAST_POLICY_ENV)
+    if policy is None:
+        return None
+    if policy != POSITION_FAIL_FAST_POLICY_CURRENT:
+        raise RuntimeError(
+            "unsupported position-level fail-fast policy; expected "
+            f"{POSITION_FAIL_FAST_POLICY_CURRENT}"
+        )
+    return policy
+
+
+def _install_position_fail_fast_scheduler(
+    runner_batch: Any,
+    *,
+    stop_event: threading.Event,
+) -> None:
+    original_executor = runner_batch.ThreadPoolExecutor
+    original_as_completed = runner_batch.as_completed
+
+    class FailFastThreadPoolExecutor(original_executor):
+        def submit(self, fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
+            def guarded() -> Any:
+                if stop_event.is_set():
+                    raise PositionFailFastSkipped(
+                        "a prior position exhausted its infrastructure retry budget"
+                    )
+                return fn(*args, **kwargs)
+
+            return super().submit(guarded)
+
+    def fail_fast_as_completed(futures: Any, timeout: float | None = None) -> Any:
+        future_list = list(futures)
+        for future in original_as_completed(future_list, timeout=timeout):
+            if future.cancelled():
+                continue
+            if isinstance(future.exception(), PositionFailFastSkipped):
+                continue
+            yield future
+            if stop_event.is_set():
+                for pending in future_list:
+                    if pending is not future:
+                        pending.cancel()
+                return
+
+    runner_batch.ThreadPoolExecutor = FailFastThreadPoolExecutor
+    runner_batch.as_completed = fail_fast_as_completed
+
+
+def _write_position_fail_fast_artifact_once(
+    path: Path,
+    *,
+    policy: str,
+    task_id: str,
+    trial: int,
+    seed: int,
+    attempts_consumed: int,
+) -> None:
+    payload = {
+        "schema_version": "1.0",
+        "policy": policy,
+        "trigger": "permanent_infrastructure_invalid",
+        "triggered_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "task_id": task_id,
+        "trial": trial,
+        "seed": seed,
+        "attempts_consumed": attempts_consumed,
+        "next_position_started": False,
+    }
+    artifact = {**payload, "artifact_digest": canonical_digest(payload)}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("xb") as stream:
+            stream.write(canonical_json_bytes(artifact) + b"\n")
+    except FileExistsError:
+        _verify_position_fail_fast_artifact(path, policy)
+
+
+def _verify_position_fail_fast_artifact(path: Path, policy: str) -> dict[str, Any]:
+    try:
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("cannot read position-level fail-fast artifact") from exc
+    if not isinstance(artifact, dict):
+        raise RuntimeError("position-level fail-fast artifact must be an object")
+    declared = artifact.pop("artifact_digest", None)
+    if declared != canonical_digest(artifact):
+        raise RuntimeError("position-level fail-fast artifact digest mismatch")
+    if (
+        artifact.get("schema_version") != "1.0"
+        or artifact.get("policy") != policy
+        or artifact.get("trigger") != "permanent_infrastructure_invalid"
+        or artifact.get("next_position_started") is not False
+    ):
+        raise RuntimeError("position-level fail-fast artifact conflicts with policy")
+    return artifact
 
 
 def bind_current_task_attempt_session(session_id: str) -> str:

@@ -65,6 +65,17 @@ failure prevents the next position from starting while preserving the failed
 attempt and all earlier cost, trace, raw, and lineage evidence. The resulting
 batch must remain immutable `HOLD`, with zero Updater or downstream calls.
 
+The repair is now implemented as Protocol 2.0 and passed deterministic failure
+injection, resume-zero-call verification, 206 Python tests, 13 TypeScript tests,
+sdist→wheel, DeepSeek Harness conformance/build/pack, and a 307-file
+Secret/direct-PII scan with zero findings. It also scopes candidate diagnostics
+to the current Experiment and runs a DNS-only Provider precheck without sending
+credentials or an HTTP request. The content-addressed calibration is
+[`position_fail_fast_calibration.json`](../../artifacts/research/banking_r14/position_fail_fast_calibration.json),
+digest `sha256:b098b61edb3ec5bfa6fe80c7e96eeac9540b6bd2c162a999996975f2b056e573`.
+This repair does not modify R13 and does not itself create or authorize a paid
+successor experiment.
+
 ## Claim boundary
 
 R13 supports the systems claim that AgentLoopGate preserves native DeepSeek

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from agentloopgate.adapters import (
+    PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT,
     BenchmarkAdapter,
     BenchmarkRunContext,
     BenchmarkRunRequest,
@@ -21,6 +22,7 @@ from agentloopgate.adapters import (
     PilotPricingConfig,
     Tau3Adapter,
     Tau3TaskCatalog,
+    verify_provider_connectivity_preflight,
 )
 from agentloopgate.bridge import BridgeRequest, BridgeService
 from agentloopgate.contracts import canonical_digest, file_digest
@@ -291,6 +293,32 @@ def test_dsh_tau3_command_selects_custom_agent_and_rejects_parallelism(
         adapter.build_command(request.model_copy(update={"max_concurrency": 2}))
 
 
+def test_provider_connectivity_preflight_is_dns_only_and_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple] = []
+
+    def resolved(*args, **kwargs):
+        calls.append((args, kwargs))
+        return [(2, 1, 6, "", ("203.0.113.1", 443))]
+
+    monkeypatch.setattr("agentloopgate.adapters.dsh_tau3.socket.getaddrinfo", resolved)
+    verify_provider_connectivity_preflight(
+        PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT
+    )
+
+    assert calls[0][0] == ("api.deepseek.com", 443)
+    assert calls[0][1]["type"] > 0
+    monkeypatch.setattr(
+        "agentloopgate.adapters.dsh_tau3.socket.getaddrinfo",
+        lambda *_args, **_kwargs: [],
+    )
+    with pytest.raises(OSError, match="no address"):
+        verify_provider_connectivity_preflight(
+            PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT
+        )
+
+
 def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -302,6 +330,9 @@ def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
         global_task_attempt_limit=2,
         user_empty_final_repair_policy="bounded_same_call_context_final_only_v1",
         user_empty_final_repair_limit=1,
+        position_fail_fast_policy=(
+            "stop_before_next_position_after_permanent_infra_invalid_v1"
+        ),
     )
     adapter = DshTau3Adapter(tmp_path, checkout=checkout, pilot=config)
     request = BenchmarkRunRequest(
@@ -356,6 +387,9 @@ def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
     assert captured["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER"].endswith("runs/task.jsonl")
     assert captured["AGENTLOOPGATE_TASK_ATTEMPT_LEDGER_SCHEMA_VERSION"] == "1.0"
     assert captured["AGENTLOOPGATE_MODEL_USAGE_LEDGER_SCHEMA_VERSION"] == "1.1"
+    assert captured["AGENTLOOPGATE_POSITION_FAIL_FAST_POLICY"] == (
+        "stop_before_next_position_after_permanent_infra_invalid_v1"
+    )
 
 
 def test_dsh_tau3_evidence_join_preserves_both_trace_authorities(tmp_path: Path) -> None:

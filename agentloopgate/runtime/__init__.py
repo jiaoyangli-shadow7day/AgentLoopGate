@@ -18,9 +18,11 @@ from .tau3_evaluator_overlay import (
     verify_evaluator_overlay_sources,
 )
 from .tau3_evidence import (
+    POSITION_FAIL_FAST_POLICY_CURRENT,
     USER_EMPTY_FINAL_REPAIR_LIMIT_CURRENT,
     USER_EMPTY_FINAL_REPAIR_POLICY_CURRENT,
     GlobalTaskAttemptBudgetExhausted,
+    PositionFailFastSkipped,
     bind_current_task_attempt_session,
     current_task_attempt_identity_fields,
     install_tau3_evidence_hooks,
@@ -56,6 +58,8 @@ __all__ = [
     "DshTau3TurnClient",
     "DshTau3TurnConfig",
     "GlobalTaskAttemptBudgetExhausted",
+    "POSITION_FAIL_FAST_POLICY_CURRENT",
+    "PositionFailFastSkipped",
     "ReadinessReport",
     "Tau3AgentReply",
     "Tau3EvaluatorOverlay",

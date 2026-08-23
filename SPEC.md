@@ -2225,7 +2225,7 @@ Infra Invalid，批次最终正确 `HOLD`，且外部 Updater、Update-Check、S
 冻结执行中实际观测到的可移除尾部上界，不是因果效果估计。
 
 R13 的原始证据、24 个有效分母、未知 Provider 成本范围、25 个原生 DeepSeek Harness Trace 引用和
-`HOLD` 均保持不可变；禁止重跑、补齐或扩展同一身份。任何新的付费后继必须提升 Protocol，并冻结
+`HOLD` 均保持不可变；禁止重跑、补齐或扩展同一身份。任何新的付费后继必须使用 Protocol `2.0+`，并冻结
 `stop_before_next_position_after_permanent_infra_invalid_v1`：当某位置耗尽冻结重试预算且仍为
 `infrastructure_error` 时，必须在启动下一位置之前停止队列，保留失败位置及此前所有 Trace、Usage、
 Cost、Attempt 和 Raw Checkpoint，封存 Batch `HOLD`，并保证触发后的外部模型调用数为 0。该控制
@@ -2233,7 +2233,9 @@ Cost、Attempt 和 Raw Checkpoint，封存 Batch `HOLD`，并保证触发后的�
 
 新付费身份创建前，必须使用无模型故障注入证明：非末位位置永久失败；下一位置从未被调用；失败
 Attempt 与此前证据仍可验真；Batch 不可恢复或扩展；Updater 及所有下游 Stage 调用为 0。同时必须
-把候选诊断限定到当前 Experiment，并在首个模型调用前执行 DNS/Provider 可达性预检；预检不能
+把候选诊断限定到当前 Experiment，并冻结
+`dns_resolution_api_deepseek_com_v1`，在首个模型调用前执行不发送密钥、不发出 HTTP 请求的
+DNS/Provider 可达性预检；预检不能
 替代运行中断线的 fail-closed 处理。R13 事故 Artifact 为
 `artifacts/research/banking_r13/fail_fast_incident.json`（Digest
 `sha256:9c57bc0bda4cc89931732ec8566f80112889c4ed6d731c9991676a64f51fd653`），终态封存为

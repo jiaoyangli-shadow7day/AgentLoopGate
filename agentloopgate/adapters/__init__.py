@@ -14,12 +14,14 @@ from agentloopgate.adapters.dsh_tau3 import (
     AGENT_NAME,
     DSH_COMMIT,
     DSH_VERSION,
+    PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT,
     DshTau3Adapter,
     DshTau3EvidenceLinker,
     DshTau3PilotConfig,
     DshTau3PilotResult,
     PilotPricingConfig,
     load_pilot_pricing,
+    verify_provider_connectivity_preflight,
 )
 from agentloopgate.adapters.jsonl import JsonlOutcomeAdapter
 from agentloopgate.adapters.tau3 import (
@@ -44,9 +46,11 @@ __all__ = [
     "DshTau3PilotConfig",
     "DshTau3PilotResult",
     "PilotPricingConfig",
+    "PROVIDER_CONNECTIVITY_PREFLIGHT_POLICY_CURRENT",
     "AGENT_NAME",
     "JsonlOutcomeAdapter",
     "load_pilot_pricing",
+    "verify_provider_connectivity_preflight",
     "OutcomeDiagnostics",
     "OutcomeImportError",
     "TAU3_COMMIT",
