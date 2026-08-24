@@ -38,11 +38,11 @@ def _yaml(path: Path) -> dict[str, Any]:
     return value
 
 
-def _digest_field(path: Path, field: str) -> dict[str, Any]:
+def _digest_field(root: Path, path: Path, field: str) -> dict[str, Any]:
     value = _yaml(path)
     if not isinstance(value.get(field), str):
         raise PublicationFreezeBlocked(f"required digest missing: {path}")
-    return {"path": path.as_posix(), "digest": value[field]}
+    return {"path": path.relative_to(root).as_posix(), "digest": value[field]}
 
 
 def seal(root: Path, config_path: Path, output: Path) -> dict[str, Any]:
@@ -66,10 +66,10 @@ def seal(root: Path, config_path: Path, output: Path) -> dict[str, Any]:
         experiment_id=config.experiment_id,
         private_root=Path("runs/experiments") / config.experiment_id,
     )
-    protocol = _digest_field(root / str(config.execution_protocol_config), "protocol_digest")
-    study = _digest_field(root / str(config.study_plan_config), "study_digest")
-    objective = _digest_field(root / "configs/objective_contract.yaml", "contract_digest")
-    split = _digest_field(root / "configs/splits.yaml", "split_digest")
+    protocol = _digest_field(root, root / str(config.execution_protocol_config), "protocol_digest")
+    study = _digest_field(root, root / str(config.study_plan_config), "study_digest")
+    objective = _digest_field(root, root / "configs/objective_contract.yaml", "contract_digest")
+    split = _digest_field(root, root / "configs/splits.yaml", "split_digest")
     pricing_path = root / str(config.pricing_config)
     pricing = {
         "path": pricing_path.relative_to(root).as_posix(),

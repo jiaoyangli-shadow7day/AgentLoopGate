@@ -21,6 +21,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Any
 
+from agentloopgate.adapters.dsh_tau3 import load_pilot_pricing
 from agentloopgate.contracts import canonical_digest, canonical_json_bytes, file_digest
 from agentloopgate.experiment.ledger import (
     ExperimentAttemptEvent,
@@ -32,7 +33,7 @@ from agentloopgate.experiment.orchestrator import (
     FormalExperimentOrchestrator,
     FormalSelectionHoldOutcome,
 )
-from agentloopgate.experiment.service import load_formal_config
+from agentloopgate.experiment.service import load_execution_protocol, load_formal_config
 from agentloopgate.runtime.usage import (
     AttemptState,
     CostStatus,
@@ -58,15 +59,14 @@ REPORT_NAMES = (
     "03_pool_comparison.svg",
     "04_gate_waterfall.svg",
 )
-def _ablation_paths(
-    root: Path, research_root: Path, freeze: dict[str, Any]
-) -> dict[str, Path]:
+
+
+def _ablation_paths(root: Path, research_root: Path, freeze: dict[str, Any]) -> dict[str, Path]:
     paths = {
         "selector": research_root / "ablations/selector_v2.json",
         "diagnosis_direction": research_root / "ablations/diagnosis_direction_v2.json",
         "integrity_gate": research_root / "ablations/integrity_gate.json",
-        "plugin_coexistence_overhead": research_root
-        / "ablations/plugin_coexistence_overhead.json",
+        "plugin_coexistence_overhead": research_root / "ablations/plugin_coexistence_overhead.json",
     }
     registered = freeze.get("pre_core_ablations")
     if registered is None:
@@ -81,9 +81,7 @@ def _ablation_paths(
         if record is None:
             continue
         if not isinstance(record, dict) or not isinstance(record.get("path"), str):
-            raise PublicPackageBlocked(
-                f"freeze pre-core ablation path is invalid: {register_name}"
-            )
+            raise PublicPackageBlocked(f"freeze pre-core ablation path is invalid: {register_name}")
         relative = Path(record["path"])
         if relative.is_absolute() or ".." in relative.parts:
             raise PublicPackageBlocked(
@@ -150,12 +148,56 @@ def _terminal_outcome(
         raise PublicPackageBlocked("multiple incompatible terminal outcomes exist")
     if not outcome_path.is_file() and not hold_path.is_file():
         raise PublicPackageBlocked(
-            "verified terminal formal outcome is unavailable; "
-            "credentialed core has not completed"
+            "verified terminal formal outcome is unavailable; credentialed core has not completed"
         )
     formal_config = load_formal_config(config)
     if formal_config.experiment_id != experiment_id:
         raise PublicPackageBlocked("formal config conflicts with freeze experiment identity")
+    # Deep verification uses the orchestrator's no-execute adapter. Historical
+    # batches may include a separate user-simulator usage ledger even though
+    # that adapter has no runtime path provider. Bind the immutable standard
+    # path here so cost recomputation includes both channels without changing
+    # the frozen execution-source tree.
+    import agentloopgate.experiment.orchestrator as orchestrator_module
+
+    no_execute = orchestrator_module._NoExecute  # noqa: SLF001
+    protocol = (
+        load_execution_protocol(root / formal_config.execution_protocol_config)
+        if formal_config.execution_protocol_config is not None
+        else None
+    )
+    enhanced_cost_lineage = bool(
+        protocol is not None
+        and protocol.schema_version in {"1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9", "2.0"}
+    )
+    no_execute.cost_gate_scope = "valid_runs" if enhanced_cost_lineage else "whole_attempt"
+    no_execute.direct_cost_lineage = bool(
+        enhanced_cost_lineage
+        and protocol is not None
+        and protocol.global_task_attempt_limit is not None
+    )
+    if not hasattr(no_execute, "user_model_usage_path"):
+
+        def _user_model_usage_path(_self: object, spec: Any) -> Path:
+            return root / private_root / "user_model_usage" / f"{spec.batch_id}.jsonl"
+
+        no_execute.user_model_usage_path = _user_model_usage_path
+    if not hasattr(no_execute, "task_attempt_path"):
+
+        def _task_attempt_path(_self: object, spec: Any) -> Path:
+            return root / private_root / "task_attempts" / f"{spec.batch_id}.jsonl"
+
+        no_execute.task_attempt_path = _task_attempt_path
+    pricing = load_pilot_pricing(root / formal_config.pricing_config)
+
+    def _frozen_token_prices(_self: object) -> tuple[Decimal, Decimal, Decimal]:
+        return (
+            pricing.input_cache_miss,
+            pricing.input_cache_hit,
+            pricing.output,
+        )
+
+    no_execute.frozen_token_prices = _frozen_token_prices
     orchestrator = FormalExperimentOrchestrator(root, config_path=config)
     # The public method would start paid work when outcome.json is absent. The
     # existence guard above makes this private verifier a strictly no-model path.
@@ -164,19 +206,21 @@ def _terminal_outcome(
     return "selection_hold", orchestrator._load_verified_selection_hold(hold_path)  # noqa: SLF001
 
 
-def _outcome_seal_time(private_root: Path) -> datetime:
+def _outcome_seal_time(private_root: Path, *, terminal_kind: str = "formal_outcome") -> datetime:
+    operation = (
+        "seal_selection_hold_outcome"
+        if terminal_kind == "selection_hold"
+        else "seal_formal_outcome"
+    )
     terminals: list[ExperimentAttemptEvent] = []
     ledger_root = private_root / "attempt_ledger"
     for path in sorted(ledger_root.glob("ATT_*/*.json")):
         event = ExperimentAttemptEvent.model_validate_json(path.read_text(encoding="utf-8"))
         _verify_event(event)
-        if (
-            event.operation == "seal_formal_outcome"
-            and event.state is AttemptState.COMPLETED
-        ):
+        if event.operation == operation and event.state is AttemptState.COMPLETED:
             terminals.append(event)
     if len(terminals) != 1:
-        raise PublicPackageBlocked("exactly one completed formal outcome seal is required")
+        raise PublicPackageBlocked(f"exactly one completed {terminal_kind} seal is required")
     return terminals[0].recorded_at
 
 
@@ -330,13 +374,9 @@ def _cost_accounting(private_root: Path) -> dict[str, Any]:
                 "valid_user_cost_usd": _decimal(cost.valid_user_cost_usd),
                 "infra_agent_cost_usd": _decimal(cost.infra_agent_cost_usd),
                 "infra_user_cost_usd": _decimal(cost.infra_user_cost_usd),
-                "observed_agent_attempt_cost_usd": _decimal(
-                    cost.observed_agent_attempt_cost_usd
-                ),
+                "observed_agent_attempt_cost_usd": _decimal(cost.observed_agent_attempt_cost_usd),
                 "retained_user_cost_usd": _decimal(cost.retained_user_cost_usd),
-                "total_cost_lower_bound_usd": _decimal(
-                    cost.total_cost_lower_bound_usd
-                ),
+                "total_cost_lower_bound_usd": _decimal(cost.total_cost_lower_bound_usd),
                 "cost_digest": cost.cost_digest,
             }
         )
@@ -365,9 +405,7 @@ def _incident_summaries(private_root: Path) -> list[dict[str, Any]]:
                 "incident_id": item.get("incident_id"),
                 "recorded_at": item.get("recorded_at"),
                 "operation": item.get("operation"),
-                "affected_baseline_snapshot_id": item.get(
-                    "affected_baseline_snapshot_id"
-                ),
+                "affected_baseline_snapshot_id": item.get("affected_baseline_snapshot_id"),
                 "affected_source_revision": item.get("affected_source_revision"),
                 "conclusion": item.get("conclusion"),
                 "failed_stage": item.get("failed_stage"),
@@ -435,15 +473,11 @@ def _collect_payloads(
     }
     for name, source in _ablation_paths(root, research_root, freeze).items():
         target = f"ablations/{name}.json"
-        payloads[target] = _canonical_artifact(
-            source, "artifact_digest", expected_ablations[name]
-        )
+        payloads[target] = _canonical_artifact(source, "artifact_digest", expected_ablations[name])
         derivations[target] = f"verified {name} registered ablation"
 
     lineage = _load_json(private / "lineage.json")
-    lineage_digest = _verify_digest(
-        lineage, "lineage_digest", expected=outcome.lineage_digest
-    )
+    lineage_digest = _verify_digest(lineage, "lineage_digest", expected=outcome.lineage_digest)
     lineage_summary = {
         "schema_version": "1.0",
         "experiment_id": lineage["experiment_id"],
@@ -479,9 +513,7 @@ def _collect_payloads(
         "model_usage": model_usage,
         "operational_incidents": _incident_summaries(private),
     }
-    payloads["failure_accounting.json"] = (
-        canonical_json_bytes(failure_accounting) + b"\n"
-    )
+    payloads["failure_accounting.json"] = canonical_json_bytes(failure_accounting) + b"\n"
     derivations["failure_accounting.json"] = (
         "sanitized lifecycle aggregates and retained failure metadata through outcome seal"
     )
@@ -572,9 +604,9 @@ def _collect_selection_hold_payloads(
     private = root / private_root
     payloads: dict[str, bytes] = {}
     derivations: dict[str, str] = {}
-    payloads["selection_hold_outcome.json"] = canonical_json_bytes(
-        outcome.model_dump(mode="json")
-    ) + b"\n"
+    payloads["selection_hold_outcome.json"] = (
+        canonical_json_bytes(outcome.model_dump(mode="json")) + b"\n"
+    )
     derivations["selection_hold_outcome.json"] = "canonical verified Selection-HOLD outcome"
 
     selection = private / "selection.json"
@@ -584,19 +616,20 @@ def _collect_selection_hold_payloads(
     derivations["selection.json"] = "verified A0-bound Selection evidence"
 
     lineage = _load_json(private / "lineage.json")
-    lineage_digest = _verify_digest(
-        lineage, "lineage_digest", expected=outcome.lineage_digest
+    lineage_digest = _verify_digest(lineage, "lineage_digest", expected=outcome.lineage_digest)
+    payloads["lineage_summary.json"] = (
+        canonical_json_bytes(
+            {
+                "schema_version": "1.0",
+                "experiment_id": lineage["experiment_id"],
+                "batch_count": len(lineage["batch_ids"]),
+                "candidate_count": len(lineage["candidate_ids"]),
+                "snapshot_count": len(lineage["snapshot_ids"]),
+                "private_lineage_digest": lineage_digest,
+            }
+        )
+        + b"\n"
     )
-    payloads["lineage_summary.json"] = canonical_json_bytes(
-        {
-            "schema_version": "1.0",
-            "experiment_id": lineage["experiment_id"],
-            "batch_count": len(lineage["batch_ids"]),
-            "candidate_count": len(lineage["candidate_ids"]),
-            "snapshot_count": len(lineage["snapshot_ids"]),
-            "private_lineage_digest": lineage_digest,
-        }
-    ) + b"\n"
     derivations["lineage_summary.json"] = "aggregate counts from verified private lineage"
 
     for name in ("integrity_gate", "plugin_coexistence_overhead"):
@@ -656,26 +689,30 @@ def _collect_selection_hold_payloads(
         "A HOLD is not a deployment and means no Release tail was executed.\n"
     ).encode()
     derivations["README.md"] = "generated package scope and Selection-HOLD binding"
-    return payloads, derivations, {
-        "schema_version": "1.0",
-        "package_kind": "sanitized_derived_view",
-        "terminal_kind": "selection_hold",
-        "experiment_id": experiment_id,
-        "created_at": cutoff,
-        "private_outcome_digest": outcome.outcome_digest,
-        "freeze_manifest_digest": freeze["freeze_manifest_digest"],
-        "source_revision": freeze["source_revision"],
-        "baseline_snapshot_id": outcome.baseline_snapshot_id,
-        "final_decision": outcome.final_decision.value,
-        "lineage_digest": outcome.lineage_digest,
-        "selection_digest": outcome.selection_digest,
-        "report_digest": outcome.report_digest,
-        "scientific_protocol_deviations": [],
-        "operational_incident_count": len(failure_accounting["operational_incidents"]),
-        "package_content_verification_status": "verified",
-        "publication_authorized": False,
-        "package_commit_ci_attestation": "external_required_after_commit",
-    }
+    return (
+        payloads,
+        derivations,
+        {
+            "schema_version": "1.0",
+            "package_kind": "sanitized_derived_view",
+            "terminal_kind": "selection_hold",
+            "experiment_id": experiment_id,
+            "created_at": cutoff,
+            "private_outcome_digest": outcome.outcome_digest,
+            "freeze_manifest_digest": freeze["freeze_manifest_digest"],
+            "source_revision": freeze["source_revision"],
+            "baseline_snapshot_id": outcome.baseline_snapshot_id,
+            "final_decision": outcome.final_decision.value,
+            "lineage_digest": outcome.lineage_digest,
+            "selection_digest": outcome.selection_digest,
+            "report_digest": outcome.report_digest,
+            "scientific_protocol_deviations": [],
+            "operational_incident_count": len(failure_accounting["operational_incidents"]),
+            "package_content_verification_status": "verified",
+            "publication_authorized": False,
+            "package_commit_ci_attestation": "external_required_after_commit",
+        },
+    )
 
 
 def _scan_payloads(payloads: dict[str, bytes]) -> dict[str, Any]:
@@ -829,7 +866,7 @@ def build_public_release(
         ).resolve()
         if not research_root.is_relative_to(root):
             raise PublicPackageBlocked("research artifact root escapes project")
-        cutoff = _outcome_seal_time(root / private_root)
+        cutoff = _outcome_seal_time(root / private_root, terminal_kind=terminal_kind)
         if terminal_kind == "selection_hold":
             payloads, derivations, metadata = _collect_selection_hold_payloads(
                 root,

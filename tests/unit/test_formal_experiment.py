@@ -1845,6 +1845,37 @@ def test_banking_r12_no_model_ablations_are_bound_and_non_formal() -> None:
         assert result["otelCoexistence"] is True
 
 
+def test_banking_r15_no_model_ablations_are_bound_and_non_formal() -> None:
+    base = Path("artifacts/research/banking_r15/ablations")
+    integrity = json.loads((base / "integrity_gate.json").read_text(encoding="utf-8"))
+    plugin = json.loads(
+        (base / "plugin_coexistence_overhead.json").read_text(encoding="utf-8")
+    )
+
+    for artifact in (integrity, plugin):
+        declared = artifact.pop("artifact_digest")
+        assert canonical_digest(artifact) == declared
+        assert artifact["study_digest"] == (
+            "sha256:bd5988f4f89068fa6347728f6b88ee4b8d8d1f644931ec110944e06b74e25043"
+        )
+        assert artifact["formal_decision"] is False
+        assert artifact["synthetic_control"] is True
+
+    assert integrity["production_decision"] == "HOLD"
+    assert integrity["counterfactual_decision"] == "SHIP_RECOMMENDED"
+    assert integrity["unsupported_admission_prevented"] is True
+    assert plugin["additional_model_calls"] is False
+    assert plugin["protocol_digest"] == (
+        "sha256:b40198176f9de2b39c9433131455bc0af07eee54650327622677cd9085b84a5f"
+    )
+    for backend in ("jsonl", "sqlite"):
+        result = plugin["results"][backend]
+        assert result["sessionEventHashEquivalent"] is True
+        assert result["persistenceSurvival"] is True
+        assert result["observerComplete"] is True
+        assert result["otelCoexistence"] is True
+
+
 def test_banking_r12_terminal_seal_is_content_addressed_and_fail_closed() -> None:
     seal = json.loads(
         Path("artifacts/research/banking_r12/formal_execution_seal.json").read_text(

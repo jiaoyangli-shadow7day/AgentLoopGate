@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from agentloopgate.contracts import canonical_digest
-from agentloopgate.experiment.ledger import ExperimentAttemptEvent
+from agentloopgate.experiment.ledger import ExperimentAttemptEvent, ExperimentAttemptLedger
 
 
 def _module(name: str):
@@ -23,6 +23,7 @@ def _module(name: str):
 
 builder = _module("build_public_r2_package")
 verifier = _module("verify_public_r2_package")
+freeze_sealer = _module("seal_terminal_publication_freeze")
 
 
 def _metadata() -> dict[str, object]:
@@ -65,9 +66,7 @@ def test_existing_package_conflict_is_never_overwritten(tmp_path: Path) -> None:
     output = tmp_path / "release"
     payloads = {"README.md": b"first\n"}
     derivations = {"README.md": "unit fixture"}
-    builder._seal_payloads(
-        output, payloads=payloads, derivations=derivations, metadata=_metadata()
-    )
+    builder._seal_payloads(output, payloads=payloads, derivations=derivations, metadata=_metadata())
 
     with pytest.raises(builder.PublicPackageConflict):
         builder._seal_payloads(
@@ -104,6 +103,46 @@ def test_direct_pii_pattern_blocks_package_before_output(tmp_path: Path) -> None
     assert not output.exists()
 
 
+def test_publication_freeze_uses_project_relative_identity_paths(
+    tmp_path: Path,
+) -> None:
+    identity = tmp_path / "configs/protocol.yaml"
+    identity.parent.mkdir(parents=True)
+    identity.write_text("protocol_digest: sha256:fixture\n", encoding="utf-8")
+
+    result = freeze_sealer._digest_field(tmp_path, identity, "protocol_digest")
+
+    assert result == {
+        "path": "configs/protocol.yaml",
+        "digest": "sha256:fixture",
+    }
+
+
+def test_selection_hold_uses_its_own_terminal_seal_time(tmp_path: Path) -> None:
+    ledger = ExperimentAttemptLedger(tmp_path, "EXP_HOLD")
+    handle = ledger.begin(
+        operation="seal_selection_hold_outcome",
+        protocol_digest="sha256:" + "1" * 64,
+        study_digest="sha256:" + "2" * 64,
+        source_revision="tree:fixture",
+        stage="selection",
+        spec_digest="sha256:" + "3" * 64,
+    )
+    terminal = ledger.complete_no_model_operation(
+        handle,
+        exit_code=0,
+        result_artifacts={},
+    )
+
+    assert (
+        builder._outcome_seal_time(
+            tmp_path / "runs/experiments/EXP_HOLD",
+            terminal_kind="selection_hold",
+        )
+        == terminal.recorded_at
+    )
+
+
 def test_missing_outcome_records_failed_attempt_without_creating_package(
     tmp_path: Path,
 ) -> None:
@@ -122,9 +161,7 @@ def test_missing_outcome_records_failed_attempt_without_creating_package(
     freeze_path = tmp_path / "freeze.json"
     freeze_path.write_text(json.dumps(freeze), encoding="utf-8")
 
-    with pytest.raises(
-        builder.PublicPackageBlocked, match="outcome is unavailable"
-    ) as captured:
+    with pytest.raises(builder.PublicPackageBlocked, match="outcome is unavailable") as captured:
         builder.build_public_release(
             tmp_path,
             config=Path("missing.yaml"),
@@ -134,15 +171,9 @@ def test_missing_outcome_records_failed_attempt_without_creating_package(
 
     assert not (tmp_path / "artifacts/release").exists()
     event_paths = sorted(
-        (
-            tmp_path
-            / "runs/experiments/EXP_BANKING_R2/attempt_ledger"
-        ).glob("ATT_*/*.json")
+        (tmp_path / "runs/experiments/EXP_BANKING_R2/attempt_ledger").glob("ATT_*/*.json")
     )
-    events = [
-        ExperimentAttemptEvent.model_validate_json(path.read_text())
-        for path in event_paths
-    ]
+    events = [ExperimentAttemptEvent.model_validate_json(path.read_text()) for path in event_paths]
     events.sort(key=lambda event: event.recorded_at)
     assert [event.state.value for event in events] == ["started", "failed"]
     assert len({event.attempt_id for event in events}) == 1
@@ -184,9 +215,7 @@ def test_freeze_identity_selects_the_experiment_specific_ledger(
 
     assert not (tmp_path / "artifacts/r11-release").exists()
     r11_events = sorted(
-        (tmp_path / "runs/experiments/EXP_BANKING_R11/attempt_ledger").glob(
-            "ATT_*/*.json"
-        )
+        (tmp_path / "runs/experiments/EXP_BANKING_R11/attempt_ledger").glob("ATT_*/*.json")
     )
     assert len(r11_events) == 2
     assert not (tmp_path / "runs/experiments/EXP_BANKING_R2").exists()
@@ -217,8 +246,7 @@ def test_registered_pre_core_ablation_paths_preserve_frozen_identity(
         tmp_path / "artifacts/research/banking_r2/ablations/integrity_gate_a4.json"
     )
     assert paths["plugin_coexistence_overhead"] == (
-        tmp_path
-        / "artifacts/research/banking_r2/ablations/plugin_coexistence_overhead_a4.json"
+        tmp_path / "artifacts/research/banking_r2/ablations/plugin_coexistence_overhead_a4.json"
     )
 
 
@@ -257,9 +285,7 @@ def test_independent_verifier_accepts_selection_hold_package(tmp_path: Path) -> 
             {"local_compute_monetary_cost_status": "unmetered_unknown"}
         ).encode(),
         "reproduction.json": b"{}\n",
-        "ablations/integrity_gate.json": builder.canonical_json_bytes(
-            ablation["integrity_gate"]
-        )
+        "ablations/integrity_gate.json": builder.canonical_json_bytes(ablation["integrity_gate"])
         + b"\n",
         "ablations/plugin_coexistence_overhead.json": builder.canonical_json_bytes(
             ablation["plugin_coexistence_overhead"]
@@ -268,9 +294,7 @@ def test_independent_verifier_accepts_selection_hold_package(tmp_path: Path) -> 
         "reports/selection_hold.json": b"{}\n",
         "reports/selection_hold.md": b"# HOLD\n",
     }
-    payloads["README.md"] = (
-        f"# HOLD\n\nOutcome: `{outcome['outcome_digest']}`\n"
-    ).encode()
+    payloads["README.md"] = (f"# HOLD\n\nOutcome: `{outcome['outcome_digest']}`\n").encode()
     derivations = {path: "unit fixture" for path in payloads}
     metadata = {
         **_metadata(),
@@ -310,9 +334,7 @@ def test_independent_public_verifier_accepts_and_detects_tampering(
         "statistics_digest",
     )
     ablations = {
-        name: _artifact(
-            {"schema_version": "1.0", "ablation_id": name}, "artifact_digest"
-        )
+        name: _artifact({"schema_version": "1.0", "ablation_id": name}, "artifact_digest")
         for name in (
             "selector",
             "diagnosis_direction",
@@ -345,17 +367,13 @@ def test_independent_public_verifier_accepts_and_detects_tampering(
             "role_assignment_digest": roles["role_assignment_digest"],
             "statistics_digest": statistics["statistics_digest"],
             "selector_ablation_digest": ablations["selector"]["artifact_digest"],
-            "diagnosis_ablation_digest": ablations["diagnosis_direction"][
-                "artifact_digest"
-            ],
+            "diagnosis_ablation_digest": ablations["diagnosis_direction"]["artifact_digest"],
             "report_digest": "sha256:" + "2" * 64,
         },
         "outcome_digest",
     )
     payloads: dict[str, bytes] = {
-        "README.md": (
-            f"# Fixture\n\nOutcome: `{outcome['outcome_digest']}`\n"
-        ).encode(),
+        "README.md": (f"# Fixture\n\nOutcome: `{outcome['outcome_digest']}`\n").encode(),
         "outcome.json": builder.canonical_json_bytes(outcome) + b"\n",
         "role_assignment.json": builder.canonical_json_bytes(roles) + b"\n",
         "statistics.json": builder.canonical_json_bytes(statistics) + b"\n",
@@ -373,21 +391,15 @@ def test_independent_public_verifier_accepts_and_detects_tampering(
                 "all_batches_exact": True,
                 "exact_total_usd": "1.00",
                 "local_compute_monetary_cost_status": "unmetered_unknown",
-                "github_actions_compute_monetary_cost_status": (
-                    "unavailable_unknown"
-                ),
+                "github_actions_compute_monetary_cost_status": ("unavailable_unknown"),
             }
         ).encode(),
         "reproduction.json": b"{}\n",
     }
     for selector, decision in decisions.items():
-        payloads[f"decisions/{selector}.json"] = (
-            builder.canonical_json_bytes(decision) + b"\n"
-        )
+        payloads[f"decisions/{selector}.json"] = builder.canonical_json_bytes(decision) + b"\n"
     for name, artifact in ablations.items():
-        payloads[f"ablations/{name}.json"] = (
-            builder.canonical_json_bytes(artifact) + b"\n"
-        )
+        payloads[f"ablations/{name}.json"] = builder.canonical_json_bytes(artifact) + b"\n"
     for report in (
         "decision.json",
         "decision.md",
@@ -405,18 +417,14 @@ def test_independent_public_verifier_accepts_and_detects_tampering(
         "native_decision": outcome["native_decision"],
         "final_decision": outcome["final_decision"],
         "logical_core_trial_count": outcome["logical_core_trial_count"],
-        "unique_executed_core_trial_count": outcome[
-            "unique_executed_core_trial_count"
-        ],
+        "unique_executed_core_trial_count": outcome["unique_executed_core_trial_count"],
         "reused_role_trial_count": outcome["reused_role_trial_count"],
         "lineage_digest": outcome["lineage_digest"],
         "statistics_digest": outcome["statistics_digest"],
         "report_digest": outcome["report_digest"],
     }
     output = tmp_path / "release"
-    builder._seal_payloads(
-        output, payloads=payloads, derivations=derivations, metadata=metadata
-    )
+    builder._seal_payloads(output, payloads=payloads, derivations=derivations, metadata=metadata)
 
     result = verifier.verify_public_release(output)
     assert result["status"] == "verified"

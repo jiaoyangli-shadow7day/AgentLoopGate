@@ -49,3 +49,11 @@ job `97300237502`; its validation digest is
 external Updater, paid position, Release-ID/OOD/Replay, Promote, visibility
 change, GitHub Release, publication, or submission is authorized by this
 document.
+
+Two registered no-model ablations are already sealed. The integrity fixture
+(`4ccbf1…1720`) proves the fail-closed gate converts an unsupported synthetic
+`SHIP_RECOMMENDED` into `HOLD`. The DSH coexistence fixture (`7ae1a9…b66c`)
+preserves identical SessionEvent hashes, JSONL/SQLite persistence, observer
+completion, and OTel across 30 iterations per backend. Its macOS-arm64 local
+p95 overhead is 16.423834 ms for JSONL and 0.541667 ms for SQLite; this is noisy
+fixture evidence, not a production latency bound. Both made zero model calls.

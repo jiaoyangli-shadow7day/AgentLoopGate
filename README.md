@@ -20,7 +20,18 @@ Adapter、τ³ Adapter、不可变 Snapshot/Batch、可恢复的 A0→Decision �
 以及可打包的 DeepSeek Harness 原生 Bundle。公开 Demo 中的 Outcome 全部是合成 Fixture，只用于
 验证软件行为，**不是现实实验结果**。
 
-真实实验已迭代到不可变的 `EXP_BANKING_R10`。截至 C2 Selection 封存，已完成 25 个
+当前正式结果是不可变的 `EXP_BANKING_R15` Selection-HOLD。它完整执行了 25 个
+Update-Source、40 个 Update-Check 和 60 个 A0-bound Selection 位置，共 125/125 个授权
+位置，九个 Batch 均为完整、精确成本、零 Infra Invalid。三个 AHE 候选在 Selection 上分别为
+6/15、5/15、6/15，A0 为 6/15；三个候选都回归了 A0 的 `task_062` 和 `task_095`，因此
+AgentLoopGate 全部 HOLD，没有启动 Release-ID/OOD/Replay。精确已知模型成本为 USD
+`3.9086647880000000116`，Selection 后模型调用为零。这个结果证明系统能够识别总分持平背后的
+能力交换并正确弃权，不证明 AHE 找到了可发布的正向自进化。核心结论见
+[Banking R15 results](docs/research/banking-r15-results.md)，可独立验证的 12 文件脱敏包见
+[`artifacts/research/banking_r15/release/`](artifacts/research/banking_r15/release/)；其
+`publication_authorized` 仍为 `false`。
+
+历史实验 `EXP_BANKING_R10` 截至 C2 Selection 封存，已完成 25 个
 Update-Source 位置、A0/C1/C2/C3 各 10 个 Update-Check 位置，以及 C1/C2 各 15 个 Selection
 位置，共 95 个正式任务位置；可验证模型总成本为 USD `3.0651904832`。C3 Selection、
 Release-ID、Release-OOD 与 Replay 均未启动，也没有任何候选被部署或 Promote。
@@ -29,9 +40,8 @@ C1 与 C2 都是 7/15，但成功任务集合互换，不能证明稳定方向�
 Selection 设计缺少 A0 同池基线和 `HOLD/ABSTAIN`，C1/C3 语义重复，C2 又引用未绑定到 Banking
 Runtime 的通用工具能力。因此 R10 只作为不可变历史/工程证据，不能继续生成发布级 RC。
 
-修正后的 Study schema 1.2 将 Selection 改为 A0 + 3 个语义不同候选，共 60 个位置，并允许在
-没有严格稳定增益时正常弃权。软件实现和完整 clean-room 已通过；这证明治理、证据、成本、
-DeepSeek Harness Trace 共存与 fail-closed 行为可用，但尚未证明正向自进化效果。详细缺口与
+后续 Study schema 1.2 将 Selection 改为 A0 + 3 个语义不同候选，共 60 个位置，并允许在
+没有严格稳定增益时正常弃权；R15 已真实执行并触发该弃权路径。详细状态与
 下一步见 [docs/release-readiness.md](docs/release-readiness.md)，R10 修正证据见
 [`artifacts/research/banking_r10/`](artifacts/research/banking_r10/)。
 

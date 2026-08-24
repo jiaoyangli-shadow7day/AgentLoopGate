@@ -1,26 +1,25 @@
 # AgentLoopGate open-source and paper readiness
 
-Status date: 2026-08-24
+Status date: 2026-08-25
 
-Current paid-evidence checkpoint: immutable `EXP_BANKING_R14`. It executed 46
-of 125 authorized positions: 25 valid Update-Source, 10 valid A0 Update-Check,
-10 valid first-candidate Update-Check, and one second-candidate Infra Invalid.
-Protocol 2.0 fail-fast stopped before the next position and made zero model
-calls after the trigger. The external Updater completed four exact-cost proposal
-attempts and selected three candidates. A0 scored 4/10; the only complete
-candidate scored 3/10 and regressed `task_052`. The next candidate revealed that
-Candidate Check validated baseline routing bytes rather than post-patch bytes.
-Selection, Release, and Promote remained at zero. R14 is therefore terminal
-`HOLD`, not a positive self-evolution result. The standing private-experiment
-mandate does not permit publication, repository visibility changes, or Promote.
+Current paid-evidence checkpoint: terminal `EXP_BANKING_R15` Selection-HOLD.
+It completed all 125 authorized pre-Release positions: 25 Update-Source, 40
+Update-Check, and 60 baseline-bound Selection positions. All nine batches have
+complete integrity, exact cost accounting, and zero Infra Invalid runs. AHE
+produced three candidates. Selection scores were A0 6/15, candidate 1 6/15,
+candidate 2 5/15, and candidate 3 6/15. Every candidate regressed the same A0
+successes `task_062` and `task_095`; candidate 2 also regressed `task_056`.
+AgentLoopGate held all three candidates under the frozen strict-gain,
+zero-regression and operational-evidence policy. Release, Promote, visibility
+change, and publication remained at zero.
 
-The corrected successor is now frozen as `EXP_BANKING_R15`, Protocol
-`b40198…4a5f`, Study `bd5988…5043`, execution source `0e3d07…b4c8e`, and
-Evaluation Baseline `R15_A0` (`7a5264…1387`). Prospective candidate-byte
-validation, partial Batch-HOLD sealing, zero-Agent exact cost, and pre-Agent
-evidence provenance are all bound into its calibrations. Its local clean-room
-and exact private Linux CI pass; the machine pre-Release authorization is still
-absent. Therefore Updater and paid positions remain at zero.
+The terminal outcome is
+`827ed2…bdc3`; exact known model cost is USD `3.9086647880000000116`,
+with no unknown model-cost scope. A sanitized 12-file local result package has
+independently verified at manifest `ce8ab4…6c2df` with zero Secret/direct-PII
+findings and `publication_authorized: false`. This completes the corrected
+governance story but does not establish a positive AHE self-evolution result.
+The repository must remain private until a separate Owner publication action.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -34,19 +33,19 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Preserve all historical attempts and incidents | PASS | R2–R14 immutable Snapshot/Batch/Raw/Trace/Attempt/Cost artifacts and append-only journals, including explicit absent Batch/Cost for the R14 terminal incident | Recheck hashes in the final publication seal |
 | R10 execution through C2 Selection | SEALED HISTORICAL EVIDENCE | 25 Update-Source + 40 Update-Check + 30 Selection positions; C3 Selection and all Release stages absent | Never rewrite or resume under the corrected selector identity |
 | Complete cost accounting through R10 C2 | PASS | Exact known model cost USD `3.0651904832`; batch, updater, task-attempt, Agent/User usage and retry evidence retained | Local compute monetary cost remains `unmetered_unknown` |
-| Positive self-evolution direction | NOT ESTABLISHED | R14 A0 was 4/10; only complete candidate was 3/10 and regressed `task_052`; remaining candidates incomplete; Selection zero | A newly frozen successor is required before any positive claim |
-| A0-bound Selection with abstention | IMPLEMENTED / NOT REACHED IN R14 | Study `e2afe1…35d96`; strict stable gain, zero stable regression, whole-attempt cost, retry/timeout and p95/max latency policy | Exercise only after successor candidate precheck and terminal-sealing repairs pass |
+| Positive self-evolution direction | NOT ESTABLISHED / GOVERNANCE DIRECTION ESTABLISHED | R15 candidates scored 6/15, 5/15, 6/15 versus A0 6/15; all regressed 062/095 and were held | Test any new guided updater only under a new frozen identity and untouched confirmation split |
+| A0-bound Selection with abstention | PASS IN REAL R15 EXECUTION | Selection `b5e800…00466`; paired task surface, whole-attempt cost, retry/timeout and p95 policy produced terminal HOLD | Preserve as the primary governance result |
 | Candidate semantic and runtime applicability | PASS / R15 FROZEN | Post-patch isolated validation rejects both malformed real R14 routing candidates; R15 calibration `5280db…9f16` binds prospective bytes, partial HOLD/exact cost, and verify-only resume | Preserve exact bytes through private CI and paid authorization |
-| Selection-HOLD normal terminal | IMPLEMENTED / ZERO-MODEL VERIFIED | Successful CLI outcome; immutable outcome/report/lineage/cost bindings; all candidates HELD; Release and post-Selection model calls fixed at zero; resume is verify-only | Exercise with real corrected Selection evidence |
+| Selection-HOLD normal terminal | PASS IN REAL R15 EXECUTION | Outcome `827ed2…bdc3`; all candidates HELD; Release batches and post-Selection model calls zero; exact cost and lineage sealed | Preserve and independently verify from the sanitized package |
 | Position-level permanent-Infra fail-fast | PASS IN REAL R14 EXECUTION | Trigger `c3a8e4…f5052`; two failed attempts retained; next position and post-trigger calls zero; 79 later authorized positions did not start | Preserve R14; carry the control into the successor |
-| Exact paid-execution authorization | R15 EXPECTED HOLD | R15 preflight passed 10 checks and failed only on absent `pre_release_checkpoint.json`; R14 authorization is consumed and terminal | Create an exact R15 capability only after the frozen-source private CI seal |
+| Exact paid-execution authorization | PASS / CONSUMED | R15 machine capability `AUTH_B5C002E677E9EBADF70D` bound exactly 25+40+60 positions and external Updater; no Release scope | Do not reuse or broaden it |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
 | Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX FOR R15 | Local: 214 Python/13 TypeScript; private CI: 212 Python + 2 skips/13 TypeScript; Ruff, sdist→wheel, DSH conformance/build/pack passed | Repeat for the final public tree |
 | Secret and direct-PII audit | PASS FOR R15 FROZEN TREE | 332 files scanned with zero findings and withheld paths/values | Repeat in private CI and for the final public result package |
-| Corrected pre-Release paid checkpoint | R14 TERMINAL HOLD | 46 positions, 45 valid; total exact cost USD `1.4876297096000000032`; incident `adc163…1f26`; seal `b82bdb…23e5` | Never resume R14; repair and freeze a successor identity |
+| Corrected pre-Release paid checkpoint | R15 TERMINAL HOLD | 125/125 positions, 125 valid, zero Infra Invalid; exact known model cost USD `3.9086647880000000116`; outcome `827ed2…bdc3` | No paid continuation is required or permitted under R15 |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
-| Minimal ablations and uncertainty | PARTIAL / TWO NO-MODEL ABLATIONS SEALED | R12 integrity fixture proves an unsupported `SHIP_RECOMMENDED` is converted to `HOLD`; DSH fixture preserves JSONL/SQLite event hashes, persistence and OTel, with measured local p95 overhead 4.110417/0.740291 ms | Derive selector/diagnosis statistics and uncertainty from sealed R12 paid evidence without causal overclaim |
-| Sanitized public Banking result package | BUILDER READY / SUCCESSOR RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports verified full formal Outcome, Selection-HOLD, and candidate-invalid Batch-HOLD terminal evidence | Build only from the successor terminal result, then rerun the independent verifier and public-tree audit |
+| Minimal ablations and uncertainty | PASS FOR HOLD STORY / LIMITED | R15 integrity `4ccbf1…1720`; DSH `7ae1a9…b66c`; paired task outcomes and operational comparisons sealed | Treat fixture overhead and the three dependent candidates as descriptive, not causal |
+| Sanitized public Banking result package | PASS LOCALLY / NOT PUBLISHED | 12 files; manifest `ce8ab4…6c2df`; independent verification and Secret/PII scan passed; publication flag false | Re-run at the final commit and obtain external clean-checkout CI attestation |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
 | Version-controlled private CI seal | PASS FOR R15 FROZEN IDENTITY | Commit `42990f2`, run `32682027757`, job `97300237502`; 212 Python passed/2 skips, 13 TypeScript, 332-file scan zero findings; repository remained private | Content-address the CI record, then retain through authorization |
@@ -76,6 +75,14 @@ position-level waste control and exposes a prospective-byte validation gap. It
 still cannot contribute a positive effectiveness claim because the only full
 candidate underperformed A0 and Selection never ran.
 
+R15 supplies the corrected terminal result. It completed the entire authorized
+pre-Release surface and shows that all three AHE candidates gained `task_017`
+while all three lost `task_062` and `task_095`. Two aggregate ties therefore
+hid ability exchanges. AgentLoopGate's paired zero-regression gate correctly
+abstained, produced no Release calls, and retained exact cost and latency
+evidence. This establishes useful evidence-governance behavior, not positive
+candidate evolution or cross-domain generalization.
+
 ## Cost interpretation
 
 - Known provider/model cost through R10 C2: exact USD `3.0651904832`.
@@ -94,10 +101,10 @@ candidate underperformed A0 and Selection never ran.
   `0.8244735576`, Updater `0.0140907872`, A0 Check `0.2986731776`, first-candidate
   Check `0.3498881872000000032`, and the terminal invalid candidate's two User
   calls `0.000504`. Unknown and unresolved model-cost scopes are zero.
-- R15 preparation to date made zero external model calls and incurred exact
-  known Provider/model cost USD `0`. Failed and successful no-model attempts,
-  wall time, CPU, memory, and the `unmetered_unknown` local monetary scope are
-  retained in its preregistration and operator journal.
+- R15 exact known Provider/model cost is USD `3.9086647880000000116`: nine
+  formal batches cost `3.8830976464000000116` and external Updater calls cost
+  `0.0255671416`. Unknown model-cost scope and unresolved Updater calls are
+  zero. The formal process wall time was 52,591.59 seconds.
 - Local CPU, filesystem, package, and wall-clock monetary cost:
   `unmetered_unknown`, never represented as zero.
 - Any future partial or unavailable cost must remain a lower bound with named
@@ -115,12 +122,9 @@ candidate underperformed A0 and Selection never ran.
 4. Preserve the R14 incident and terminal seal. R15 has frozen the repaired
    post-patch candidate validator, partial Batch-HOLD/exact-cost path, new
    Protocol, Study, source revision, baseline, and preregistration.
-5. Preserve the passing exact R15 private Linux CI record, then create the exact
-   pre-Release machine capability. Review its Selection result. On `HOLD`, seal the normal terminal
-   result and stop. On `SELECT`, audit evidence first and request separate
-   authorization for the 450-position Release-ID/OOD/Replay tail.
-6. Generate the minimum ablations, uncertainty, four figures, limitations, and
-   the terminal-kind-appropriate sanitized result package from sealed artifacts
-   only; rerun clean-room, Secret/PII audit, and private CI.
+5. Preserve the terminal R15 HOLD, its consumed pre-Release capability, exact
+   cost evidence, publication-tool incidents, and the verified sanitized package.
+6. Run final clean-checkout build/install/test, Secret/PII audit and private CI
+   at the intended open-source commit; finish report prose and limitations.
 7. Ask the Owner separately before changing repository visibility, publishing
    a Release, or submitting a paper/report.
