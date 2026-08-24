@@ -1,14 +1,15 @@
 # AgentLoopGate technical report outline
 
-> Result-free successor-study report plan. R11 Update-Source is an immutable
-> partial `HOLD`, not a terminal evaluation. Bracketed fields may be populated
-> only from a verified terminal outcome and its sanitized manifest under a new
-> frozen successor identity. R10 and R11 remain historical engineering evidence,
-> not sources of successor result values.
+> Historical report plan retained to document the preregistered structure. The
+> current realized report is the R15 Selection-HOLD technical report at
+> `artifacts/research/banking_r15/release_v2/reports/technical_report.md`, bound
+> to Manifest `79e9a8…364c8`. Sections below that require Release-ID/OOD/Replay
+> remain conditional templates because R15 correctly stopped before Release.
 
-This outline is ready for a workshop paper, systems paper draft, or open-source
-technical report. Until terminal evidence exists, every bracketed result field
-means “not available,” not zero.
+This outline remains useful for a future `SELECT` study. For R15, every
+Release-only bracketed field means “not run,” never zero. The realized report
+supports the narrower systems claim that evidence-governed paired Selection
+detected regressions hidden by aggregate ties and correctly emitted `HOLD`.
 
 ## Working title and claim
 

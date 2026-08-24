@@ -31,6 +31,7 @@ uv run python -m scripts.verify_public_result_package \
   --package artifacts/research/banking_r15/release
 uv run python -m scripts.verify_public_result_package \
   --package artifacts/research/banking_r15/release_v2
+uv run python -m scripts.verify_publication_candidate --project .
 
 echo "[3/5] Python release artifact clean-room"
 uv build --out-dir "${VERIFY_TMP}/python-dist"

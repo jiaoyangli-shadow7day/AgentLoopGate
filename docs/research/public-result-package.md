@@ -1,20 +1,17 @@
 # Sanitized Banking formal-result public package contract
 
 > R2 is historical evidence only and must never be presented as the current
-> AgentLoopGate result. This configuration-driven, fail-closed contract applies
-> to the next valid corrected terminal evidence (a new Banking successor; R11
-> Update-Source is an immutable partial HOLD),
-> including a real Selection-HOLD outcome. The builder and independent verifier
-> have separate fail-closed paths for a full formal Outcome and for the smaller
-> pre-Release Selection-HOLD terminal; neither may be created before its
-> respective private evidence has been deeply verified.
+> AgentLoopGate result. The current public candidate is the verified R15 v1.1
+> Selection-HOLD package at `artifacts/research/banking_r15/release_v2`, Manifest
+> `79e9a8…364c8`. The contract remains configuration-driven and fail closed for
+> both a full formal Outcome and a pre-Release Selection-HOLD terminal.
 
 The public result package is a derived, privacy-reviewed view of authoritative
 private evidence. It must not be assembled until the credentialed formal Outcome is
 terminal and verified. A template, partial directory, or synthetic demo must
 never be labeled as the Banking result package.
 
-## Intended layout
+## Full-Outcome layout
 
 ```text
 artifacts/research/<formal-experiment>/release/
@@ -44,8 +41,42 @@ artifacts/research/<formal-experiment>/release/
     04_gate_waterfall.svg
 ```
 
-The directory does not exist yet by design. Its creation is an outcome-dependent
-step and must fail if the private evidence is incomplete or inconsistent.
+This layout is conditional on a future experiment reaching `SELECT` and then
+completing an independently authorized Release tail. R15 correctly did not
+create it.
+
+## Selection-HOLD v1.1 layout
+
+R15 uses the smaller terminal contract because no candidate passed Selection:
+
+```text
+artifacts/research/banking_r15/release_v2/
+  README.md
+  manifest.json
+  selection_hold_outcome.json
+  selection.json
+  statistics.json
+  lineage_summary.json
+  failure_accounting.json
+  cost_summary.json
+  reproduction.json
+  ablations/
+    integrity_gate.json
+    plugin_coexistence_overhead.json
+  reports/
+    selection_hold.json
+    selection_hold.md
+    technical_report.md
+    01_candidate_curve.svg
+    02_failure_funnel.svg
+    03_pool_comparison.svg
+    04_gate_waterfall.svg
+```
+
+The v1.1 verifier additionally binds three paired Selection bootstrap
+comparisons, complete whole-experiment model cost, all four Selection-only
+figures, and the technical report to the private Outcome and Selection digests.
+It never treats the absent Release tail as zero-valued Release evidence.
 
 ## Manifest contract
 
