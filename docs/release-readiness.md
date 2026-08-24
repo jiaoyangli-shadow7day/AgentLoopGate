@@ -15,8 +15,8 @@ change, and publication remained at zero.
 
 The terminal outcome is
 `827ed2…bdc3`; exact known model cost is USD `3.9086647880000000116`,
-with no unknown model-cost scope. A sanitized 12-file local result package has
-independently verified at manifest `ce8ab4…6c2df` with zero Secret/direct-PII
+with no unknown model-cost scope. A sanitized 18-file local result package has
+independently verified at manifest `79e9a8…364c8` with zero Secret/direct-PII
 findings and `publication_authorized: false`. This completes the corrected
 governance story but does not establish a positive AHE self-evolution result.
 The repository must remain private until a separate Owner publication action.
@@ -40,15 +40,15 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Position-level permanent-Infra fail-fast | PASS IN REAL R14 EXECUTION | Trigger `c3a8e4…f5052`; two failed attempts retained; next position and post-trigger calls zero; 79 later authorized positions did not start | Preserve R14; carry the control into the successor |
 | Exact paid-execution authorization | PASS / CONSUMED | R15 machine capability `AUTH_B5C002E677E9EBADF70D` bound exactly 25+40+60 positions and external Updater; no Release scope | Do not reuse or broaden it |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX FOR R15 | Local: 214 Python/13 TypeScript; private CI: 212 Python + 2 skips/13 TypeScript; Ruff, sdist→wheel, DSH conformance/build/pack passed | Repeat for the final public tree |
-| Secret and direct-PII audit | PASS FOR R15 FROZEN TREE | 332 files scanned with zero findings and withheld paths/values | Repeat in private CI and for the final public result package |
+| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX FOR R15 | Latest private CI: 216 Python passed + 2 skipped, 13 TypeScript; Ruff, sdist→wheel, DSH conformance/build/pack passed | Repeat for the final publication commit |
+| Secret and direct-PII audit | PASS FOR R15 FROZEN TREE | Latest private CI scanned 348 files with zero findings and withheld paths/values | Repeat for the final publication commit |
 | Corrected pre-Release paid checkpoint | R15 TERMINAL HOLD | 125/125 positions, 125 valid, zero Infra Invalid; exact known model cost USD `3.9086647880000000116`; outcome `827ed2…bdc3` | No paid continuation is required or permitted under R15 |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
-| Minimal ablations and uncertainty | PASS FOR HOLD STORY / LIMITED | R15 integrity `4ccbf1…1720`; DSH `7ae1a9…b66c`; paired task outcomes and operational comparisons sealed | Treat fixture overhead and the three dependent candidates as descriptive, not causal |
-| Sanitized public Banking result package | PASS LOCALLY / NOT PUBLISHED | 12 files; manifest `ce8ab4…6c2df`; independent verification and Secret/PII scan passed; publication flag false | Re-run at the final commit and obtain external clean-checkout CI attestation |
+| Minimal ablations and uncertainty | PASS FOR HOLD STORY / LIMITED | R15 integrity `4ccbf1…1720`; DSH `7ae1a9…b66c`; three 10,000-resample paired Selection intervals sealed at statistics `8bc2da…5b8ba` | Treat fixture overhead and the three dependent candidates as descriptive, not causal |
+| Sanitized public Banking result package | PASS LOCALLY / NOT PUBLISHED | 18 files including four Selection-only figures and a technical report; manifest `79e9a8…364c8`; independent verification and Secret/PII scan passed; publication flag false | Re-run at the final publication commit |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | PASS FOR R15 FROZEN IDENTITY | Commit `42990f2`, run `32682027757`, job `97300237502`; 212 Python passed/2 skips, 13 TypeScript, 332-file scan zero findings; repository remained private | Content-address the CI record, then retain through authorization |
+| Version-controlled private CI seal | PASS FOR R15 FROZEN IDENTITY | Commit `4f4c70c`, run `32755701628`, job `97522620797`; 216 Python passed/2 skips, 13 TypeScript, 348-file scan zero findings; repository remained private | Repeat for the v1.1 evidence package commit |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves

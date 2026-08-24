@@ -35,10 +35,12 @@ other domains, or that AgentLoopGate is itself a better updater.
 - Selection digest:
   `sha256:b5e800793f700e1d096a325961b3f40bac8cd93d12dddbdcbc111d48fa600466`
 - Sanitized package manifest digest:
-  `sha256:ce8ab4fe8b5bfde251da7e55d3448a900e290d33a3cd491961224a3fc6f6c2df`
+  `sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8`
+- Selection statistics digest:
+  `sha256:8bc2da84cefc7ed100947401a6277d9fab49109ce29d065f91b064a3a2f5b8ba`
 
 The public-facing evidence is the independently verifiable package at
-`artifacts/research/banking_r15/release`. Its manifest records
+`artifacts/research/banking_r15/release_v2`. Its manifest records
 `publication_authorized: false`; the directory is a local publication
 candidate, not evidence that publication occurred.
 
@@ -71,6 +73,35 @@ The selector's reason is
 `no_candidate_passed_baseline_bound_selection_policy`. The policy requires a
 strict correctness gain, zero stable-task regression, and acceptable retry,
 timeout, tail-latency and cost evidence. A total-score tie is not a gain.
+
+## Paired uncertainty and terminal figures
+
+The preregistered deterministic paired-task bootstrap uses 10,000 resamples
+and a 95% nearest-rank interval over the frozen 15-task Selection population.
+
+| Candidate | Difference | 95% paired interval |
+|---|---:|---:|
+| `C_AHE_758BDB468FB4` | 0 | [-0.2667, 0.2667] |
+| `C_AHE_B55294C01B2A` | -0.0667 | [-0.3333, 0.2000] |
+| `C_AHE_217A9DDE7972` | 0 | [-0.2667, 0.2667] |
+
+These intervals are descriptive for this frozen population. The three
+proposals are dependent, no multiplicity-adjusted inference is claimed, and
+every interval includes zero. More importantly, all candidates violate the
+preregistered zero-regression prerequisite regardless of interval width.
+
+The four evidence-bound figures report Selection reliability and normalized
+cost, Update-Source diagnoses, paired gains/regressions, and the terminal gate
+waterfall. They are explicitly Selection-only because Release was not run:
+
+- [Selection reliability and cost](../../artifacts/research/banking_r15/release_v2/reports/01_candidate_curve.svg)
+- [Update-Source diagnoses](../../artifacts/research/banking_r15/release_v2/reports/02_failure_funnel.svg)
+- [Paired gains and regressions](../../artifacts/research/banking_r15/release_v2/reports/03_pool_comparison.svg)
+- [Selection gate waterfall](../../artifacts/research/banking_r15/release_v2/reports/04_gate_waterfall.svg)
+
+The content-addressed [technical report](../../artifacts/research/banking_r15/release_v2/reports/technical_report.md)
+binds these conclusions to the private Outcome, Selection, and statistics
+digests without exposing private traces.
 
 ## Execution completeness and cost
 
@@ -133,10 +164,10 @@ From the repository root, verify the sanitized package without private traces:
 
 ```sh
 uv run python -m scripts.verify_public_result_package \
-  --package artifacts/research/banking_r15/release
+  --package artifacts/research/banking_r15/release_v2
 ```
 
 The expected manifest digest is
-`sha256:ce8ab4fe8b5bfde251da7e55d3448a900e290d33a3cd491961224a3fc6f6c2df`,
-with 12 files, zero Secret/direct-PII findings, and
+`sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8`,
+with 18 files, zero Secret/direct-PII findings, and
 `publication_authorized: false`.

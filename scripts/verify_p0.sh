@@ -27,6 +27,10 @@ uv run agentloopgate demo \
   --build-output "${VERIFY_TMP}/public_demo" \
   --project . \
   --json
+uv run python -m scripts.verify_public_result_package \
+  --package artifacts/research/banking_r15/release
+uv run python -m scripts.verify_public_result_package \
+  --package artifacts/research/banking_r15/release_v2
 
 echo "[3/5] Python release artifact clean-room"
 uv build --out-dir "${VERIFY_TMP}/python-dist"

@@ -27,8 +27,9 @@ Update-Source、40 个 Update-Check 和 60 个 A0-bound Selection 位置，共 1
 AgentLoopGate 全部 HOLD，没有启动 Release-ID/OOD/Replay。精确已知模型成本为 USD
 `3.9086647880000000116`，Selection 后模型调用为零。这个结果证明系统能够识别总分持平背后的
 能力交换并正确弃权，不证明 AHE 找到了可发布的正向自进化。核心结论见
-[Banking R15 results](docs/research/banking-r15-results.md)，可独立验证的 12 文件脱敏包见
-[`artifacts/research/banking_r15/release/`](artifacts/research/banking_r15/release/)；其
+[Banking R15 results](docs/research/banking-r15-results.md)，包含配对不确定性、四张终态图和
+技术报告的可独立验证 18 文件脱敏包见
+[`artifacts/research/banking_r15/release_v2/`](artifacts/research/banking_r15/release_v2/)；其
 `publication_authorized` 仍为 `false`。
 
 历史实验 `EXP_BANKING_R10` 截至 C2 Selection 封存，已完成 25 个

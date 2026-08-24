@@ -315,6 +315,144 @@ def test_independent_verifier_accepts_selection_hold_package(tmp_path: Path) -> 
     assert verified["experiment_id"] == "EXP_BANKING_R11"
 
 
+def test_independent_verifier_accepts_selection_hold_v1_1_supplement(
+    tmp_path: Path,
+) -> None:
+    selection = _artifact(
+        {"schema_version": "1.0", "selection": {"agentloopgate_decision": "HOLD"}},
+        "selection_digest",
+    )
+    outcome_payload = {
+        "schema_version": "1.0",
+        "outcome_kind": "selection_hold",
+        "experiment_id": "EXP_BANKING_R15",
+        "baseline_snapshot_id": "R15_A0",
+        "final_decision": "HOLD",
+        "release_batch_count": 0,
+        "model_calls_after_selection": 0,
+        "lineage_digest": "sha256:" + "1" * 64,
+        "selection_digest": selection["selection_digest"],
+        "report_digest": "sha256:" + "2" * 64,
+        "batch_model_cost_usd": "1.25",
+        "updater_model_cost_usd": "0.05",
+        "total_known_model_cost_usd": "1.30",
+        "cost_status": "exact",
+        "unresolved_updater_model_call_count": 0,
+        "unknown_cost_scope": [],
+    }
+    outcome = _artifact(outcome_payload, "outcome_digest")
+    comparisons = [
+        {
+            "comparison_id": f"comparison-{index}",
+            "stage": "selection",
+            "task_count": 15,
+            "integrity_complete": True,
+            "reference_infra_invalid_count": 0,
+            "candidate_infra_invalid_count": 0,
+        }
+        for index in range(3)
+    ]
+    statistics = _artifact(
+        {
+            "schema_version": "1.0",
+            "artifact_kind": "selection_hold_paired_task_bootstrap",
+            "selection_digest": selection["selection_digest"],
+            "private_outcome_digest": outcome["outcome_digest"],
+            "comparison_count": 3,
+            "comparisons": comparisons,
+        },
+        "statistics_digest",
+    )
+    report = (
+        f"# Report\n\n{outcome['outcome_digest']}\n"
+        f"{selection['selection_digest']}\n{statistics['statistics_digest']}\n"
+        f"Exact known model cost: {outcome['total_known_model_cost_usd']}\n"
+    )
+    charts = {
+        f"reports/{name}": (
+            f'<svg xmlns="http://www.w3.org/2000/svg"><metadata>'
+            f"{selection['selection_digest']}</metadata></svg>"
+        )
+        for name in (
+            "01_candidate_curve.svg",
+            "02_failure_funnel.svg",
+            "03_pool_comparison.svg",
+            "04_gate_waterfall.svg",
+        )
+    }
+    ablations = {
+        name: _artifact({"schema_version": "1.0", "ablation_id": name}, "artifact_digest")
+        for name in ("integrity_gate", "plugin_coexistence_overhead")
+    }
+    payloads = {
+        "README.md": (f"# HOLD\n\nOutcome: `{outcome['outcome_digest']}`\n").encode(),
+        "selection_hold_outcome.json": builder.canonical_json_bytes(outcome) + b"\n",
+        "selection.json": builder.canonical_json_bytes(selection) + b"\n",
+        "statistics.json": builder.canonical_json_bytes(statistics) + b"\n",
+        "lineage_summary.json": json.dumps(
+            {"private_lineage_digest": outcome["lineage_digest"]}
+        ).encode(),
+        "failure_accounting.json": json.dumps(
+            {"unresolved_attempt_count": 0, "model_usage": {"unresolved_call_count": 0}}
+        ).encode(),
+        "cost_summary.json": json.dumps(
+            {
+                "local_compute_monetary_cost_status": "unmetered_unknown",
+                "whole_experiment_model_cost": {
+                    "status": "exact",
+                    "batch_model_cost_usd": "1.25",
+                    "updater_model_cost_usd": "0.05",
+                    "total_known_model_cost_usd": "1.30",
+                    "unresolved_updater_model_call_count": 0,
+                    "unknown_cost_scope": [],
+                },
+            }
+        ).encode(),
+        "reproduction.json": b"{}\n",
+        "ablations/integrity_gate.json": builder.canonical_json_bytes(ablations["integrity_gate"])
+        + b"\n",
+        "ablations/plugin_coexistence_overhead.json": builder.canonical_json_bytes(
+            ablations["plugin_coexistence_overhead"]
+        )
+        + b"\n",
+        "reports/selection_hold.json": b"{}\n",
+        "reports/selection_hold.md": b"# HOLD\n",
+        "reports/technical_report.md": report.encode(),
+        **{path: content.encode() for path, content in charts.items()},
+    }
+    metadata = {
+        **_metadata(),
+        "experiment_id": "EXP_BANKING_R15",
+        "terminal_kind": "selection_hold",
+        "selection_hold_package_version": "1.1",
+        "selection_hold_statistics_digest": statistics["statistics_digest"],
+        "selection_hold_supplement_digest": canonical_digest(
+            {
+                "statistics_digest": statistics["statistics_digest"],
+                "technical_report": report,
+                "charts": charts,
+            }
+        ),
+        "private_outcome_digest": outcome["outcome_digest"],
+        "baseline_snapshot_id": "R15_A0",
+        "final_decision": "HOLD",
+        "lineage_digest": outcome["lineage_digest"],
+        "selection_digest": selection["selection_digest"],
+        "report_digest": outcome["report_digest"],
+    }
+    output = tmp_path / "selection-hold-v1.1"
+    builder._seal_payloads(
+        output,
+        payloads=payloads,
+        derivations={path: "unit fixture" for path in payloads},
+        metadata=metadata,
+    )
+
+    verified = verifier.verify_public_release(output)
+    assert verified["status"] == "verified"
+    assert verified["file_count"] == 18
+
+
 def _artifact(payload: dict[str, object], digest_field: str) -> dict[str, object]:
     return {**payload, digest_field: canonical_digest(payload)}
 

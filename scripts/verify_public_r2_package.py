@@ -52,6 +52,15 @@ REQUIRED_SELECTION_HOLD_FILES = {
     "reports/selection_hold.md",
 }
 
+SELECTION_HOLD_SUPPLEMENT_FILES = {
+    "statistics.json",
+    "reports/technical_report.md",
+    "reports/01_candidate_curve.svg",
+    "reports/02_failure_funnel.svg",
+    "reports/03_pool_comparison.svg",
+    "reports/04_gate_waterfall.svg",
+}
+
 
 class PublicPackageVerificationError(ValueError):
     """The public package is incomplete, unsafe, or internally inconsistent."""
@@ -73,9 +82,7 @@ def _safe_relative(value: str) -> None:
         raise PublicPackageVerificationError("Manifest contains an unsafe file path")
 
 
-def _semantic_digest(
-    value: dict[str, Any], field: str, *, expected: str | None = None
-) -> str:
+def _semantic_digest(value: dict[str, Any], field: str, *, expected: str | None = None) -> str:
     digest = value.get(field)
     if not isinstance(digest, str):
         raise PublicPackageVerificationError(f"package artifact has no {field}")
@@ -128,9 +135,7 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
     if manifest.get("package_kind") != "sanitized_derived_view":
         raise PublicPackageVerificationError("unexpected public package kind")
     if manifest.get("publication_authorized") is not False:
-        raise PublicPackageVerificationError(
-            "package must not claim publication authorization"
-        )
+        raise PublicPackageVerificationError("package must not claim publication authorization")
     if manifest.get("scientific_protocol_deviations") != []:
         raise PublicPackageVerificationError("package reports a scientific deviation")
 
@@ -147,8 +152,16 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
             raise PublicPackageVerificationError("Manifest contains a duplicate path")
         entries[relative] = raw
     terminal_kind = manifest.get("terminal_kind", "formal_outcome")
+    selection_hold_version = manifest.get("selection_hold_package_version", "1.0")
+    selection_hold_files = (
+        REQUIRED_SELECTION_HOLD_FILES | SELECTION_HOLD_SUPPLEMENT_FILES
+        if selection_hold_version == "1.1"
+        else REQUIRED_SELECTION_HOLD_FILES
+        if selection_hold_version == "1.0"
+        else None
+    )
     required_files = (
-        REQUIRED_SELECTION_HOLD_FILES
+        selection_hold_files
         if terminal_kind == "selection_hold"
         else REQUIRED_FULL_OUTCOME_FILES
         if terminal_kind == "formal_outcome"
@@ -182,16 +195,12 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
                 f"package privacy classification mismatch: {relative}"
             )
         if not isinstance(entry.get("derivation"), str) or not entry["derivation"]:
-            raise PublicPackageVerificationError(
-                f"package derivation is missing: {relative}"
-            )
+            raise PublicPackageVerificationError(f"package derivation is missing: {relative}")
         raw_files[relative] = path.read_bytes()
     scan = _scan(raw_files)
 
     if terminal_kind == "selection_hold":
-        return _verify_selection_hold_release(
-            directory, manifest, manifest_digest, scan, entries
-        )
+        return _verify_selection_hold_release(directory, manifest, manifest_digest, scan, entries)
 
     outcome = _load_json(directory / "outcome.json")
     outcome_digest = _semantic_digest(
@@ -229,9 +238,7 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
         expected=outcome.get("statistics_digest"),
     )
     if len(statistics.get("comparisons", [])) != 6:
-        raise PublicPackageVerificationError(
-            "publication statistics must contain six comparisons"
-        )
+        raise PublicPackageVerificationError("publication statistics must contain six comparisons")
 
     decisions: dict[str, dict[str, Any]] = {}
     for selector in ("native", "agentloopgate"):
@@ -266,17 +273,12 @@ def verify_public_release(directory: Path) -> dict[str, Any]:
         raise PublicPackageVerificationError("Attempt accounting is incomplete")
     unresolved_calls = model_usage.get("unresolved_call_count")
     if unresolved_calls and outcome.get("final_decision") != "HOLD":
-        raise PublicPackageVerificationError(
-            "unresolved model calls require final HOLD"
-        )
+        raise PublicPackageVerificationError("unresolved model calls require final HOLD")
 
     costs = _load_json(directory / "cost_summary.json")
     if costs.get("local_compute_monetary_cost_status") != "unmetered_unknown":
         raise PublicPackageVerificationError("local compute cost status is invalid")
-    if (
-        costs.get("github_actions_compute_monetary_cost_status")
-        != "unavailable_unknown"
-    ):
+    if costs.get("github_actions_compute_monetary_cost_status") != "unavailable_unknown":
         raise PublicPackageVerificationError("GitHub Actions cost status is invalid")
     if costs.get("all_batches_exact") is True and costs.get("exact_total_usd") is None:
         raise PublicPackageVerificationError("exact batch costs require exact total")
@@ -329,13 +331,81 @@ def _verify_selection_hold_release(
             raise PublicPackageVerificationError(f"Selection-HOLD {field} conflicts")
     selection = _load_json(directory / "selection.json")
     _semantic_digest(selection, "selection_digest", expected=outcome.get("selection_digest"))
+    if manifest.get("selection_hold_package_version", "1.0") == "1.1":
+        statistics = _load_json(directory / "statistics.json")
+        _semantic_digest(
+            statistics,
+            "statistics_digest",
+            expected=manifest.get("selection_hold_statistics_digest"),
+        )
+        if (
+            statistics.get("artifact_kind") != "selection_hold_paired_task_bootstrap"
+            or statistics.get("selection_digest") != outcome.get("selection_digest")
+            or statistics.get("private_outcome_digest") != outcome_digest
+            or statistics.get("comparison_count") != 3
+        ):
+            raise PublicPackageVerificationError("Selection-HOLD statistics identity conflicts")
+        comparisons = statistics.get("comparisons")
+        if not isinstance(comparisons, list) or len(comparisons) != 3:
+            raise PublicPackageVerificationError(
+                "Selection-HOLD statistics comparison count conflicts"
+            )
+        for comparison in comparisons:
+            if (
+                not isinstance(comparison, dict)
+                or comparison.get("task_count") != 15
+                or comparison.get("stage") != "selection"
+                or comparison.get("integrity_complete") is not True
+                or comparison.get("reference_infra_invalid_count") != 0
+                or comparison.get("candidate_infra_invalid_count") != 0
+            ):
+                raise PublicPackageVerificationError(
+                    "Selection-HOLD comparison evidence is incomplete"
+                )
+        report = (directory / "reports/technical_report.md").read_text(encoding="utf-8")
+        if (
+            outcome_digest not in report
+            or statistics["statistics_digest"] not in report
+            or outcome.get("selection_digest") not in report
+            or outcome.get("total_known_model_cost_usd") not in report
+        ):
+            raise PublicPackageVerificationError(
+                "Selection-HOLD technical report binding is invalid"
+            )
+        for name in (
+            "01_candidate_curve.svg",
+            "02_failure_funnel.svg",
+            "03_pool_comparison.svg",
+            "04_gate_waterfall.svg",
+        ):
+            chart = (directory / "reports" / name).read_text(encoding="utf-8")
+            if not chart.startswith("<svg") or outcome.get("selection_digest") not in chart:
+                raise PublicPackageVerificationError(
+                    f"Selection-HOLD chart binding is invalid: {name}"
+                )
+        charts = {
+            f"reports/{name}": (directory / "reports" / name).read_text(encoding="utf-8")
+            for name in (
+                "01_candidate_curve.svg",
+                "02_failure_funnel.svg",
+                "03_pool_comparison.svg",
+                "04_gate_waterfall.svg",
+            )
+        }
+        supplement_digest = canonical_digest(
+            {
+                "statistics_digest": statistics["statistics_digest"],
+                "technical_report": report,
+                "charts": charts,
+            }
+        )
+        if supplement_digest != manifest.get("selection_hold_supplement_digest"):
+            raise PublicPackageVerificationError("Selection-HOLD supplement digest conflicts")
     lineage = _load_json(directory / "lineage_summary.json")
     if lineage.get("private_lineage_digest") != outcome.get("lineage_digest"):
         raise PublicPackageVerificationError("Selection-HOLD Lineage summary conflicts")
     for name in ("integrity_gate", "plugin_coexistence_overhead"):
-        _semantic_digest(
-            _load_json(directory / "ablations" / f"{name}.json"), "artifact_digest"
-        )
+        _semantic_digest(_load_json(directory / "ablations" / f"{name}.json"), "artifact_digest")
     failure = _load_json(directory / "failure_accounting.json")
     model_usage = failure.get("model_usage")
     if failure.get("unresolved_attempt_count") != 0 or not isinstance(model_usage, dict):
@@ -343,6 +413,20 @@ def _verify_selection_hold_release(
     costs = _load_json(directory / "cost_summary.json")
     if costs.get("local_compute_monetary_cost_status") != "unmetered_unknown":
         raise PublicPackageVerificationError("local compute cost status is invalid")
+    if manifest.get("selection_hold_package_version", "1.0") == "1.1":
+        whole_cost = costs.get("whole_experiment_model_cost")
+        if (
+            not isinstance(whole_cost, dict)
+            or whole_cost.get("status") != outcome.get("cost_status")
+            or whole_cost.get("batch_model_cost_usd") != outcome.get("batch_model_cost_usd")
+            or whole_cost.get("updater_model_cost_usd") != outcome.get("updater_model_cost_usd")
+            or whole_cost.get("total_known_model_cost_usd")
+            != outcome.get("total_known_model_cost_usd")
+            or whole_cost.get("unknown_cost_scope") != outcome.get("unknown_cost_scope")
+            or whole_cost.get("unresolved_updater_model_call_count")
+            != outcome.get("unresolved_updater_model_call_count")
+        ):
+            raise PublicPackageVerificationError("Selection-HOLD whole-experiment cost conflicts")
     readme = (directory / "README.md").read_text(encoding="utf-8")
     if outcome_digest not in readme or manifest_digest in readme:
         raise PublicPackageVerificationError("Selection-HOLD README binding is invalid")

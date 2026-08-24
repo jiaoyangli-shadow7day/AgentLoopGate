@@ -43,6 +43,9 @@ from agentloopgate.runtime.usage import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from audit_public_tree import ALLOWED_EMAILS, PII_RULES, SECRET_RULES  # noqa: E402
+from build_selection_hold_supplement import (  # noqa: E402
+    build_selection_hold_supplement,
+)
 
 # Legacy defaults retain the historical R2 command line, while every runtime
 # path is derived from the verified freeze and formal config.
@@ -655,7 +658,18 @@ def _collect_selection_hold_payloads(
     }
     payloads["failure_accounting.json"] = canonical_json_bytes(failure_accounting) + b"\n"
     derivations["failure_accounting.json"] = "sanitized lifecycle accounting through outcome seal"
-    payloads["cost_summary.json"] = canonical_json_bytes(_cost_accounting(private)) + b"\n"
+    cost_summary = {
+        **_cost_accounting(private),
+        "whole_experiment_model_cost": {
+            "status": outcome.cost_status,
+            "batch_model_cost_usd": format(outcome.batch_model_cost_usd, "f"),
+            "updater_model_cost_usd": format(outcome.updater_model_cost_usd, "f"),
+            "total_known_model_cost_usd": format(outcome.total_known_model_cost_usd, "f"),
+            "unresolved_updater_model_call_count": (outcome.unresolved_updater_model_call_count),
+            "unknown_cost_scope": outcome.unknown_cost_scope,
+        },
+    }
+    payloads["cost_summary.json"] = canonical_json_bytes(cost_summary) + b"\n"
     derivations["cost_summary.json"] = (
         "verified per-batch cost evidence with unknown scopes disclosed"
     )
@@ -677,6 +691,36 @@ def _collect_selection_hold_payloads(
     }
     payloads["reproduction.json"] = canonical_json_bytes(reproduction) + b"\n"
     derivations["reproduction.json"] = "selected frozen identities and source CI evidence"
+    supplement, statistics_digest, supplement_digest = build_selection_hold_supplement(
+        root,
+        experiment_id=experiment_id,
+        private_root=private_root,
+        study_path=Path(freeze["study"]["path"]),
+        selection_digest=outcome.selection_digest,
+        outcome_digest=outcome.outcome_digest,
+        whole_experiment_model_cost=cost_summary["whole_experiment_model_cost"],
+    )
+    payloads.update(supplement)
+    derivations.update(
+        {
+            "statistics.json": (
+                "preregistered paired Selection bootstrap over verified batch summaries"
+            ),
+            "reports/technical_report.md": (
+                "deterministic terminal-HOLD technical report bound to public statistics"
+            ),
+            "reports/01_candidate_curve.svg": (
+                "deterministic Selection reliability and normalized-cost chart"
+            ),
+            "reports/02_failure_funnel.svg": (
+                "deterministic Update-Source primary-diagnosis chart"
+            ),
+            "reports/03_pool_comparison.svg": (
+                "deterministic paired Selection gain/regression chart"
+            ),
+            "reports/04_gate_waterfall.svg": ("deterministic Selection-HOLD gate-waterfall chart"),
+        }
+    )
     payloads["README.md"] = (
         "# AgentLoopGate Banking Selection-HOLD sanitized result package\n\n"
         "This derived public view records a verified governance abstention. It does not "
@@ -685,6 +729,9 @@ def _collect_selection_hold_payloads(
         f"- Final decision: `{outcome.final_decision.value}`\n"
         f"- Private outcome digest: `{outcome.outcome_digest}`\n"
         f"- Evidence cutoff: `{cutoff.isoformat().replace('+00:00', 'Z')}`\n"
+        f"- Selection statistics digest: `{statistics_digest}`\n"
+        "- Four terminal-HOLD figures: `reports/01_*.svg` through `04_*.svg`\n"
+        "- Technical report: `reports/technical_report.md`\n"
         "- Publication authorization: not granted by package creation\n\n"
         "A HOLD is not a deployment and means no Release tail was executed.\n"
     ).encode()
@@ -706,6 +753,9 @@ def _collect_selection_hold_payloads(
             "lineage_digest": outcome.lineage_digest,
             "selection_digest": outcome.selection_digest,
             "report_digest": outcome.report_digest,
+            "selection_hold_package_version": "1.1",
+            "selection_hold_statistics_digest": statistics_digest,
+            "selection_hold_supplement_digest": supplement_digest,
             "scientific_protocol_deviations": [],
             "operational_incident_count": len(failure_accounting["operational_incidents"]),
             "package_content_verification_status": "verified",
