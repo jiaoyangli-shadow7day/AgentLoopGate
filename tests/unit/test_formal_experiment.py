@@ -1730,6 +1730,50 @@ def test_banking_r15_protocol_2_identity_repairs_and_preregistration_are_frozen(
     )
 
 
+def test_banking_r15_frozen_identity_private_ci_is_content_addressed() -> None:
+    validation = json.loads(
+        Path(
+            "artifacts/research/banking_r15/"
+            "frozen_identity_private_ci_validation.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    declared_digest = validation.pop("artifact_digest")
+    assert declared_digest == (
+        "sha256:5b3a67042ab2a9e1c7bd3339dfe45d3b59259ec7211695f28b730d2a0967f58b"
+    )
+    assert canonical_digest(validation) == declared_digest
+    assert validation["commit"] == "42990f2d18e00a15ae49f84acbe3970895a3c0a0"
+    assert validation["source_revision"] == (
+        "tree:sha256:0e3d0794bd21c5f20ff78512144e50da37b16a9784fa948a13055f6c847b4c8e"
+    )
+    assert validation["protocol_digest"] == (
+        "sha256:b40198176f9de2b39c9433131455bc0af07eee54650327622677cd9085b84a5f"
+    )
+    assert validation["study_digest"] == (
+        "sha256:bd5988f4f89068fa6347728f6b88ee4b8d8d1f644931ec110944e06b74e25043"
+    )
+    assert validation["preregistration_digest"] == (
+        "sha256:70a48708b8477d95de42dba8c8e2d13eca87ddd532b89cce9b20a91aefb12155"
+    )
+    assert validation["conclusion"] == "success"
+    assert validation["repository_visibility"] == "private"
+    assert validation["repository_remained_private"] is True
+    assert validation["acceptance"]["python_tests_passed"] == 212
+    assert validation["acceptance"]["python_tests_platform_skipped"] == 2
+    assert validation["acceptance"]["typescript_tests_passed"] == 13
+    assert validation["acceptance"]["secret_and_direct_pii_files_scanned"] == 332
+    assert validation["acceptance"]["secret_and_direct_pii_findings"] == 0
+    assert validation["external_model_calls"] == 0
+    assert validation["known_model_cost_usd"] == "0"
+    assert validation["ci_compute_monetary_cost"] == "unmetered_unknown"
+    assert validation["paid_execution_authorization_created"] is False
+    assert validation["paid_positions_started"] == 0
+    assert validation["external_updater_started"] is False
+    assert validation["promotion_or_deployment_executed"] is False
+    assert validation["publication_or_submission_executed"] is False
+
+
 def test_banking_r14_frozen_identity_private_ci_is_content_addressed() -> None:
     validation = json.loads(
         Path(

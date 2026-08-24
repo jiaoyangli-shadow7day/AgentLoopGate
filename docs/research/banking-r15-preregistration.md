@@ -43,7 +43,9 @@ compute monetary cost remains `unmetered_unknown`.
 
 The real formal preflight passed ten checks and stopped only because the exact
 R15 pre-Release machine authorization does not exist. This is the intended
-safety state. Private Linux CI must first pass for the exact frozen tree. No
+safety state. Private Linux CI passed for commit `42990f2`, run `32682027757`,
+job `97300237502`; its validation digest is
+`sha256:5b3a67042ab2a9e1c7bd3339dfe45d3b59259ec7211695f28b730d2a0967f58b`. No
 external Updater, paid position, Release-ID/OOD/Replay, Promote, visibility
 change, GitHub Release, publication, or submission is authorized by this
 document.
