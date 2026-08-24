@@ -568,9 +568,25 @@ def _verify_position_fail_fast_artifact(path: Path, policy: str) -> dict[str, An
         or artifact.get("policy") != policy
         or artifact.get("trigger") != "permanent_infrastructure_invalid"
         or artifact.get("next_position_started") is not False
+        or not isinstance(artifact.get("task_id"), str)
+        or not artifact["task_id"]
+        or isinstance(artifact.get("trial"), bool)
+        or not isinstance(artifact.get("trial"), int)
+        or artifact["trial"] < 0
+        or isinstance(artifact.get("seed"), bool)
+        or not isinstance(artifact.get("seed"), int)
+        or isinstance(artifact.get("attempts_consumed"), bool)
+        or not isinstance(artifact.get("attempts_consumed"), int)
+        or artifact["attempts_consumed"] < 1
     ):
         raise RuntimeError("position-level fail-fast artifact conflicts with policy")
     return artifact
+
+
+def verify_position_fail_fast_artifact(path: Path, policy: str) -> dict[str, Any]:
+    """Verify and return a retained position-level fail-fast trigger."""
+
+    return _verify_position_fail_fast_artifact(path, policy)
 
 
 def bind_current_task_attempt_session(session_id: str) -> str:

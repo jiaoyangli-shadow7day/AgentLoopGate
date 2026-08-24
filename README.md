@@ -59,12 +59,16 @@ Provider 失败的未知成本范围。25 个 DeepSeek Harness 原生 Trace 引�
 批次内部的效率缺口：永久 Infra Invalid 后又运行了 12 个位置，耗时约 1 小时 45 分、588 次模型
 调用、精确已知成本 USD `0.4686327800`。终态与事故证据见
 [`docs/research/banking-r13-terminal.md`](docs/research/banking-r13-terminal.md)；同一身份禁止重跑。
-后继 `EXP_BANKING_R14` 已冻结为 Protocol 2.0：位置级 fail-fast、当前 Experiment 候选统计、
-无请求 DNS 预检、全套运行时校准、独立 `R14_A0` Baseline 和机器预注册均已内容寻址；冻结源码的
-无密钥 clean-room 通过 208 个 Python、13 个 TypeScript 测试和 315 文件零发现审计，精确源码的
-私有 Linux CI 也已通过。付费机器授权尚未生成，因此外部 Updater 和正式位置仍为零。预注册见
-[`artifacts/research/banking_r14/pre_run_preregistration.json`](artifacts/research/banking_r14/pre_run_preregistration.json)。
-这些结果证明证据保全和下游 fail-closed 有效，但仍不证明候选效果或正向自进化方向。
+`EXP_BANKING_R14` 也已不可变 `HOLD`。它完成 25 个 Update-Source、10 个 A0 Update-Check 和
+10 个首候选 Update-Check，并在第二候选首位置耗尽两次重试后由 Protocol 2.0 fail-fast 停止；共
+执行 46 个正式位置，45 个有效。触发后没有启动后续 79 个授权位置或任何模型调用。R14 精确模型
+总成本为 USD `1.4876297096000000032`，包含 4 次外部 Updater 尝试、全部重试和两次终态 User
+调用。A0 为 4/10，唯一完整候选为 3/10 且回归 `task_052`；Selection 为零，所以不能声称找到
+正向自进化方向。事故同时发现候选检查器只验证基线、未验证应用 Patch 后 routing bytes；后继源码
+已用真实 R14 候选做无模型回放并在付费前拒绝两个坏候选，也能把 Agent Turn 前的
+fail-fast 子集如实封为 HOLD、精确记账并保证 Resume 不重跑。完整记录见
+[`docs/research/banking-r14-terminal.md`](docs/research/banking-r14-terminal.md)，终态 Seal Digest 为
+`sha256:b82bdbe871fe7e9fefeb62b6075b60f7e7daca55a0c1cfae922d4822247723e5`。
 精确复现步骤、证据/成本记录规范、未来脱敏结果包合同和技术报告骨架见
 [docs/research/](docs/research/)。这些材料不会把尚未运行的核心矩阵写成已有结果。
 

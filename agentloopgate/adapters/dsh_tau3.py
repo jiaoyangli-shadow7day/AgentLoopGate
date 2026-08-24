@@ -136,6 +136,9 @@ class DshTau3PilotResult(BenchmarkIngestResult):
     dsh_receipts: list[EvidenceReceipt]
     dsh_records: list[RunRecord]
     evidence_joins: list[PilotEvidenceJoin]
+    dsh_evidence_status: Literal["complete", "pre_agent_failure_unavailable"] = (
+        "complete"
+    )
 
     @model_validator(mode="after")
     def dsh_artifacts_align(self) -> DshTau3PilotResult:
@@ -147,8 +150,24 @@ class DshTau3PilotResult(BenchmarkIngestResult):
             raise ValueError("every DSH run must have exactly one evidence receipt")
         if {join.dsh_run_id for join in self.evidence_joins} != dsh_run_ids:
             raise ValueError("every DSH run must have exactly one evidence join")
-        if {join.tau_run_id for join in self.evidence_joins} != tau_run_ids:
-            raise ValueError("every τ³ run must have exactly one evidence join")
+        joined_tau_run_ids = {join.tau_run_id for join in self.evidence_joins}
+        if self.dsh_evidence_status == "complete":
+            if joined_tau_run_ids != tau_run_ids:
+                raise ValueError("every τ³ run must have exactly one evidence join")
+        else:
+            if not joined_tau_run_ids < tau_run_ids:
+                raise ValueError(
+                    "pre-agent DSH unavailability requires at least one unjoined τ³ run"
+                )
+            missing = [
+                record
+                for record in self.records
+                if record.run_id not in joined_tau_run_ids
+            ]
+            if any(record.run_validity is not RunValidity.INFRA_INVALID for record in missing):
+                raise ValueError(
+                    "only infrastructure-invalid τ³ runs may lack pre-agent DSH evidence"
+                )
         return self
 
 
@@ -420,6 +439,7 @@ class DshTau3Adapter(Tau3Adapter):
                 raise BenchmarkUnavailableError(
                     "model usage ledger must remain under the project root"
                 )
+            self._initialize_usage_ledger(usage_ledger)
             environment["AGENTLOOPGATE_MODEL_USAGE_LEDGER"] = str(usage_ledger)
             environment["AGENTLOOPGATE_MODEL_USAGE_LEDGER_SCHEMA_VERSION"] = (
                 self.pilot.model_usage_ledger_schema_version
@@ -430,6 +450,7 @@ class DshTau3Adapter(Tau3Adapter):
                 raise BenchmarkUnavailableError(
                     "user model usage ledger must remain under the project root"
                 )
+            self._initialize_usage_ledger(user_usage_ledger)
             environment["AGENTLOOPGATE_USER_MODEL_USAGE_LEDGER"] = str(
                 user_usage_ledger
             )
@@ -478,6 +499,17 @@ class DshTau3Adapter(Tau3Adapter):
             )
         return result
 
+    @staticmethod
+    def _initialize_usage_ledger(path: Path) -> None:
+        """Materialize an empty append-only ledger so zero calls stay observable."""
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return
+        os.close(descriptor)
+
     def ingest_and_link(
         self,
         result_path: Path,
@@ -488,6 +520,29 @@ class DshTau3Adapter(Tau3Adapter):
             self.project_root,
             pilot=self.pilot,
         ).link(result_path, tau_result)
+
+    def ingest_and_link_position_fail_fast(
+        self,
+        result_path: Path,
+        context: BenchmarkRunContext,
+        *,
+        task_id: str,
+        trial: int,
+    ) -> DshTau3PilotResult:
+        tau_result = super().ingest_position_fail_fast(
+            result_path,
+            context,
+            task_id=task_id,
+            trial=trial,
+        )
+        return DshTau3EvidenceLinker(
+            self.project_root,
+            pilot=self.pilot,
+        ).link(
+            result_path,
+            tau_result,
+            fail_fast_pair=(task_id, trial + 1),
+        )
 
     def composition_digest(self) -> str:
         return canonical_digest(
@@ -592,6 +647,8 @@ class DshTau3EvidenceLinker:
         self,
         result_path: Path,
         tau_result: BenchmarkIngestResult,
+        *,
+        fail_fast_pair: tuple[str, int] | None = None,
     ) -> DshTau3PilotResult:
         raw = self._load_result(result_path)
         simulations = raw.get("simulations")
@@ -615,10 +672,18 @@ class DshTau3EvidenceLinker:
         dsh_records: list[RunRecord] = []
         dsh_receipts: list[EvidenceReceipt] = []
         joins: list[PilotEvidenceJoin] = []
+        pre_agent_failure_unavailable = False
         for tau_record in tau_result.records:
             simulation = by_pair.get((tau_record.task_id, tau_record.trial_index))
             if simulation is None:
                 raise OutcomeImportError("τ³ outcome cannot be paired to its simulation")
+            if (
+                fail_fast_pair == (tau_record.task_id, tau_record.trial_index)
+                and tau_record.run_validity is RunValidity.INFRA_INVALID
+                and simulation.get("messages") == []
+            ):
+                pre_agent_failure_unavailable = True
+                continue
             seed = simulation.get("seed")
             if isinstance(seed, bool) or not isinstance(seed, int):
                 raise OutcomeImportError("τ³ simulation seed is required for DSH evidence join")
@@ -667,6 +732,11 @@ class DshTau3EvidenceLinker:
             dsh_receipts=dsh_receipts,
             dsh_records=dsh_records,
             evidence_joins=joins,
+            dsh_evidence_status=(
+                "pre_agent_failure_unavailable"
+                if pre_agent_failure_unavailable
+                else "complete"
+            ),
         )
 
     @staticmethod

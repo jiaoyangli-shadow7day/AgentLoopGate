@@ -646,10 +646,15 @@ def test_position_fail_fast_calibration_is_content_addressed_and_no_model() -> N
     assert calibration.no_model_acceptance["local_compute_monetary_cost"] == (
         "unmetered_unknown"
     )
-    assert all(
-        file_digest(Path(relative)) == expected
+    assert set(calibration.runtime_bindings) >= {
+        "agentloopgate/runtime/tau3_evidence.py",
+        "agentloopgate/adapters/dsh_tau3.py",
+        "agentloopgate/experiment/batch.py",
+    }
+    assert any(
+        file_digest(Path(relative)) != expected
         for relative, expected in calibration.runtime_bindings.items()
-    )
+    ), "successor repairs must not masquerade as the frozen R14 runtime"
 
 
 def test_successor_integrity_calibration_is_content_addressed_and_no_model() -> None:
@@ -1564,13 +1569,25 @@ def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen(
         "verify_evaluator_overlay_sources",
         lambda *_args, **_kwargs: None,
     )
-    assert _verified_protocol(
-        Path(".").resolve(),
-        config,
-        objective_digest=protocol.objective_digest,
-        split_digest=protocol.split_digest,
-        pricing=pricing,
-    ) == protocol
+    with pytest.raises(ValueError, match="runtime binding mismatch"):
+        _verified_protocol(
+            Path(".").resolve(),
+            config,
+            objective_digest=protocol.objective_digest,
+            split_digest=protocol.split_digest,
+            pricing=pricing,
+        )
+    assert (
+        _verified_protocol(
+            Path(".").resolve(),
+            config,
+            objective_digest=protocol.objective_digest,
+            split_digest=protocol.split_digest,
+            pricing=pricing,
+            allow_runtime_binding_mismatch=True,
+        )
+        == protocol
+    )
     declared_preregistration_digest = preregistration.pop("artifact_digest")
     assert declared_preregistration_digest == (
         "sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9"
@@ -1746,6 +1763,76 @@ def test_banking_r13_terminal_seal_and_fail_fast_incident_are_content_addressed(
     assert seal["governance_findings"]["candidate_effectiveness_established"] is False
     assert seal["governance_findings"]["self_evolution_direction_established"] is False
     assert seal["governance_findings"]["release_started"] is False
+
+def test_banking_r14_terminal_seal_and_candidate_precheck_incident_are_addressed() -> None:
+    incident = json.loads(
+        Path(
+            "artifacts/research/banking_r14/candidate_binding_precheck_incident.json"
+        ).read_text(encoding="utf-8")
+    )
+    incident_digest = incident.pop("artifact_digest")
+    assert canonical_digest(incident) == incident_digest
+    assert incident_digest == (
+        "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26"
+    )
+    assert incident["incident"]["classification"] == (
+        "candidate_specific_runtime_binding_invalid"
+    )
+    assert incident["position_fail_fast"]["next_position_started"] is False
+    assert incident["position_fail_fast"]["model_calls_after_trigger"] == 0
+    assert incident["observed_waste"]["exact_known_cost_usd"] == "0.000504"
+    assert incident["workflow_terminal_gap"]["formal_batch_artifact_written"] is False
+
+    seal = json.loads(
+        Path("artifacts/research/banking_r14/formal_execution_seal.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    seal_digest = seal.pop("artifact_digest")
+    assert canonical_digest(seal) == seal_digest
+    assert seal_digest == (
+        "sha256:b82bdbe871fe7e9fefeb62b6075b60f7e7daca55a0c1cfae922d4822247723e5"
+    )
+    assert seal["terminal_state"] == "immutable_hold"
+    assert seal["execution_scope"]["executed_formal_positions"] == 46
+    assert seal["execution_scope"]["valid_formal_positions"] == 45
+    assert seal["execution_scope"]["infra_invalid_positions"] == 1
+    assert seal["execution_scope"]["update_check"]["executed"] == 21
+    assert seal["execution_scope"]["selection"]["executed"] == 0
+    assert seal["terminal_incident"]["model_calls_after_trigger"] == 0
+    assert seal["aggregate_cost"]["accounting_status"] == "exact"
+    assert seal["aggregate_cost"]["total_exact_known_model_cost_usd"] == (
+        "1.4876297096000000032"
+    )
+    assert seal["governance_findings"]["candidate_effectiveness_established"] is False
+    assert seal["governance_findings"]["self_evolution_direction_established"] is False
+    assert seal["governance_findings"]["release_started"] is False
+
+    repair = json.loads(
+        Path(
+            "artifacts/research/banking_r14/successor_repair_validation.json"
+        ).read_text(encoding="utf-8")
+    )
+    repair_digest = repair.pop("artifact_digest")
+    assert canonical_digest(repair) == repair_digest
+    assert repair_digest == (
+        "sha256:65cbd8cdebd6ab3ea7bd4d7f58a3f937cdd61c47b3cc534c30b568b399b281c8"
+    )
+    assert repair["successor_source_revision"] == _code_revision(Path(".").resolve())
+    assert all(
+        file_digest(Path(relative)) == digest
+        for relative, digest in repair["runtime_bindings"].items()
+    )
+    acceptance = repair["no_model_acceptance"]
+    assert acceptance["external_model_calls"] == 0
+    assert acceptance["known_model_cost_usd"] == "0"
+    assert acceptance["r14_shaped_partial_hold_fixture"]["agent_model_calls"] == 0
+    assert acceptance["r14_shaped_partial_hold_fixture"]["user_model_calls"] == 2
+    assert acceptance["clean_room_attempts"][0]["status"] == "failed_as_designed"
+    assert acceptance["clean_room_attempts"][1]["status"] == "passed"
+    assert acceptance["clean_room_attempts"][2][
+        "repair_validation_artifact_present"
+    ] is True
 
 
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
@@ -2298,6 +2385,180 @@ def test_formal_batch_seals_retry_exhausted_infra_evidence_as_hold(
     assert result.artifact.summary.infra_invalid_count == 1
     assert result.artifact.summary.integrity_complete is False
     assert result.artifact.summary.mean_cost == 0
+
+
+def test_position_fail_fast_partial_batch_seals_hold_cost_and_resumes_without_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _formal_execution(tmp_path, infrastructure_error=True)
+    partial = DshTau3PilotResult.model_validate(
+        {
+            **execution.result.model_dump(mode="python"),
+            "dsh_receipts": [],
+            "dsh_records": [],
+            "evidence_joins": [],
+            "dsh_evidence_status": "pre_agent_failure_unavailable",
+        }
+    )
+    execution = FormalBatchExecution(
+        result_path=execution.result_path,
+        result=partial,
+    )
+
+    class _FailFastExecutor(_FakeBatchExecutor):
+        direct_cost_lineage = True
+        cost_gate_scope = "valid_runs"
+
+        def execute(self, spec):
+            self.calls += 1
+            assert spec.task_ids == ["task_001", "task_002"]
+            return self.execution
+
+        def model_usage_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/model_usage"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def user_model_usage_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/user_model_usage"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def task_attempt_path(self, spec):
+            return (
+                tmp_path
+                / "runs/experiments/EXP_TEST/task_attempts"
+                / f"{spec.batch_id}.jsonl"
+            )
+
+        def position_fail_fast_path(self, spec):
+            return self.task_attempt_path(spec).with_suffix(
+                ".position_fail_fast.json"
+            )
+
+        @staticmethod
+        def position_fail_fast_policy():
+            return "stop_before_next_position_after_permanent_infra_invalid_v1"
+
+        @staticmethod
+        def frozen_token_prices():
+            return (Decimal("100"), Decimal("0"), Decimal("200"))
+
+    executor = _FailFastExecutor(execution)
+    spec = _batch_spec().model_copy(
+        update={
+            "protocol_digest": DIGEST_C,
+            "task_ids": ["task_001", "task_002"],
+            "initial_state_digests": {
+                "task_001": DIGEST_C,
+                "task_002": DIGEST_C,
+            },
+        }
+    )
+    manifest = tmp_path / "snapshots/A0/manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps({"code_revision": "tree:sha256:" + "d" * 64}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AGENTLOOPGATE_TASK_ATTEMPT_LEDGER_SCHEMA_VERSION", "1.1")
+    task_path = executor.task_attempt_path(spec)
+    for attempt_index, cost in ((1, Decimal("0.0002")), (2, Decimal("0.0003"))):
+        fields = {
+            "task_id": "task_001",
+            "trial": 0,
+            "seed": 300,
+            "attempt_index": attempt_index,
+        }
+        _append_task_event(task_path, state="started", **fields)
+        _append_task_event(
+            task_path,
+            state="session_bound",
+            session_id_hash=DIGEST_A,
+            source_locator=f"dsh-session:{DIGEST_A}",
+            **fields,
+        )
+        _append_task_event(
+            task_path,
+            state="failed",
+            duration_ms=100,
+            error_type="CapabilityBindingError",
+            error_message="fixture pre-agent failure",
+            session_binding_status="bound",
+            session_id_hash=DIGEST_A,
+            source_locator=f"dsh-session:{DIGEST_A}",
+            **fields,
+        )
+        _append_usage_pair(
+            executor.user_model_usage_path(spec),
+            f"MC_USER_{attempt_index}",
+            cost,
+            input_tokens=attempt_index + 1,
+            cache_read_tokens=0,
+            output_tokens=0,
+            task_id="task_001",
+            trial=0,
+            seed=300,
+            task_attempt_index=attempt_index,
+        )
+    agent_usage_path = executor.model_usage_path(spec)
+    agent_usage_path.parent.mkdir(parents=True, exist_ok=True)
+    agent_usage_path.write_text("", encoding="utf-8")
+    trigger_payload = {
+        "schema_version": "1.0",
+        "policy": executor.position_fail_fast_policy(),
+        "trigger": "permanent_infrastructure_invalid",
+        "triggered_at": "2026-08-20T00:00:00Z",
+        "task_id": "task_001",
+        "trial": 0,
+        "seed": 300,
+        "attempts_consumed": 2,
+        "next_position_started": False,
+    }
+    trigger_path = executor.position_fail_fast_path(spec)
+    trigger_path.write_text(
+        json.dumps(
+            {
+                **trigger_payload,
+                "artifact_digest": canonical_digest(trigger_payload),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    runner = FormalBatchRunner(tmp_path, executor)
+    first = runner.run(spec)
+    second = runner.run(spec)
+
+    cost = json.loads(
+        (
+            tmp_path
+            / f"runs/experiments/EXP_TEST/costs/{spec.batch_id}.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert first.artifact.disposition == "hold"
+    assert first.artifact.hold_reasons == [
+        "dsh_evidence:pre_agent_failure_unavailable",
+        "infra_invalid:1",
+        "missing_valid_trials",
+    ]
+    assert first.artifact.summary.expected_task_count == 2
+    assert first.artifact.summary.valid_run_count == 0
+    assert first.artifact.dsh_run_ids == []
+    assert first.artifact.evidence_join_ids == []
+    assert cost["accounting_status"] == "exact"
+    assert cost["agent_model_call_count"] == 0
+    assert cost["user_model_call_count"] == 2
+    assert cost["total_cost_lower_bound_usd"] == "0.0005"
+    assert second.resumed is True
+    assert second.artifact.batch_digest == first.artifact.batch_digest
+    assert executor.calls == 1
 
 
 def test_orchestrator_stops_when_a_formal_batch_is_held(tmp_path: Path) -> None:

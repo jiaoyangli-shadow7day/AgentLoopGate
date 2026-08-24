@@ -361,6 +361,31 @@ class Tau3Adapter:
         result_path: Path,
         context: BenchmarkRunContext,
     ) -> BenchmarkIngestResult:
+        return self._ingest(result_path, context, fail_fast_pair=None)
+
+    def ingest_position_fail_fast(
+        self,
+        result_path: Path,
+        context: BenchmarkRunContext,
+        *,
+        task_id: str,
+        trial: int,
+    ) -> BenchmarkIngestResult:
+        """Ingest a verified partial result stopped at one infra-invalid position."""
+
+        return self._ingest(
+            result_path,
+            context,
+            fail_fast_pair=(task_id, trial),
+        )
+
+    def _ingest(
+        self,
+        result_path: Path,
+        context: BenchmarkRunContext,
+        *,
+        fail_fast_pair: tuple[str, int] | None,
+    ) -> BenchmarkIngestResult:
         raw = self._load_object(result_path)
         info = self._object(raw, "info")
         self._validate_info(info, context)
@@ -385,8 +410,29 @@ class Tau3Adapter:
                 raise OutcomeImportError("τ³ result contains a duplicate task trial or run id")
             actual_pairs.add(pair)
             run_ids.add(run_id)
-        if actual_pairs != expected_pairs:
-            raise OutcomeImportError("τ³ result is missing or adds an expected task trial")
+        if fail_fast_pair is None:
+            if actual_pairs != expected_pairs:
+                raise OutcomeImportError("τ³ result is missing or adds an expected task trial")
+        else:
+            if (
+                fail_fast_pair not in expected_pairs
+                or fail_fast_pair not in actual_pairs
+                or not actual_pairs < expected_pairs
+            ):
+                raise OutcomeImportError(
+                    "τ³ fail-fast result is not a strict subset of expected trials"
+                )
+            trigger = next(
+                simulation
+                for simulation in simulations
+                if isinstance(simulation, dict)
+                and (simulation.get("task_id"), simulation.get("trial"))
+                == fail_fast_pair
+            )
+            if trigger.get("termination_reason") != "infrastructure_error":
+                raise OutcomeImportError(
+                    "τ³ fail-fast trigger is not infrastructure-invalid"
+                )
 
         created_at = self._datetime(raw.get("timestamp"))
         ref = self.store.attach(

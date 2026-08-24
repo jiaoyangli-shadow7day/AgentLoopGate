@@ -136,6 +136,21 @@ def unified(path: str, added: str) -> str:
     )
 
 
+def routing_addition(added: str) -> str:
+    lines = added.splitlines()
+    additions = "\n".join(f"+{line}" for line in lines)
+    return (
+        "diff --git a/harness/tools/routing.yaml b/harness/tools/routing.yaml\n"
+        "--- a/harness/tools/routing.yaml\n"
+        "+++ b/harness/tools/routing.yaml\n"
+        f"@@ -2,3 +2,{3 + len(lines)} @@ schema_version: '1.0'\n"
+        " capability_binding:\n"
+        "   source: runtime_tool_schema\n"
+        "   reject_unknown_route_targets: true\n"
+        f"{additions}\n"
+    )
+
+
 def project(root: Path) -> None:
     (root / "configs").mkdir(parents=True)
     (root / "harness/retrieval").mkdir(parents=True)
@@ -285,10 +300,7 @@ def test_static_tool_capability_is_rejected_before_candidate_execution(
     )
     patch = patch_file(
         tmp_path,
-        unified(
-            "harness/tools/routing.yaml",
-            "  capability: run_shell_command",
-        ),
+        routing_addition("routes:\n  - capability: run_shell_command"),
     )
 
     result = checker.check(patch)
@@ -313,9 +325,8 @@ def test_runtime_capability_reference_passes_semantic_candidate_check(
     )
     patch = patch_file(
         tmp_path,
-        unified(
-            "harness/tools/routing.yaml",
-            "  capability_ref: runtime://tool/lookup_account",
+        routing_addition(
+            "routes:\n  - capability_ref: runtime://tool/lookup_account"
         ),
     )
 
@@ -323,6 +334,29 @@ def test_runtime_capability_reference_passes_semantic_candidate_check(
 
     assert result.disposition is CheckDisposition.PASS
     assert result.code is CandidateCheckCode.PASS
+
+
+def test_post_patch_runtime_binding_is_validated_before_paid_candidate_check(
+    tmp_path: Path,
+) -> None:
+    project(tmp_path)
+    semantic = semantic_policy()
+    checker = CandidateChecker(
+        tmp_path,
+        semantic_manifest(),
+        semantic,
+        freeze_trust_kernel(tmp_path, semantic),
+    )
+    patch = patch_file(
+        tmp_path,
+        routing_addition("  require_intent_resolution: true"),
+    )
+
+    result = checker.check(patch)
+
+    assert result.disposition is CheckDisposition.REJECT
+    assert result.code is CandidateCheckCode.REJECT_UNBOUND_CAPABILITY
+    assert "after patch" in result.message
 
 
 def test_semantically_duplicate_sibling_candidate_is_rejected(tmp_path: Path) -> None:

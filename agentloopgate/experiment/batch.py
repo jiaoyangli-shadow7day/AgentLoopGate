@@ -23,6 +23,7 @@ from agentloopgate.adapters.evidence import BenchmarkEvidenceStore
 from agentloopgate.bridge import BridgeService
 from agentloopgate.contracts import canonical_digest, canonical_json_bytes
 from agentloopgate.evaluation import EvaluationAuditor, EvaluationContext, EvaluationSummary
+from agentloopgate.runtime import verify_position_fail_fast_artifact
 from agentloopgate.schemas import (
     ArtifactId,
     Digest,
@@ -31,6 +32,7 @@ from agentloopgate.schemas import (
     PilotEvidenceJoin,
     Pool,
     RunRecord,
+    RunValidity,
     SourceTraceRef,
 )
 from agentloopgate.schemas.models import NonEmpty, StrictModel
@@ -123,8 +125,8 @@ class FormalBatchArtifact(StrictModel):
     result_artifact: NonEmpty
     tau_source_trace_id: ArtifactId
     tau_run_ids: list[ArtifactId] = Field(min_length=1)
-    dsh_run_ids: list[ArtifactId] = Field(min_length=1)
-    evidence_join_ids: list[ArtifactId] = Field(min_length=1)
+    dsh_run_ids: list[ArtifactId]
+    evidence_join_ids: list[ArtifactId]
     summary: EvaluationSummary
     disposition: Literal["complete", "hold"] = "complete"
     hold_reasons: list[NonEmpty] = Field(default_factory=list)
@@ -213,7 +215,7 @@ class DshFormalBatchExecutor:
             context = self._context(spec)
             return FormalBatchExecution(
                 result_path=retained,
-                result=self.adapter.ingest_and_link(retained, context),
+                result=self._ingest_retained(spec, retained, context),
             )
         if self.existing_only:
             raise FormalBatchError(
@@ -228,7 +230,29 @@ class DshFormalBatchExecutor:
         self._copy_once(upstream, retained)
         return FormalBatchExecution(
             result_path=retained,
-            result=self.adapter.ingest_and_link(retained, context),
+            result=self._ingest_retained(spec, retained, context),
+        )
+
+    def _ingest_retained(
+        self,
+        spec: FormalBatchSpec,
+        retained: Path,
+        context: BenchmarkRunContext,
+    ) -> DshTau3PilotResult:
+        fail_fast_path = self.position_fail_fast_path(spec)
+        if not fail_fast_path.is_file():
+            return self.adapter.ingest_and_link(retained, context)
+        policy = self.position_fail_fast_policy()
+        if policy is None:
+            raise FormalBatchError(
+                "position fail-fast evidence exists without a frozen policy"
+            )
+        trigger = verify_position_fail_fast_artifact(fail_fast_path, policy)
+        return self.adapter.ingest_and_link_position_fail_fast(
+            retained,
+            context,
+            task_id=trigger["task_id"],
+            trial=trigger["trial"],
         )
 
     def execution_command(self, spec: FormalBatchSpec) -> list[str]:
@@ -296,6 +320,9 @@ class DshFormalBatchExecutor:
 
     def position_fail_fast_path(self, spec: FormalBatchSpec) -> Path:
         return self.task_attempt_path(spec).with_suffix(".position_fail_fast.json")
+
+    def position_fail_fast_policy(self) -> str | None:
+        return self.adapter.pilot.position_fail_fast_policy
 
     def frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal]:
         pricing = self.adapter.pilot.pricing
@@ -410,10 +437,23 @@ class FormalBatchRunner:
                 return FormalBatchRunResult(artifact=artifact, resumed=True)
             execution = self.executor.execute(spec)
             result_artifact = self.store.relative_path(execution.result_path)
-            summary = self._summarize_and_verify(execution.result, spec)
+            fail_fast = self._verified_position_fail_fast(
+                spec,
+                execution.result,
+                position_fail_fast_path,
+            )
+            summary = self._summarize_and_verify(
+                execution.result,
+                spec,
+                position_fail_fast=fail_fast,
+            )
             hold_reasons = list(summary.integrity_issues)
             if summary.infra_invalid_count:
                 hold_reasons.append(f"infra_invalid:{summary.infra_invalid_count}")
+            if execution.result.dsh_evidence_status != "complete":
+                hold_reasons.append(
+                    f"dsh_evidence:{execution.result.dsh_evidence_status}"
+                )
             cost = cost_path = None
             if ledger is not None:
                 cost, cost_path = self._seal_costs(
@@ -586,6 +626,61 @@ class FormalBatchRunner:
     def _position_fail_fast_path(self, spec: FormalBatchSpec) -> Path | None:
         method = getattr(self.executor, "position_fail_fast_path", None)
         return method(spec) if callable(method) else None
+
+    def _position_fail_fast_policy(self) -> str | None:
+        method = getattr(self.executor, "position_fail_fast_policy", None)
+        return method() if callable(method) else None
+
+    def _verified_position_fail_fast(
+        self,
+        spec: FormalBatchSpec,
+        result: DshTau3PilotResult,
+        path: Path | None,
+    ) -> bool:
+        if path is None or not path.is_file():
+            if result.dsh_evidence_status != "complete":
+                raise FormalBatchError(
+                    "incomplete DSH evidence lacks a position fail-fast trigger"
+                )
+            return False
+        policy = self._position_fail_fast_policy()
+        if policy is None:
+            raise FormalBatchError(
+                "position fail-fast evidence exists without a frozen policy"
+            )
+        trigger = verify_position_fail_fast_artifact(path, policy)
+        trigger_pair = (trigger.get("task_id"), int(trigger.get("trial", -1)) + 1)
+        matches = [
+            record
+            for record in result.records
+            if (record.task_id, record.trial_index) == trigger_pair
+        ]
+        if (
+            len(matches) != 1
+            or matches[0].run_validity is not RunValidity.INFRA_INVALID
+        ):
+            raise FormalBatchError(
+                "position fail-fast trigger does not match one infra-invalid run"
+            )
+        expected_pairs = {
+            (task_id, trial)
+            for task_id in spec.task_ids
+            for trial in range(1, spec.trials + 1)
+        }
+        actual_pairs = {(record.task_id, record.trial_index) for record in result.records}
+        if not actual_pairs < expected_pairs:
+            raise FormalBatchError(
+                "position fail-fast evidence does not describe a partial formal batch"
+            )
+        if result.dsh_evidence_status != "complete":
+            joined_pairs = {
+                (join.task_id, join.trial_index) for join in result.evidence_joins
+            }
+            if actual_pairs - joined_pairs != {trigger_pair}:
+                raise FormalBatchError(
+                    "only the fail-fast trigger may lack pre-agent DSH evidence"
+                )
+        return True
 
     def _frozen_token_prices(self) -> tuple[Decimal, Decimal, Decimal] | None:
         method = getattr(self.executor, "frozen_token_prices", None)
@@ -761,13 +856,25 @@ class FormalBatchRunner:
             ],
             dsh_records=dsh_records,
             evidence_joins=joins,
+            dsh_evidence_status=(
+                "complete" if len(dsh_records) == len(tau_records)
+                else "pre_agent_failure_unavailable"
+            ),
         )
         retained = self.store.resolve_artifact_uri(
             f"artifact:{artifact.result_artifact}"
         )
         if not retained.is_file():
             raise FormalBatchError("retained formal raw result is unavailable")
-        summary = self._summarize_and_verify(result, spec)
+        summary = self._summarize_and_verify(
+            result,
+            spec,
+            position_fail_fast=self._verified_position_fail_fast(
+                spec,
+                result,
+                self._position_fail_fast_path(spec),
+            ),
+        )
         if artifact.summary.schema_version == "1.1":
             if cost is None:
                 raise FormalBatchError(
@@ -781,23 +888,44 @@ class FormalBatchRunner:
         self,
         result: DshTau3PilotResult,
         spec: FormalBatchSpec,
+        *,
+        position_fail_fast: bool = False,
     ) -> EvaluationSummary:
         expected_count = len(spec.task_ids) * spec.trials
-        if len(result.records) != expected_count or len(result.dsh_records) != expected_count:
+        if position_fail_fast:
+            if not 0 < len(result.records) < expected_count:
+                raise FormalBatchError(
+                    "position fail-fast batch must retain a partial run population"
+                )
+        elif (
+            len(result.records) != expected_count
+            or len(result.dsh_records) != expected_count
+        ):
             raise FormalBatchError("formal batch does not contain every expected task trial")
         self._verify_receipts(result.records, result.receipts)
         self._verify_receipts(result.dsh_records, result.dsh_receipts)
         if self.store.verify(result.source_trace_ref) is not EvidenceStatus.VERIFIED:
             raise FormalBatchError("τ³ source trace is not verified")
         joins = {(join.task_id, join.trial_index): join for join in result.evidence_joins}
-        if len(joins) != expected_count:
+        if not position_fail_fast and len(joins) != expected_count:
             raise FormalBatchError("formal batch evidence joins are incomplete")
         tau_by_pair = {(record.task_id, record.trial_index): record for record in result.records}
         dsh_by_pair = {
             (record.task_id, record.trial_index): record for record in result.dsh_records
         }
-        if set(joins) != set(tau_by_pair) or set(joins) != set(dsh_by_pair):
+        if set(joins) != set(dsh_by_pair) or (
+            not position_fail_fast and set(joins) != set(tau_by_pair)
+        ):
             raise FormalBatchError("formal batch evidence planes have different task trials")
+        if position_fail_fast:
+            unjoined = set(tau_by_pair) - set(joins)
+            if any(
+                tau_by_pair[pair].run_validity is not RunValidity.INFRA_INVALID
+                for pair in unjoined
+            ):
+                raise FormalBatchError(
+                    "only infra-invalid runs may lack pre-agent DSH evidence"
+                )
         for pair, join in joins.items():
             tau = tau_by_pair[pair]
             dsh = dsh_by_pair[pair]

@@ -390,6 +390,57 @@ def test_dsh_tau3_child_env_bypasses_proxy_and_binds_versioned_attempt_ledgers(
     assert captured["AGENTLOOPGATE_POSITION_FAIL_FAST_POLICY"] == (
         "stop_before_next_position_after_permanent_infra_invalid_v1"
     )
+    assert request.model_usage_ledger is not None
+    assert request.user_model_usage_ledger is not None
+    assert request.model_usage_ledger.read_bytes() == b""
+    assert request.user_model_usage_ledger.read_bytes() == b""
+
+
+def test_dsh_tau3_ingests_verified_pre_agent_fail_fast_without_inventing_trace(
+    tmp_path: Path,
+) -> None:
+    payload = tau3_result(infrastructure_error=True)
+    payload["tasks"].append({"id": "task_002", "required_documents": []})
+    payload["simulations"][0]["messages"] = []
+    payload["simulations"][0]["agent_cost"] = None
+    payload["simulations"][0]["user_cost"] = None
+    payload["info"]["agent_info"]["llm"] = (
+        "deepseek-official/deepseek-v4-flash"
+    )
+    raw = write_json(tmp_path / "upstream/results.json", payload)
+    partial_context = context(
+        model_id="deepseek-official/deepseek-v4-flash"
+    ).model_copy(
+        update={
+            "expected_task_ids": ["task_001", "task_002"],
+            "initial_state_digests": {
+                "task_001": DIGEST_C,
+                "task_002": DIGEST_C,
+            },
+        }
+    )
+    adapter = DshTau3Adapter(
+        tmp_path,
+        checkout=tmp_path / "tau3",
+        pilot=pilot_config(tmp_path),
+    )
+
+    with pytest.raises(OutcomeImportError, match="missing or adds"):
+        adapter.ingest_and_link(raw, partial_context)
+
+    result = adapter.ingest_and_link_position_fail_fast(
+        raw,
+        partial_context,
+        task_id="task_001",
+        trial=0,
+    )
+
+    assert len(result.records) == 1
+    assert result.records[0].run_validity is RunValidity.INFRA_INVALID
+    assert result.dsh_evidence_status == "pre_agent_failure_unavailable"
+    assert result.dsh_records == []
+    assert result.dsh_receipts == []
+    assert result.evidence_joins == []
 
 
 def test_dsh_tau3_evidence_join_preserves_both_trace_authorities(tmp_path: Path) -> None:

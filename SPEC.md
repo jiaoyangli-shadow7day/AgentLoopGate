@@ -541,6 +541,17 @@ Evidence Join、完整性问题和 HOLD 原因，不能让“封存失败”遮�
 对同一份不可变原始字节重新摄取并生成 HOLD Artifact，无需再次调用模型；该快速裁决不能把
 HOLD 改写为通过，也不能替代后续获得决策级证据所需的对称重跑。
 
+若内容寻址的位置级 fail-fast 在批次中途触发，Adapter 只允许摄取属于冻结期望集合的严格子集，
+且触发 Artifact 的 `(task_id, trial)` 必须精确对应其中一个 `infra_invalid` Run；普通缺分母结果仍
+必须拒绝。运行器必须将该子集封为不可变 Batch `HOLD`，把全部未运行位置保留为
+`missing_valid_trials`，写出精确或显式下界 Cost，并使 Resume 仅验封而不再执行。若失败发生在首次
+Agent Turn 之前，DeepSeek Harness 原生 Trace 在语义上尚不存在：系统必须把唯一触发位置记录为
+`pre_agent_failure_unavailable`，保留 τ³ Raw、Task Attempt、User Usage 和 fail-fast 触发器，
+不得伪造 DSH Trace 或 Evidence Join；已完成的较早位置仍必须保留其真实 DSH Join。Agent 与 User
+Usage Ledger 必须在子进程启动前初始化为空的 append-only 文件，使“0 次调用”可与“账本缺失”区分。
+在直接 Task-Attempt Lineage、冻结价格、零未结算调用和两个已初始化账本均验证通过时，零 Agent
+调用加已知 User 调用可以形成 `whole_attempt accounting_status=exact`。
+
 每次正式调用无论成功或失败，都必须先把宿主原生 Session Trace 与 Runner Envelope 刷盘，再
 写终态。Adapter 应从已验证的原生 Trace/Envelope 恢复输入、缓存命中、输出 Token、模型费用、
 finish reason 和耗时；可验证值进入 Attempt 的已知费用，无法验证的范围保留为 `unknown`，不得
@@ -822,7 +833,10 @@ Update-Check 分数反向伪造“Updater-native score”。
 声明 `runtime_capability_routing` 语义校验；运行时逐项验证 `capability_ref`，未知目标 fail closed。
 为了保持跨 DeepSeek Harness、τ³ 和其他宿主的可移植性，Candidate Check 不允许候选硬编码未绑定的
 `capability:` 清单。工具路由资产仍可作为模型上下文，但其“目标存在”必须由运行时 Registry 校验，
-不能仅凭 YAML 文案声称已经执行了路由治理。
+不能仅凭 YAML 文案声称已经执行了路由治理。Candidate Check 必须在隔离目录把 Patch 应用到冻结父
+Snapshot，并对应用后的候选字节执行同一 Runtime Binding 结构校验；只验证 Patch 前基线、Diff 文本
+或声明的语义标签均不充分。候选若改变 `capability_binding` 的精确结构、使最终 YAML 无法解析或无法
+应用，必须在任何付费 Update-Check 位置启动前 `REJECT_UNBOUND_CAPABILITY`。
 
 ### 7.6 AHE → ACE Tripwire
 
@@ -2254,6 +2268,30 @@ Digest 为 `sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a
 精确 R14 私有 CI 已在提交 `f176e24` 通过，机器记录 Digest 为
 `sha256:60b4ba01dec42874a6b8db06e8624be3e31932186b4c3642673257a88daa557b`。精确机器授权
 通过前，外部 Updater 与任何付费位置必须保持为 0；该状态不得解释为 R14 已经证明候选有效。
+
+### 16.16 R14 后的候选 Prospective-Byte 预检边界
+
+R14 完成 25/25 Update-Source、10/10 A0 Update-Check 和首候选 10/10 Update-Check；第二候选
+`C_AHE_3F448BFD7A0D` 在首个 Update-Check 位置两次均因 `CapabilityBindingError` 失败。Protocol
+2.0 位置级 fail-fast 正确保证下一位置与触发后模型调用均为 0，因此剩余 19 个 Update-Check 与
+60 个 Selection 位置未启动；禁止把未观测的反事实费用宣称为精确节省。
+
+根因是 `runtime_capability_routing_v1` 只检查 Patch 前基线与 Diff 文本，没有在隔离目录应用 Patch
+并验证候选最终字节。候选因此在登记时错误 `PASS`，到付费运行时才发现 `capability_binding` 不再与
+Runtime Contract 精确相等。后继 Candidate Check 必须以冻结 Parent Snapshot 为输入，应用 Patch、
+验证可应用性与 YAML 可解析性，再验证最终 Binding；任何一步失败均在付费前
+`REJECT_UNBOUND_CAPABILITY`。运行器还必须把候选特定的预执行不兼容封存为一等 Candidate Reject
+或不可变 Batch HOLD，并保存零或精确已知成本，不能只返回缺失分母的通用错误。后继实现已增加
+受内容寻址 fail-fast 约束的 Partial Batch 摄取：触发位置在 Agent Turn 前失败时不伪造 DSH Trace，
+而是以 `pre_agent_failure_unavailable` 明示缺失证据平面，并以初始化的空 Agent Usage Ledger 证明
+零 Agent 调用；无模型回归同时证明首次封存为 HOLD、成本精确归集、再次 Resume 不执行。
+
+R14 共执行 46 个正式位置，45 个有效；精确模型总成本 USD `1.4876297096000000032`。A0
+Update-Check 为 4/10，唯一完整候选为 3/10 且回归 `task_052`；Selection、Release 与 Promote
+均为 0。因此 R14 证明 fail-fast 止损和证据诊断有效，但不证明候选有效或正确自进化方向。同一身份
+禁止恢复、补齐或扩展。事故 Artifact Digest 为
+`sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26`，终态 Seal Digest 为
+`sha256:b82bdbe871fe7e9fefeb62b6075b60f7e7daca55a0c1cfae922d4822247723e5`。
 
 ---
 

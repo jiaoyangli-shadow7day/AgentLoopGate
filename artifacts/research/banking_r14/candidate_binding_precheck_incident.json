@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R14_CANDIDATE_BINDING_PRECHECK_INCIDENT",
+  "experiment_id": "EXP_BANKING_R14",
+  "recorded_at": "2026-08-24T00:51:07Z",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "protocol_digest": "sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1",
+    "study_digest": "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96",
+    "source_revision": "tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe",
+    "baseline_snapshot_id": "R14_A0",
+    "paid_authorization_id": "AUTH_5FA037EDA2B6782B4C57",
+    "paid_authorization_digest": "sha256:d21a92967513688d101060f88fd996e8b78d692b6c5591bd458e2665ab0d9dd8"
+  },
+  "incident": {
+    "stage": "update_check",
+    "batch_id": "B_48A834A838339F0D0D17",
+    "candidate_id": "C_AHE_3F448BFD7A0D",
+    "snapshot_id": "S_61ABAB8129E2E94C",
+    "task_id": "task_027",
+    "position_in_candidate_batch": 1,
+    "seed": 626729,
+    "attempts_consumed": 2,
+    "retry_budget_exhausted": true,
+    "error_type": "CapabilityBindingError",
+    "error": "tool routing is not bound to the runtime tool schema",
+    "classification": "candidate_specific_runtime_binding_invalid",
+    "raw_result_classification": "infrastructure_error",
+    "formal_cli_error": {
+      "code": "formal_evidence_invalid",
+      "message": "tau3 result is missing or adds an expected task trial",
+      "exit_code": 5
+    }
+  },
+  "attempts": [
+    {
+      "attempt_index": 1,
+      "state": "failed",
+      "duration_ms": 1578,
+      "user_model_calls": 1,
+      "user_input_tokens": 1671,
+      "user_output_tokens": 70,
+      "exact_user_cost_usd": "0.00025354",
+      "agent_model_calls": 0
+    },
+    {
+      "attempt_index": 2,
+      "state": "failed",
+      "duration_ms": 1161,
+      "user_model_calls": 1,
+      "user_input_tokens": 1671,
+      "user_output_tokens": 59,
+      "exact_user_cost_usd": "0.00025046",
+      "agent_model_calls": 0
+    }
+  ],
+  "position_fail_fast": {
+    "policy": "stop_before_next_position_after_permanent_infra_invalid_v1",
+    "trigger_artifact": "runs/experiments/EXP_BANKING_R14/task_attempts/B_48A834A838339F0D0D17.position_fail_fast.json",
+    "trigger_digest": "sha256:c3a8e491ebb589d91cefe48bdff4c2a0ed22fe17ba5b540fe133548685ef5052",
+    "next_position_started": false,
+    "later_positions_started_in_same_batch": 0,
+    "model_calls_after_trigger": 0,
+    "remaining_update_check_positions_not_started": 19,
+    "selection_positions_not_started": 60,
+    "total_authorized_positions_not_started_after_trigger": 79,
+    "counterfactual_cost_saved_usd": "not_identifiable_without_rerun"
+  },
+  "root_cause": {
+    "candidate_check_before_runtime": "pass",
+    "candidate_check_artifact": "candidates/C_AHE_3F448BFD7A0D/check.json",
+    "candidate_check_code": "PASS",
+    "candidate_patch": "candidates/C_AHE_3F448BFD7A0D/candidate.patch",
+    "candidate_patch_digest": "sha256:b9609dd8585dfb5b485d91ac0ff145b269a415aaa2bb48641d467a6631e3c343",
+    "defect": "runtime_capability_routing_v1 validated the live baseline routing bytes and diff tokens, but did not apply the patch and validate the prospective candidate routing bytes",
+    "candidate_effect": "the patch added fields inside capability_binding, so the final mapping no longer exactly equaled the portable runtime binding contract",
+    "why_private_ci_did_not_catch_it": "frozen-source CI tested the validator and baseline assets before this external Updater candidate existed; candidate-specific prospective-byte validation was absent"
+  },
+  "observed_waste": {
+    "paid_positions": 1,
+    "task_attempts": 2,
+    "attempt_duration_ms_sum": 2739,
+    "formal_batch_duration_ms": 7125,
+    "agent_model_calls": 0,
+    "user_model_calls": 2,
+    "exact_known_cost_usd": "0.000504",
+    "unknown_model_cost_scope": [],
+    "interpretation": "the candidate-specific invalidity should have been rejected without a paid task; the successor control removes this observed precheck waste class"
+  },
+  "workflow_terminal_gap": {
+    "position_fail_fast_trigger_written": true,
+    "formal_batch_artifact_written": false,
+    "formal_cost_artifact_written": false,
+    "immutable_hold_outcome_written_by_runner": false,
+    "effect": "the runner stopped safely but surfaced formal_evidence_invalid instead of sealing a first-class candidate-rejection or immutable HOLD outcome"
+  },
+  "required_successor_repairs": [
+    "apply every guarded candidate patch in an isolated copy of the frozen parent source before semantic validation",
+    "validate the post-patch capability_binding mapping against the exact runtime contract before registration or any paid Update-Check",
+    "reject YAML that cannot be applied, parsed, or exactly runtime-bound as REJECT_UNBOUND_CAPABILITY",
+    "cover both mapping-form and list-item static capability keys",
+    "convert candidate-specific pre-execution incompatibility into candidate rejection while preserving a terminal batch and exact zero-or-known cost artifact",
+    "freeze a new experiment identity before any additional paid work"
+  ],
+  "non_fixes": [
+    "do not edit or resume EXP_BANKING_R14",
+    "do not delete the failed candidate or task_027 attempts",
+    "do not classify the two exact User model calls as zero cost",
+    "do not refill the missing Update-Check denominator with another task",
+    "do not claim that Selection ran or that a correct self-evolution direction was established"
+  ],
+  "retained_evidence_sha256": {
+    "candidate_check": "ffa8025c7e1501944048e6f1103260512c474d6bac8ea6d844d30c8b0e5e5ffd",
+    "candidate_patch": "b9609dd8585dfb5b485d91ac0ff145b269a415aaa2bb48641d467a6631e3c343",
+    "candidate_snapshot_manifest": "00b885975ac07135d7eb6e79bc57dd05ad4a472a45108ee9378e53e004822b43",
+    "raw_result": "4ee345f51c2819c7fba180eefb6df41500f494608e0a77b75f97bc1fa53ed1a3",
+    "task_attempt_ledger": "c088a7515374e8d35e044101eb4047b1bda4c3a667c4b8c428d15731e56604a9",
+    "position_fail_fast_trigger": "d05f81e02963974f576f42cc49fe0729269e96f4e258b3b9c05fc3c9f259c951",
+    "user_model_usage_ledger": "683953bef2a5e7f51cee3b13adce3703e95c640117b2b4f8e141e8fe7c908c57"
+  },
+  "artifact_digest": "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26"
+}

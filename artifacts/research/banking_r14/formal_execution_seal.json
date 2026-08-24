@@ -1,0 +1,203 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R14_FORMAL_EXECUTION_SEAL",
+  "experiment_id": "EXP_BANKING_R14",
+  "recorded_at": "2026-08-24T00:51:07Z",
+  "terminal_state": "immutable_hold",
+  "contains_raw_customer_data": false,
+  "frozen_identity": {
+    "protocol_digest": "sha256:8c6baf57c6f6c339881468e966b3b5522784143e39f88be5a7578ddc3a353de1",
+    "study_digest": "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96",
+    "source_revision": "tree:sha256:0e2b2ea58bb57f69d6a5604003297870c9cca998b712c52e78c654cbb9325abe",
+    "baseline_snapshot_id": "R14_A0",
+    "baseline_snapshot_digest": "sha256:5c1873205b9598e7458a94e8002c5bebfb0bdb29d279c8aa913970ff56d2024b",
+    "baseline_manifest_file_sha256": "bbf7b9f39529ce4ec6cef8f6408e27da809392690720a505f709aec29f87a58a",
+    "pre_run_preregistration_digest": "sha256:a704e9b5bf076e449f4fdf42e69ca96550fd0b5da65ca64f3e04eb904285a3f9",
+    "private_ci_validation_digest": "sha256:60b4ba01dec42874a6b8db06e8624be3e31932186b4c3642673257a88daa557b",
+    "paid_authorization_id": "AUTH_5FA037EDA2B6782B4C57",
+    "paid_authorization_digest": "sha256:d21a92967513688d101060f88fd996e8b78d692b6c5591bd458e2665ab0d9dd8"
+  },
+  "execution_scope": {
+    "planned_formal_positions": 125,
+    "executed_formal_positions": 46,
+    "valid_formal_positions": 45,
+    "infra_invalid_positions": 1,
+    "task_attempts_started": 53,
+    "task_attempts_completed": 45,
+    "task_attempts_failed": 8,
+    "retry_attempts": 7,
+    "update_source": {
+      "planned": 25,
+      "executed": 25,
+      "valid": 25,
+      "infra_invalid": 0,
+      "pass_1": "7/25",
+      "batch_id": "B_B9EF04F321D4AA07CB99",
+      "batch_digest": "sha256:417297bfdf8c5a8443a9298f49655fc1c6e6d75d05befddadf5e055f6e1fcd4e",
+      "whole_attempt_exact_cost_usd": "0.8244735576"
+    },
+    "external_updater": {
+      "started": true,
+      "proposal_attempts": 4,
+      "selected_candidate_count": 3,
+      "model_calls": 40,
+      "unresolved_model_calls": 0,
+      "exact_cost_usd": "0.0140907872"
+    },
+    "update_check": {
+      "planned": 40,
+      "executed": 21,
+      "valid": 20,
+      "infra_invalid": 1,
+      "baseline": {
+        "snapshot_id": "R14_A0",
+        "batch_id": "B_8521D7CDF58B8CD47B60",
+        "pass_1": "4/10",
+        "p50_latency_ms": "361519.5",
+        "whole_attempt_exact_cost_usd": "0.2986731776"
+      },
+      "first_candidate": {
+        "candidate_id": "C_AHE_018455531828",
+        "snapshot_id": "S_8A072695184FACF7",
+        "batch_id": "B_2CED22EC9DC7651836A9",
+        "pass_1": "3/10",
+        "p50_latency_ms": "365420",
+        "whole_attempt_exact_cost_usd": "0.3498881872000000032",
+        "paired_baseline_stable_success_regression_tasks": [
+          "task_052"
+        ]
+      },
+      "second_candidate": {
+        "candidate_id": "C_AHE_3F448BFD7A0D",
+        "snapshot_id": "S_61ABAB8129E2E94C",
+        "batch_id": "B_48A834A838339F0D0D17",
+        "executed_positions": 1,
+        "valid_positions": 0,
+        "infra_invalid_positions": 1,
+        "attempts": 2,
+        "exact_known_cost_usd": "0.000504"
+      },
+      "third_candidate": {
+        "candidate_id": "C_AHE_FD23444961C6",
+        "snapshot_id": "S_118136C40CB677D4",
+        "executed_positions": 0
+      }
+    },
+    "selection": {
+      "planned": 60,
+      "executed": 0
+    },
+    "release_id_ood_replay_executed": 0,
+    "promotion_executed": false,
+    "repository_visibility_changed": false,
+    "publication_or_submission_executed": false
+  },
+  "terminal_incident": {
+    "artifact": "artifacts/research/banking_r14/candidate_binding_precheck_incident.json",
+    "artifact_digest": "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26",
+    "classification": "candidate_specific_runtime_binding_invalid",
+    "position_fail_fast_trigger_digest": "sha256:c3a8e491ebb589d91cefe48bdff4c2a0ed22fe17ba5b540fe133548685ef5052",
+    "next_position_started": false,
+    "model_calls_after_trigger": 0,
+    "authorized_positions_not_started_after_trigger": 79
+  },
+  "aggregate_cost": {
+    "currency": "USD",
+    "accounting_status": "exact",
+    "update_source_whole_attempt_cost_usd": "0.8244735576",
+    "external_updater_cost_usd": "0.0140907872",
+    "baseline_update_check_whole_attempt_cost_usd": "0.2986731776",
+    "first_candidate_update_check_whole_attempt_cost_usd": "0.3498881872000000032",
+    "terminal_candidate_invalid_cost_usd": "0.000504",
+    "total_exact_known_model_cost_usd": "1.4876297096000000032",
+    "total_model_calls": 1974,
+    "unresolved_model_calls": 0,
+    "unknown_model_cost_scope": [],
+    "local_compute_monetary_cost": "unmetered_unknown"
+  },
+  "runtime_accounting": {
+    "formal_command_wall_seconds": "20013.89",
+    "formal_command_user_cpu_seconds": "3221.00",
+    "formal_command_system_cpu_seconds": "803.54",
+    "formal_command_maximum_resident_set_bytes": 657424384,
+    "formal_batch_attempts": {
+      "update_source": {
+        "attempt_id": "ATT_36E7245994B44B82BB9B4133B3F011DB",
+        "duration_ms": 10982647,
+        "state": "completed"
+      },
+      "baseline_update_check": {
+        "attempt_id": "ATT_95E973F2AA63405AA37FDE7F0868DA6C",
+        "duration_ms": 4363347,
+        "state": "completed"
+      },
+      "first_candidate_update_check": {
+        "attempt_id": "ATT_9B7675325F314B33A996ACA6E2C822F1",
+        "duration_ms": 4380889,
+        "state": "completed"
+      },
+      "terminal_candidate_update_check": {
+        "attempt_id": "ATT_E8E6C01831D648B59A5A8363EA6AF77B",
+        "duration_ms": 7125,
+        "state": "failed"
+      }
+    }
+  },
+  "native_trace_verification": {
+    "deepseek_harness_version": "0.1.0-rc.8",
+    "deepseek_harness_commit": "141eb6fef83422698aef7a981029e843e8161534",
+    "persistence_kind": "jsonl",
+    "completed_batch_dsh_run_count": 45,
+    "agentloopgate_ingest_mode": "reference",
+    "host_trace_replaced_or_deleted": false,
+    "terminal_invalid_position_agent_turn_started": false,
+    "terminal_invalid_position_user_model_calls": 2
+  },
+  "retained_evidence_sha256": {
+    "update_source_batch": "1809213d5e2370bc299ac790cee8f331e72cbf665e6624251848d18df34f62f0",
+    "update_source_cost": "3b4f9938f8cf99a2722f08f39bbfecccfebfb66b8440998cef90d2b7b4b7edbf",
+    "baseline_update_check_batch": "ee4b9365b04b4bcadc4b554748f682dd292c093c443dd5ee69f870abaeaccbc3",
+    "baseline_update_check_cost": "16d0c7578ee91c5f12395a5982cb0b0f6da6c86d0e97702bcab54042dda1164b",
+    "first_candidate_update_check_batch": "624e6b298eda4704b941748ca03e8170e69054ed98470bfb04efeaf41e44d788",
+    "first_candidate_update_check_cost": "95aeafe85a0f62146379dafb9c86484801cfd32c9dbaf0e378c0877198b7d2e2",
+    "proposal_plan": "572d8deac661e13b6c452921a2291d6e258a55281b6d198d174e2ee7be78efe0",
+    "diagnosis": "7938f0961bfaac3a488c27ee7c963998b6827946abd96721872be74a7bd817fc",
+    "terminal_raw_result": "4ee345f51c2819c7fba180eefb6df41500f494608e0a77b75f97bc1fa53ed1a3",
+    "terminal_task_attempt_ledger": "c088a7515374e8d35e044101eb4047b1bda4c3a667c4b8c428d15731e56604a9",
+    "terminal_position_fail_fast_trigger": "d05f81e02963974f576f42cc49fe0729269e96f4e258b3b9c05fc3c9f259c951",
+    "terminal_user_model_usage_ledger": "683953bef2a5e7f51cee3b13adce3703e95c640117b2b4f8e141e8fe7c908c57",
+    "authorization": "0332c9af4d80d8ace2353e6303165d6b2722eaa9adb8f336043602f2d1cbc883"
+  },
+  "governance_findings": {
+    "deepseek_native_trace_preserved": true,
+    "agentloopgate_attempt_and_cost_ledgers_present": true,
+    "position_fail_fast_prevented_later_paid_positions": true,
+    "candidate_post_patch_semantic_precheck_present_in_frozen_r14": false,
+    "same_identity_rerun_permitted": false,
+    "candidate_effectiveness_established": false,
+    "self_evolution_direction_established": false,
+    "selection_decision_created": false,
+    "release_started": false
+  },
+  "allowed_claims": [
+    "R14 completed 25/25 Update-Source positions with exact whole-attempt cost and preserved DeepSeek Harness trace references",
+    "R14 generated three diverse external-Updater candidates after four exact-cost Updater attempts",
+    "the first evaluated candidate scored 3/10 on the same Update-Check positions where A0 scored 4/10 and regressed task_052",
+    "the Protocol 2.0 position fail-fast control stopped before the next position after a permanent candidate-specific runtime-binding invalidity",
+    "R14 exposed a prospective-candidate semantic-validation gap before Selection and Release"
+  ],
+  "prohibited_claims": [
+    "R14 establishes a correct self-evolution direction",
+    "R14 completed Selection",
+    "R14 proves every external Updater candidate is executable",
+    "R14 executed any Release-ID, Release-OOD, Replay, Promote, publication, or repository visibility change",
+    "the 45 valid positions can be combined into a complete 125-position decision denominator"
+  ],
+  "required_successor_repairs": [
+    "validate prospective post-patch candidate bytes before registration and paid evaluation",
+    "reject both R14-style malformed runtime-binding candidates in a no-model calibration",
+    "seal candidate-specific pre-execution incompatibility as a first-class rejection or immutable HOLD with an exact cost artifact",
+    "freeze a new Protocol, Study, source revision, baseline, private CI record, and machine authorization before further paid work"
+  ],
+  "artifact_digest": "sha256:b82bdbe871fe7e9fefeb62b6075b60f7e7daca55a0c1cfae922d4822247723e5"
+}

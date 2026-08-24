@@ -763,6 +763,10 @@ def _reconcile_formal_costs_v12(
             if user_model_usage_path is not None and user_model_usage_path.is_file()
             else None
         )
+        if direct_lineage.agent.retained_exact:
+            observed_agent = direct_lineage.agent.retained_known
+        if direct_lineage.user.retained_exact:
+            observed_user = direct_lineage.user.retained_known
 
     valid_exact = (
         valid_agent_complete
@@ -778,7 +782,12 @@ def _reconcile_formal_costs_v12(
         else CostStatus.UNAVAILABLE
     )
     agent_exact = observed_agent is not None
-    total_exact = agent_exact and user_ledger_exact
+    total_exact = (
+        direct_lineage.agent.retained_exact
+        and direct_lineage.user.retained_exact
+        if direct_lineage is not None
+        else agent_exact and user_ledger_exact
+    )
     lower_bound = known_agent + known_user
     status = (
         CostStatus.EXACT

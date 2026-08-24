@@ -27,6 +27,7 @@ from .tau3_evidence import (
     current_task_attempt_identity_fields,
     install_tau3_evidence_hooks,
     task_attempt_count,
+    verify_position_fail_fast_artifact,
 )
 from .tau3_pilot import (
     DSH_TAU3_EMPTY_FINAL_POLICY_CURRENT,
@@ -79,6 +80,7 @@ __all__ = [
     "load_evaluator_overlay",
     "task_attempt_count",
     "validate_runtime_capability_binding",
+    "verify_position_fail_fast_artifact",
     "verify_evaluator_overlay",
     "verify_evaluator_overlay_sources",
 ]

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from tempfile import TemporaryDirectory
 
 import yaml
 from pydantic import ValidationError
@@ -165,7 +168,7 @@ class CandidateChecker:
                 parsed=parsed,
                 assets=assets,
             )
-        semantic_error = self._runtime_capability_error(parsed, assets)
+        semantic_error = self._runtime_capability_error(patch_path, parsed, assets)
         if semantic_error is not None:
             return self._result(
                 CandidateCheckCode.REJECT_UNBOUND_CAPABILITY,
@@ -282,6 +285,7 @@ class CandidateChecker:
 
     def _runtime_capability_error(
         self,
+        patch_path: Path,
         parsed: ParsedPatch,
         assets: list[HarnessAsset],
     ) -> str | None:
@@ -292,28 +296,59 @@ class CandidateChecker:
         }
         if not guarded:
             return None
-        for relative in guarded:
-            try:
-                current = yaml.safe_load(
-                    (self.project_root / relative).read_text(encoding="utf-8")
-                )
-            except (OSError, yaml.YAMLError):
-                return "runtime capability routing asset is not readable YAML"
-            binding = current.get("capability_binding") if isinstance(current, dict) else None
-            if not isinstance(binding, dict) or binding != {
-                "source": "runtime_tool_schema",
-                "reject_unknown_route_targets": True,
-            }:
-                return "tool routing is not bound to the runtime tool schema"
-            deleted = "\n".join(parsed.deleted_by_file.get(relative, []))
-            if "capability_binding" in deleted or "runtime_tool_schema" in deleted:
-                return "candidate cannot remove the runtime capability binding"
-            for line in parsed.added_by_file.get(relative, []):
-                if re.match(r"^\s*capability\s*:", line):
-                    return (
-                        "static capability targets are not portable; use a runtime "
-                        "capability_ref resolved against the current tool schema"
+        with TemporaryDirectory(prefix="agentloopgate-candidate-check-") as temporary:
+            staging = Path(temporary).resolve()
+            for relative in parsed.changed_files:
+                source = self.project_root / relative
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if source.is_file():
+                    shutil.copy2(source, destination)
+            check = subprocess.run(
+                ["git", "apply", "--check", str(patch_path.resolve())],
+                cwd=staging,
+                capture_output=True,
+                text=True,
+            )
+            if check.returncode != 0:
+                return "candidate tool-routing patch cannot be applied to frozen source"
+            applied = subprocess.run(
+                ["git", "apply", str(patch_path.resolve())],
+                cwd=staging,
+                capture_output=True,
+                text=True,
+            )
+            if applied.returncode != 0:
+                return "candidate tool-routing patch cannot be materialized for validation"
+            for relative in guarded:
+                try:
+                    prospective = yaml.safe_load(
+                        (staging / relative).read_text(encoding="utf-8")
                     )
+                except (OSError, yaml.YAMLError):
+                    return "candidate tool routing is not readable YAML after patch"
+                binding = (
+                    prospective.get("capability_binding")
+                    if isinstance(prospective, dict)
+                    else None
+                )
+                if binding != {
+                    "source": "runtime_tool_schema",
+                    "reject_unknown_route_targets": True,
+                }:
+                    return (
+                        "candidate tool routing is not exactly bound to the runtime "
+                        "tool schema after patch"
+                    )
+                deleted = "\n".join(parsed.deleted_by_file.get(relative, []))
+                if "capability_binding" in deleted or "runtime_tool_schema" in deleted:
+                    return "candidate cannot remove the runtime capability binding"
+                for line in parsed.added_by_file.get(relative, []):
+                    if re.match(r"^\s*(?:-\s*)?capability\s*:", line):
+                        return (
+                            "static capability targets are not portable; use a runtime "
+                            "capability_ref resolved against the current tool schema"
+                        )
         return None
 
     @staticmethod
