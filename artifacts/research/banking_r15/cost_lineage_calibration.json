@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.2",
+  "artifact_id": "BANKING_R15_COST_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R14",
+  "source_incident_artifact": "artifacts/research/banking_r14/candidate_binding_precheck_incident.json",
+  "source_incident_digest": "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26",
+  "contains_raw_customer_data": false,
+  "pricing_digest": "sha256:0dcc3e377789e4ef449ba539021fd0d448a78520bedbddc1156abd3733c26271",
+  "cost_authority_policy": "verified_tokens_times_frozen_prices_v1",
+  "valid_cost_lineage_policy": "direct_final_task_attempt_calls_v1",
+  "raw_cost_evidence_policy": "comparison_only_v1",
+  "positive_token_zero_cost_policy": "reject_positive_frozen_contribution_v1",
+  "cost_gate_input_policy": "direct_valid_agent_plus_user_mean_v1",
+  "assertions": [
+    "frozen token prices are validated before any paid User Simulator call",
+    "terminal cost is recomputed from verified tokens and frozen prices",
+    "positive token contribution at a positive price cannot be exact zero",
+    "valid cost follows retained simulation through completed task attempt to direct Agent and User calls",
+    "failed, retried, unretained, and unresolved calls remain in whole-attempt accounting",
+    "pre-Agent zero-call evidence requires an initialized empty Agent ledger and verified direct attempt lineage",
+    "zero Agent calls plus exact User calls can produce exact whole-attempt cost without treating missing evidence as zero",
+    "selection and the final Cost Gate consume only the bound direct summary"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:333d7c469fca6b98eb0462110f935558d20f65ef9573d9c650517444550ef230",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/evaluation/metrics.py": "sha256:24ae8b23dc612278ac3a9e1a002ce7181b69e16786e881dab585b33a67497cbf",
+    "agentloopgate/experiment/ledger.py": "sha256:802470e7ca036db6408ad7e8fe9ddcbf76f75499c72bd5dc8a4c9a50e730ffd3",
+    "agentloopgate/experiment/batch.py": "sha256:5aec1b937cc80831f96e77c2d58da82cb865340b0dd49cc80c8b4c1f49c3451d",
+    "agentloopgate/experiment/orchestrator.py": "sha256:1f95c2561a2d31f4d42c74032f675417e99c6da122fd7aa47b27e24193ba00bc",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180",
+    "agentloopgate/updaters/ahe.py": "sha256:d572b851389c272a312a589a0b2fa779393f195f13d8e386504d8f92cc44b78c",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:028a0c44d8dd2d73738628f6b83f795060a28715e0aedaa797328f096184015b"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-24T01:39:38Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "provider_false_zero_recomputed": "passed",
+      "missing_price_pre_call_rejected": "passed",
+      "direct_lineage_overrides_raw": "passed",
+      "positive_token_exact_zero_rejected": "passed",
+      "direct_total_mean_reaches_gate": "passed",
+      "infra_invalid_failed_attempt_lineage_sealed": "passed",
+      "pre_agent_zero_calls_exact_with_initialized_ledger": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R15-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 213,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_321_files_zero_findings",
+        "real_seconds": "18.27",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "deterministic fixtures do not independently verify Provider invoices",
+    "local compute monetary cost is unavailable and is never represented as zero"
+  ],
+  "artifact_digest": "sha256:8e2a71d676a932eee55b61e6df1c29cf619bcb04fc4678176aa9f28bd5d622d2"
+}

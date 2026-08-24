@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R15_REPLY_LINEAGE_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R14",
+  "source_diagnosis_artifact": "artifacts/research/banking_r6/execution_diagnosis.json",
+  "source_diagnosis_digest": "sha256:220f9c4f360cc3f94a2dea270c7e62014f8f6f44332eb6ed0f9fa8f976109de7",
+  "contains_raw_customer_data": false,
+  "reply_normalization_policy": "bounded_allow_list_v5_missing_name_and_discoverable_wrapper_alias",
+  "task_attempt_ledger_schema_version": "1.1",
+  "model_usage_ledger_schema_version": "1.2",
+  "task_attempt_session_binding_policy": "append_before_first_agent_call_v1",
+  "model_call_task_identity_policy": "direct_task_trial_seed_attempt_v1",
+  "accepted_reply_shapes": [
+    "one whole tool-call reply missing only the fixed name label, with exactly one allow-listed tool and object-valued arguments",
+    "one whole call_discoverable_agent_tool wrapper reply with exactly one safe subtool and object-valued arguments"
+  ],
+  "rejected_reply_shapes": [
+    "unknown or unavailable wrapper tool",
+    "mixed content and executable tool calls",
+    "multiple calls in either compatibility shape",
+    "partial, array-valued, scalar-valued, or malformed arguments",
+    "unsafe, inferred, missing, or ambiguous tool identity"
+  ],
+  "lineage_assertions": [
+    "each task attempt is started before session binding or terminal state",
+    "the actual DeepSeek Harness session hash is appended before the first Agent call",
+    "every Agent and User call directly carries task, trial, seed, and attempt identity",
+    "DeepSeek Harness native JSONL remains authoritative and is retained by reference",
+    "a pre-Agent failure is explicitly unavailable and cannot manufacture a DSH trace or evidence join",
+    "Agent and User ledgers exist before child execution so zero calls differ from unavailable evidence"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_pilot.py": "sha256:4f085344e94f8602a9e4d7ad6a4b6469f07389428899e10ec458488c97ed67e8",
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:333d7c469fca6b98eb0462110f935558d20f65ef9573d9c650517444550ef230",
+    "agentloopgate/runtime/usage.py": "sha256:785d0671f0bd16e25ed80b2e43e225c26684c45783be665cf12fa877c7b500e3",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180",
+    "agentloopgate/experiment/ledger.py": "sha256:802470e7ca036db6408ad7e8fe9ddcbf76f75499c72bd5dc8a4c9a50e730ffd3",
+    "agentloopgate/experiment/batch.py": "sha256:5aec1b937cc80831f96e77c2d58da82cb865340b0dd49cc80c8b4c1f49c3451d",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:028a0c44d8dd2d73738628f6b83f795060a28715e0aedaa797328f096184015b",
+    "examples/tau3-banking/agent.py": "sha256:b59c152ca661a6f5145db29035ab18c489ebb92bcd45aeaa8b916420c8aa3138",
+    "integrations/deepseek-harness/test/headless-conformance.mjs": "sha256:60fd3c41353b7f30b5171db3f751d0aff02738fa96f69ff67908bc8fa94ef0d6"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-24T01:39:38Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "attempts": [
+      {
+        "attempt_id": "R15-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 213,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_321_files_zero_findings",
+        "real_seconds": "18.27",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "no-model fixtures prove syntax, evidence lifecycle, hashing, recovery, and accounting but do not predict future Provider replies",
+    "local compute monetary cost is unmetered_unknown and separate from Provider-model cost"
+  ],
+  "artifact_digest": "sha256:92b65360edf1a6dbcf68fe3f11ce696a437ece3f22d439926209981f45c03841"
+}

@@ -1610,6 +1610,126 @@ def test_banking_r14_protocol_2_identity_and_calibrations_are_frozen(
     )
 
 
+def test_banking_r15_protocol_2_identity_repairs_and_preregistration_are_frozen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_formal_config(Path("configs/formal_experiment_r15.yaml"))
+    protocol = load_execution_protocol(
+        Path(config.execution_protocol_config or "missing")
+    )
+    study = load_study_plan(Path(config.study_plan_config or "missing"))
+    reply = load_reply_lineage_calibration(
+        Path(protocol.reply_lineage_calibration_artifact or "missing")
+    )
+    cost = load_cost_lineage_calibration(
+        Path(protocol.cost_lineage_calibration_artifact or "missing")
+    )
+    evaluator = load_evaluator_correction_calibration(
+        Path(protocol.evaluator_correction_calibration_artifact or "missing")
+    )
+    successor = load_successor_integrity_calibration(
+        Path(protocol.successor_integrity_calibration_artifact or "missing")
+    )
+    fail_fast = load_position_fail_fast_calibration(
+        Path(protocol.position_fail_fast_calibration_artifact or "missing")
+    )
+    preregistration = json.loads(
+        Path("artifacts/research/banking_r15/pre_run_preregistration.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert config.experiment_id == protocol.experiment_id == "EXP_BANKING_R15"
+    assert config.baseline_snapshot_id == "R15_A0"
+    assert config.dsh_home == "runs/dsh/r15-home"
+    assert protocol.schema_version == "2.0"
+    assert protocol.protocol_digest == (
+        "sha256:b40198176f9de2b39c9433131455bc0af07eee54650327622677cd9085b84a5f"
+    )
+    assert protocol.position_fail_fast_incident_digest == (
+        "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26"
+    )
+    assert study.study_digest == (
+        "sha256:bd5988f4f89068fa6347728f6b88ee4b8d8d1f644931ec110944e06b74e25043"
+    )
+    assert study.protocol_digest == protocol.protocol_digest
+    assert study.supersedes_study_digest == (
+        "sha256:e2afe1330afbc87b0922274af3db1f6fc0ea43b377398962a658a972dc935d96"
+    )
+    assert sum(
+        item.target_trials
+        for item in study.matrix
+        if item.stage
+        in {
+            FormalStage.UPDATE_SOURCE,
+            FormalStage.UPDATE_CHECK,
+            FormalStage.SELECTION,
+        }
+    ) == 125
+    assert reply.artifact_digest == protocol.reply_lineage_calibration_digest
+    assert cost.artifact_digest == protocol.cost_lineage_calibration_digest
+    assert evaluator.artifact_digest == (
+        protocol.evaluator_correction_calibration_digest
+    )
+    assert successor.artifact_digest == (
+        protocol.successor_integrity_calibration_digest
+    )
+    assert fail_fast.artifact_digest == (
+        protocol.position_fail_fast_calibration_digest
+    )
+    assert successor.no_model_acceptance["fixtures"][
+        "prospective_candidate_bytes_validated"
+    ] == "passed"
+    assert successor.no_model_acceptance["fixtures"][
+        "real_r14_malformed_candidates_rejected"
+    ] == "passed"
+    assert fail_fast.no_model_acceptance["fixtures"][
+        "pre_agent_missing_dsh_not_fabricated"
+    ] == "passed"
+    assert fail_fast.no_model_acceptance["fixtures"][
+        "zero_agent_plus_exact_user_cost_sealed"
+    ] == "passed"
+
+    pricing = load_pilot_pricing(Path(config.pricing_config))
+    monkeypatch.setattr(
+        service_module,
+        "verify_evaluator_overlay_sources",
+        lambda *_args, **_kwargs: None,
+    )
+    assert (
+        _verified_protocol(
+            Path(".").resolve(),
+            config,
+            objective_digest=protocol.objective_digest,
+            split_digest=protocol.split_digest,
+            pricing=pricing,
+        )
+        == protocol
+    )
+
+    declared_preregistration_digest = preregistration.pop("artifact_digest")
+    assert declared_preregistration_digest == (
+        "sha256:70a48708b8477d95de42dba8c8e2d13eca87ddd532b89cce9b20a91aefb12155"
+    )
+    assert canonical_digest(preregistration) == declared_preregistration_digest
+    assert preregistration["status"] == "frozen_private_ci_hold"
+    assert preregistration["frozen_identity"]["source_revision"] == (
+        "tree:sha256:0e3d0794bd21c5f20ff78512144e50da37b16a9784fa948a13055f6c847b4c8e"
+    )
+    assert preregistration["frozen_identity"]["baseline_snapshot_digest"] == (
+        "sha256:7a5264cfecb9fa19804b8c1aa1e6b1bbc4f380e47d76973351f18bbb46811387"
+    )
+    assert preregistration["waste_control"]["provider_preflight_model_calls"] == 0
+    assert preregistration["preflight"]["r15_candidate_count"] == 0
+    assert preregistration["preflight"]["paid_authorization_artifact_count"] == 0
+    assert preregistration["cost"]["r15_paid_work_started"] is False
+    assert preregistration["cost"]["r15_updater_started"] is False
+    assert preregistration["cost"]["r15_preparation_known_model_cost_usd"] == "0"
+    assert preregistration["cost"]["local_compute_monetary_cost"] == (
+        "unmetered_unknown"
+    )
+
+
 def test_banking_r14_frozen_identity_private_ci_is_content_addressed() -> None:
     validation = json.loads(
         Path(
@@ -1818,7 +1938,10 @@ def test_banking_r14_terminal_seal_and_candidate_precheck_incident_are_addressed
     assert repair_digest == (
         "sha256:65cbd8cdebd6ab3ea7bd4d7f58a3f937cdd61c47b3cc534c30b568b399b281c8"
     )
-    assert repair["successor_source_revision"] == _code_revision(Path(".").resolve())
+    assert repair["successor_source_revision"] == (
+        "tree:sha256:c00fcf080f43b5fe1735647231b79f1f12cbb9bbd2bb80678c1eba06f3d646cf"
+    )
+    assert repair["successor_source_revision"] != _code_revision(Path(".").resolve())
     assert all(
         file_digest(Path(relative)) == digest
         for relative, digest in repair["runtime_bindings"].items()

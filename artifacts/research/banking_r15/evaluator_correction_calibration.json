@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R15_EVALUATOR_CORRECTION_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R14",
+  "source_incident_artifact": "artifacts/research/banking_r9/eval_incident_task_053.json",
+  "source_incident_digest": "sha256:1dc739fb6c4f21dab6b5f3e23175f9a9f39f08121b51186b08dde8a54202ef14",
+  "evaluator_overlay_artifact": "configs/evaluator_overlays/banking_task_053_user_call_v1.json",
+  "evaluator_overlay_digest": "sha256:1f4c96e3ee85862e1fa3ed4e1d2fd7be00844ca88cbb9f583d64b0867921b62d",
+  "contains_raw_customer_data": false,
+  "evaluator_conflict_policy": "all_expected_actions_matched_db_mismatch_hold_v1",
+  "evaluator_correction_policy": "versioned_overlay_symmetric_affected_rerun_v1",
+  "affected_task_ids": ["task_053"],
+  "assertions": [
+    "an action-pass and DB-mismatch run is an unresolved evaluator incident",
+    "an unresolved evaluator incident blocks candidate generation and final Ship recommendation",
+    "the overlay is bound to the immutable incident, benchmark commit, task, and insertion anchor",
+    "the overlay changes only a deep-copied in-memory Task in the isolated runner",
+    "the immutable affected trajectory is regraded without model calls",
+    "all baseline and candidate executions receive the identical overlay"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evaluator_overlay.py": "sha256:271790dc4fe03a0ed8772fabcebd65daadf2bc54e7df69f3ccd8a3cba1bb3b17",
+    "agentloopgate/experiment/diagnostics.py": "sha256:deb1f310d8f97b10c2a552f3e4cb922c8b0645a015bd01466cf77d2e6a5ec262",
+    "agentloopgate/experiment/orchestrator.py": "sha256:1f95c2561a2d31f4d42c74032f675417e99c6da122fd7aa47b27e24193ba00bc",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:028a0c44d8dd2d73738628f6b83f795060a28715e0aedaa797328f096184015b",
+    "examples/tau3-banking/run.py": "sha256:be199a66877b4c74203e6760a6ce51a07034bc20e94bd2964e114062955261da"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-24T01:39:38Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "conflict_detected": "passed",
+      "candidate_generation_blocked": "passed",
+      "upstream_checkout_unchanged": "passed",
+      "overlay_source_digest_verified": "passed",
+      "immutable_trajectory_regrade_passes": "passed",
+      "unrelated_task_scope_unchanged": "passed"
+    },
+    "affected_trajectory_regrade": {
+      "task_id": "task_053",
+      "corrected_expected_action_checks": 17,
+      "matched_corrected_action_checks": 17,
+      "corrected_db_match": true,
+      "corrected_reward": "1",
+      "external_model_calls": 0,
+      "known_model_cost_usd": "0"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R15-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 213,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_321_files_zero_findings",
+        "real_seconds": "18.27",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "the correction is scoped only to task_053 at the pinned benchmark commit",
+    "a no-model regrade proves evaluator consistency but does not predict model behavior"
+  ],
+  "artifact_digest": "sha256:ceb89524cbc6ea943050f5f158786a7c474522f5de6f652972bff3740df07980"
+}

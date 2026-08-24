@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R15_SUCCESSOR_INTEGRITY_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R14",
+  "source_incident_artifact": "artifacts/research/banking_r14/candidate_binding_precheck_incident.json",
+  "source_incident_digest": "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26",
+  "contains_raw_customer_data": false,
+  "user_empty_final_repair_policy": "bounded_same_call_context_final_only_v1",
+  "user_empty_final_repair_limit": 1,
+  "updater_sandbox_output_policy": "attempt_local_runtime_only_v1",
+  "assertions": [
+    "only an empty User Simulator final reply is eligible for repair",
+    "repair appends one correction to the unchanged conversation without inspecting Formal Gold",
+    "original and repair calls have distinct ledger events and direct task identity",
+    "AHE runtime, cache, temporary, and long-output files remain inside the current attempt root",
+    "Candidate Check applies each patch to an isolated frozen-parent copy before validating final bytes",
+    "malformed post-patch capability bindings are rejected before any paid Update-Check",
+    "a verified partial fail-fast population seals immutable HOLD and resume is verify-only",
+    "a pre-Agent failure never manufactures a DeepSeek Harness trace or evidence join"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:333d7c469fca6b98eb0462110f935558d20f65ef9573d9c650517444550ef230",
+    "agentloopgate/runtime/__init__.py": "sha256:7f61c93e2bea6532eaea46aaaccbac38b820538b52893027e7f9eadbbb92ebc2",
+    "agentloopgate/adapters/tau3.py": "sha256:ab8b37471f2480bfa31fca9724ae0fc7528d5ccfed489b6a8c5189a5b03ea4db",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:028a0c44d8dd2d73738628f6b83f795060a28715e0aedaa797328f096184015b",
+    "agentloopgate/experiment/batch.py": "sha256:5aec1b937cc80831f96e77c2d58da82cb865340b0dd49cc80c8b4c1f49c3451d",
+    "agentloopgate/experiment/ledger.py": "sha256:802470e7ca036db6408ad7e8fe9ddcbf76f75499c72bd5dc8a4c9a50e730ffd3",
+    "agentloopgate/mutation/service.py": "sha256:40ee0c562e47bbd8f54f58260bb5e8287deed6a689341cfe5e52f6473bc3a795",
+    "agentloopgate/updaters/ahe.py": "sha256:d572b851389c272a312a589a0b2fa779393f195f13d8e386504d8f92cc44b78c",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "calibrated_at": "2026-08-24T01:39:38Z",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_cost_status": "unmetered_unknown",
+    "fixtures": {
+      "user_empty_final_single_repair": "passed",
+      "user_empty_final_second_empty_fails_closed": "passed",
+      "user_usage_and_cost_aggregation": "passed",
+      "user_calls_separately_ledgered": "passed",
+      "invalid_policy_or_limit_rejected": "passed",
+      "ahe_runtime_paths_attempt_local": "passed",
+      "ahe_long_tool_output_attempt_local": "passed",
+      "nexau_bash_inside_formal_sandbox": "passed",
+      "prospective_candidate_bytes_validated": "passed",
+      "real_r14_malformed_candidates_rejected": "passed",
+      "partial_hold_exact_cost_resume_verify_only": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R15-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 213,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_321_files_zero_findings",
+        "real_seconds": "18.27",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "fixtures prove bounded repair, sandbox routing, prospective-byte validation, and partial-HOLD sealing but do not predict future candidate quality",
+    "a paid R15 still requires a frozen protocol, study, baseline, preregistration, private CI, and exact Owner-authorized machine capability"
+  ],
+  "artifact_digest": "sha256:5280db5700bc5b6b78e682395eec7dcd008f28bab477ea86671b2738b99b9f16"
+}

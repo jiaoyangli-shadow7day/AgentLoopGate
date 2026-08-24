@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "BANKING_R15_POSITION_FAIL_FAST_CALIBRATION",
+  "source_experiment_id": "EXP_BANKING_R14",
+  "source_incident_artifact": "artifacts/research/banking_r14/candidate_binding_precheck_incident.json",
+  "source_incident_digest": "sha256:adc16393846689bb875ef56c33b8c45a9401f2c9eda8e041fdfe34fad6091f26",
+  "contains_raw_customer_data": false,
+  "position_fail_fast_policy": "stop_before_next_position_after_permanent_infra_invalid_v1",
+  "provider_connectivity_preflight_policy": "dns_resolution_api_deepseek_com_v1",
+  "assertions": [
+    "the formal adapter remains frozen at max_concurrency one so a permanent failure stops before a later position enters its callable",
+    "the trigger is written once as a canonical content-addressed artifact beside the append-only task-attempt ledger",
+    "a resumed process verifies the existing trigger artifact and starts zero new positions",
+    "only a strict subset of frozen task trials with a matching infra-invalid trigger may enter partial ingestion",
+    "ordinary missing-denominator results remain rejected",
+    "a verified partial population seals immutable Batch HOLD with missing-valid-trial reasons and cost evidence",
+    "only the trigger may lack DSH evidence when failure occurs before the first Agent turn",
+    "provider DNS preflight sends no credential, HTTP request, or model call"
+  ],
+  "runtime_bindings": {
+    "agentloopgate/runtime/tau3_evidence.py": "sha256:333d7c469fca6b98eb0462110f935558d20f65ef9573d9c650517444550ef230",
+    "agentloopgate/adapters/tau3.py": "sha256:ab8b37471f2480bfa31fca9724ae0fc7528d5ccfed489b6a8c5189a5b03ea4db",
+    "agentloopgate/adapters/dsh_tau3.py": "sha256:028a0c44d8dd2d73738628f6b83f795060a28715e0aedaa797328f096184015b",
+    "agentloopgate/experiment/batch.py": "sha256:5aec1b937cc80831f96e77c2d58da82cb865340b0dd49cc80c8b4c1f49c3451d",
+    "agentloopgate/experiment/ledger.py": "sha256:802470e7ca036db6408ad7e8fe9ddcbf76f75499c72bd5dc8a4c9a50e730ffd3",
+    "agentloopgate/experiment/protocol.py": "sha256:bed324d72df85a4e52df1b9f3631f39253ad407578eb36b375a751d2c3cfd44c",
+    "agentloopgate/experiment/service.py": "sha256:678edd21ee59d05f44bd4bc47e7fb0a221677dc8a593a8805ce94f4a04fd3180"
+  },
+  "no_model_acceptance": {
+    "status": "passed",
+    "external_model_calls": 0,
+    "known_model_cost_usd": "0",
+    "local_compute_monetary_cost": "unmetered_unknown",
+    "fixtures": {
+      "permanent_infrastructure_failure_injected": "passed",
+      "next_position_never_invoked": "passed",
+      "prior_and_failed_attempt_evidence_verified": "passed",
+      "terminal_batch_hold_preserved": "passed",
+      "downstream_model_calls_zero": "passed",
+      "resume_starts_zero_new_positions": "passed",
+      "provider_dns_preflight_no_model": "passed",
+      "partial_subset_requires_verified_trigger": "passed",
+      "pre_agent_missing_dsh_not_fabricated": "passed",
+      "zero_agent_plus_exact_user_cost_sealed": "passed"
+    },
+    "attempts": [
+      {
+        "attempt_id": "R15-NM-FOUNDATION-001",
+        "scope": "full_clean_room",
+        "status": "passed",
+        "python_tests_passed": 213,
+        "typescript_tests_passed": 13,
+        "secret_pii_scan": "passed_321_files_zero_findings",
+        "real_seconds": "18.27",
+        "external_model_calls": 0,
+        "known_model_cost_usd": "0"
+      }
+    ]
+  },
+  "limitations": [
+    "deterministic injection and one real R14 incident cannot predict every Provider outage mode",
+    "the policy requires max_concurrency one and does not establish candidate effectiveness"
+  ],
+  "artifact_digest": "sha256:8a2fec24a104b70eb889ef38eb46da2173457744ae7d16ee5d20c32fe196d69c"
+}
