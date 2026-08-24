@@ -42,7 +42,7 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Sanitized public Banking result package | BUILDER READY / SUCCESSOR RESULTS MISSING | Configuration-driven, fail-closed builder/verifier supports verified full formal Outcome, Selection-HOLD, and candidate-invalid Batch-HOLD terminal evidence | Build only from the successor terminal result, then rerun the independent verifier and public-tree audit |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
 | Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
-| Version-controlled private CI seal | PASS FOR EXACT R14 SOURCE | Commit `f176e24`, run `32660507957`, job `97245844684`; 206 Python passed/2 platform skips, 13 TypeScript passed, packaging/conformance passed, 316-file scan zero findings; machine record `frozen_identity_private_ci_validation.json` digest `60b4ba…a557b`; repository remained private | Repeat for terminal result package and final public tree |
+| Version-controlled private CI seal | PASS FOR R14 AND SUCCESSOR REPAIR SOURCE | Successor commit `1777f20`, run `32680250349`, job `97295552499`; 211 Python passed/2 platform skips, 13 TypeScript passed, packaging/conformance passed, 321-file scan zero findings; machine record digest `4ee7aa…edd8c`; repository remained private | Repeat after successor freeze and for the final public tree |
 | Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
 
 ## What the current evidence proves

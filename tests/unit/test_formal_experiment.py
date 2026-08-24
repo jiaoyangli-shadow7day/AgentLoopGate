@@ -1834,6 +1834,27 @@ def test_banking_r14_terminal_seal_and_candidate_precheck_incident_are_addressed
         "repair_validation_artifact_present"
     ] is True
 
+    private_ci = json.loads(
+        Path(
+            "artifacts/research/banking_r14/"
+            "successor_repair_private_ci_validation.json"
+        ).read_text(encoding="utf-8")
+    )
+    private_ci_digest = private_ci.pop("artifact_digest")
+    assert canonical_digest(private_ci) == private_ci_digest
+    assert private_ci_digest == (
+        "sha256:4ee7aa319b037ec53f02faf86d280391d403a7da653f59bd5c97db604c1edd8c"
+    )
+    assert private_ci["successor_source_revision"] == repair[
+        "successor_source_revision"
+    ]
+    assert private_ci["successor_repair_validation_digest"] == repair_digest
+    assert private_ci["conclusion"] == "success"
+    assert private_ci["acceptance"]["secret_and_direct_pii_findings"] == 0
+    assert private_ci["repository_remained_private"] is True
+    assert private_ci["external_model_calls"] == 0
+    assert private_ci["known_model_cost_usd"] == "0"
+
 
 def test_banking_r3_ablation_outputs_are_isolated_from_r2() -> None:
     orchestrator = FormalExperimentOrchestrator(

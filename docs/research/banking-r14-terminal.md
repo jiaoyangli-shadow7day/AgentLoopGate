@@ -99,6 +99,9 @@ capability.
 Successor repair validation artifact:
 `artifacts/research/banking_r14/successor_repair_validation.json`, digest
 `sha256:65cbd8cdebd6ab3ea7bd4d7f58a3f937cdd61c47b3cc534c30b568b399b281c8`.
+Its exact-source private Linux CI passed at commit `1777f20`, run
+`32680250349`, job `97295552499`; machine-record digest is
+`sha256:4ee7aa319b037ec53f02faf86d280391d403a7da653f59bd5c97db604c1edd8c`.
 
 ## Scientific interpretation
 
@@ -126,6 +129,10 @@ unsupported continuation before Release, not that it found a better harness.
 - Successor repair validation:
   `artifacts/research/banking_r14/successor_repair_validation.json`, digest
   `sha256:65cbd8cdebd6ab3ea7bd4d7f58a3f937cdd61c47b3cc534c30b568b399b281c8`
+- Successor repair private-CI validation:
+  `artifacts/research/banking_r14/successor_repair_private_ci_validation.json`,
+  digest
+  `sha256:4ee7aa319b037ec53f02faf86d280391d403a7da653f59bd5c97db604c1edd8c`
 - Failed-position raw result:
   `runs/experiments/EXP_BANKING_R14/raw/B_48A834A838339F0D0D17.json`
 - Failed-position attempt ledger and trigger:
