@@ -11,12 +11,12 @@ trap cleanup EXIT
 
 cd "${VERIFY_ROOT}"
 
-echo "[1/5] Python environment and static checks"
+echo "[1/6] Python environment and static checks"
 uv sync --frozen --reinstall-package agentloopgate
 uv run ruff check .
 uv run pytest -q
 
-echo "[2/5] Governance fixtures and deterministic public package"
+echo "[2/6] Governance fixtures and deterministic public package"
 uv run agentloopgate doctor --json
 uv run agentloopgate contract validate configs/objective_contract.yaml --json
 uv run agentloopgate split verify --json
@@ -33,7 +33,10 @@ uv run python -m scripts.verify_public_result_package \
   --package artifacts/research/banking_r15/release_v2
 uv run python -m scripts.verify_publication_candidate --project .
 
-echo "[3/5] Python release artifact clean-room"
+echo "[3/6] arXiv manuscript evidence binding"
+uv run python -m scripts.verify_arxiv_paper --project .
+
+echo "[4/6] Python release artifact clean-room"
 uv build --out-dir "${VERIFY_TMP}/python-dist"
 VERIFY_SDISTS=("${VERIFY_TMP}"/python-dist/agentloopgate-*.tar.gz)
 if [[ ${#VERIFY_SDISTS[@]} -ne 1 || ! -f "${VERIFY_SDISTS[0]}" ]]; then
@@ -87,7 +90,7 @@ for level in ("observe_ready", "check_ready", "govern_ready"):
 PY
 )
 
-echo "[4/5] DeepSeek Harness Bundle checks"
+echo "[5/6] DeepSeek Harness Bundle checks"
 cd "${VERIFY_ROOT}/integrations/deepseek-harness"
 corepack pnpm install --frozen-lockfile
 corepack pnpm run generate:protocol
@@ -97,7 +100,7 @@ corepack pnpm run build
 corepack pnpm run test:conformance
 corepack pnpm pack --pack-destination "${VERIFY_TMP}"
 
-echo "[5/5] Public-tree Secret/PII check"
+echo "[6/6] Public-tree Secret/PII check"
 cd "${VERIFY_ROOT}"
 uv run python scripts/audit_public_tree.py --project "${VERIFY_ROOT}"
 
