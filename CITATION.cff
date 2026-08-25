@@ -3,7 +3,8 @@ message: "If you use AgentLoopGate, please cite the software and its accompanyin
 title: "AgentLoopGate: Evidence-Governed Evolution and Release Control for Agent Harnesses"
 type: software
 authors:
-  - name: "AgentLoopGate Contributors"
+  - name: "JiaoyangLi"
+    email: "jiaoyanglifly@gmail.com"
 repository-code: "https://github.com/jiaoyangli-shadow7day/AgentLoopGate"
 license: Apache-2.0
 version: 0.1.0

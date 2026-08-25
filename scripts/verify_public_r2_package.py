@@ -13,7 +13,11 @@ from typing import Any
 from agentloopgate.contracts import canonical_digest, file_digest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from audit_public_tree import ALLOWED_EMAILS, PII_RULES, SECRET_RULES  # noqa: E402
+from audit_public_tree import (  # noqa: E402
+    PII_RULES,
+    SECRET_RULES,
+    unapproved_email_matches,
+)
 
 REQUIRED_FULL_OUTCOME_FILES = {
     "README.md",
@@ -106,7 +110,7 @@ def _scan(files: dict[str, bytes]) -> dict[str, Any]:
         for name, pattern in PII_RULES.items():
             matches = pattern.findall(data)
             if name == "email_address":
-                matches = [match for match in matches if match.lower() not in ALLOWED_EMAILS]
+                matches = unapproved_email_matches(matches)
             findings[name] += len(matches)
     nonzero = {name: count for name, count in sorted(findings.items()) if count}
     if nonzero:

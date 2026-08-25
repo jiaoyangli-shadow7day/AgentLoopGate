@@ -34,7 +34,16 @@ PII_RULES = {
     ),
 }
 
-ALLOWED_EMAILS = {b"local@agentloopgate.invalid"}
+ALLOWED_EMAILS = {
+    b"local@agentloopgate.invalid",
+    # The owner-author explicitly designated this address for public paper contact.
+    b"jiaoyanglifly@gmail.com",
+}
+
+
+def unapproved_email_matches(matches: list[bytes]) -> list[bytes]:
+    """Retain email matches that are not explicitly approved for publication."""
+    return [match for match in matches if match.lower() not in ALLOWED_EMAILS]
 
 
 def public_files(root: Path) -> list[Path]:
@@ -70,7 +79,7 @@ def audit(root: Path) -> dict[str, object]:
         for name, pattern in PII_RULES.items():
             matches = pattern.findall(data)
             if name == "email_address":
-                matches = [match for match in matches if match.lower() not in ALLOWED_EMAILS]
+                matches = unapproved_email_matches(matches)
             findings[name] += len(matches)
     nonzero = {name: count for name, count in sorted(findings.items()) if count}
     return {

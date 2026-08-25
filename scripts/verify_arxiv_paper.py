@@ -1,4 +1,4 @@
-"""Verify that the arXiv manuscript stays bound to the sealed R15 evidence."""
+"""Verify that the arXiv manuscript stays bound to P0--R15 evidence."""
 
 from __future__ import annotations
 
@@ -51,6 +51,32 @@ def verify(project: Path) -> None:
     tex = tex_path.read_text(encoding="utf-8")
     tex_flat = " ".join(tex.split())
     bib = bib_path.read_text(encoding="utf-8")
+    citation = (project / "CITATION.cff").read_text(encoding="utf-8")
+
+    p0_config = (project / "configs" / "formal_experiment.yaml").read_text(
+        encoding="utf-8"
+    )
+    r2_adr = (
+        project
+        / "docs"
+        / "adr"
+        / "0002-version-formal-execution-protocol-for-banking-r2.md"
+    ).read_text(encoding="utf-8")
+    spec = (project / "SPEC.md").read_text(encoding="utf-8")
+    r11_record = (
+        project / "docs" / "research" / "banking-r11-preregistration.md"
+    ).read_text(encoding="utf-8")
+    history = project / "artifacts" / "research"
+    r5 = _load_json(history / "banking_r5" / "execution_diagnosis.json")
+    r6 = _load_json(history / "banking_r6" / "execution_diagnosis.json")
+    r7 = _load_json(history / "banking_r7" / "execution_diagnosis.json")
+    r8 = _load_json(history / "banking_r8" / "cost_incident_diagnosis.json")
+    r9 = _load_json(history / "banking_r9" / "experiment_hold.json")
+    r10 = _load_json(history / "banking_r10" / "selection_design_correction.json")
+    r12 = _load_json(history / "banking_r12" / "formal_execution_seal.json")
+    r13 = _load_json(history / "banking_r13" / "formal_execution_seal.json")
+    r14 = _load_json(history / "banking_r14" / "formal_execution_seal.json")
+
     selection = _load_json(package / "selection.json")
     statistics = _load_json(package / "statistics.json")
     outcome = _load_json(package / "selection_hold_outcome.json")
@@ -60,6 +86,137 @@ def verify(project: Path) -> None:
     reproduction = _load_json(package / "reproduction.json")
     plugin = _load_json(package / "ablations" / "plugin_coexistence_overhead.json")
     integrity = _load_json(package / "ablations" / "integrity_gate.json")
+
+    _require_text(tex, r"\author{JiaoyangLi\\", "author name")
+    _require_text(tex, "mailto:jiaoyanglifly@gmail.com", "author email link")
+    _require_text(tex, "{jiaoyanglifly@gmail.com}", "visible author email")
+    _require("AgentLoopGate Contributors" not in tex, "placeholder author remains")
+    _require_text(citation, 'name: "JiaoyangLi"', "software citation author")
+    _require_text(
+        citation,
+        'email: "jiaoyanglifly@gmail.com"',
+        "software citation email",
+    )
+    _require(
+        "AgentLoopGate Contributors" not in citation,
+        "software citation placeholder author remains",
+    )
+
+    _require_text(p0_config, 'experiment_id: "EXP_BANKING_P0"', "P0 config identity")
+    _require_text(r2_adr, "Supersedes for release claims: `EXP_BANKING_P0`", "P0 supersession")
+    _require_text(tex, r"\code{EXP\_BANKING\_P0}", "P0 history identity")
+    _require_text(
+        tex_flat,
+        r"no registered \code{EXP\_BANKING\_R1} identity exists",
+        "R1 naming gap",
+    )
+    _require_text(
+        tex_flat,
+        "P0--R14 support a systems claim, not a positive evolution claim",
+        "history claim boundary",
+    )
+
+    _require_text(spec, "25 个任务位置中 22 个有效", "R3 source count")
+    _require_text(spec, "25 个任务位置中 24 个有效", "R4 source count")
+    _require_text(spec, "0.69178802080000000240", "R4 exact cost")
+    _require_text(tex, "R3 & 22/25 valid", "R3 history row")
+    _require_text(tex, "R4 & 24/25 valid", "R4 history row")
+    _require_text(tex, "USD~0.6917880208", "R4 history cost")
+
+    _require(r5["formal_summary"]["valid_runs"] == 23, "R5 valid count drifted")
+    _require(r6["formal_summary"]["valid_runs"] == 24, "R6 valid count drifted")
+    _require(
+        r6["cost_accounting"]["observed_total_model_cost_usd"].startswith(
+            "0.7698343648"
+        ),
+        "R6 cost drifted",
+    )
+    _require_text(tex, "R5: 23/25 valid; R6: 24/25 valid", "R5--R6 history counts")
+    _require_text(tex, "USD~0.7698343648", "R6 history cost")
+
+    _require(r7["formal_summary"]["valid_runs"] == 25, "R7 Source count drifted")
+    _require(
+        r8["incident_class"] == "false_exact_zero_user_model_cost",
+        "R8 cost incident drifted",
+    )
+    _require(r8["observation"]["user_terminal_calls"] == 13, "R8 User calls drifted")
+    _require_text(tex, "false exact-zero User cost", "R8 cost failure")
+    _require_text(spec, "R8 在任何付费 Batch 开始前", "R8 zero-paid boundary")
+    _require_text(tex, "R8 made zero paid calls", "R8 zero-paid history")
+
+    _require(r9["status"] == "HOLD", "R9 status drifted")
+    _require(r9["completed_stage"]["valid_runs"] == 25, "R9 Source count drifted")
+    _require(
+        r9["completed_stage"]["whole_attempt_total_cost_usd"].startswith(
+            "0.7015112488"
+        ),
+        "R9 cost drifted",
+    )
+    _require_text(tex, "USD~0.7015112488", "R9 history cost")
+
+    _require(r10["completed_formal_task_positions"] == 95, "R10 position count drifted")
+    _require(
+        r10["cost_accounting"]["formal_model_cost_through_c2"] == "3.0651904832",
+        "R10 cost drifted",
+    )
+    _require(r10["disposition"] == "paid_hold", "R10 disposition drifted")
+    _require_text(tex, "R10 & 95 formal positions", "R10 history positions")
+    _require_text(tex, "USD~3.0651904832", "R10 history cost")
+
+    _require_text(r11_record, "24 valid runs and one Infra Invalid", "R11 terminal count")
+    _require_text(tex, "R11: 24/25 Source valid", "R11 history count")
+
+    _require(r12["terminal_state"] == "immutable_hold", "R12 state drifted")
+    _require(r12["execution_scope"]["executed_formal_positions"] == 35, "R12 positions drifted")
+    _require(r12["execution_scope"]["valid_formal_positions"] == 34, "R12 valid count drifted")
+    _require(
+        r12["aggregate_cost"]["total_observed_provider_cost_lower_bound"]
+        == "1.1970712488",
+        "R12 cost drifted",
+    )
+    _require_text(tex, "R12: 34/35 executed positions valid", "R12 history count")
+    _require_text(tex, "USD~1.1970712488", "R12 history cost")
+
+    r13_waste = r13["fail_fast_finding"]
+    _require(
+        r13_waste["positions_executed_after_terminal_infra_failure"] == 12,
+        "R13 tail positions drifted",
+    )
+    _require(
+        r13_waste["terminal_model_calls_after_terminal_infra_failure"] == 588,
+        "R13 tail calls drifted",
+    )
+    _require(
+        r13_waste["exact_known_cost_usd_after_terminal_infra_failure"]
+        == "0.4686327800",
+        "R13 tail cost drifted",
+    )
+    _require_text(tex, "12 queued positions", "R13 history tail positions")
+    _require_text(tex, "588 calls", "R13 history tail calls")
+    _require_text(tex, "USD~0.4686327800", "R13 history tail cost")
+
+    _require(
+        r14["execution_scope"]["executed_formal_positions"] == 46,
+        "R14 position count drifted",
+    )
+    _require(
+        r14["aggregate_cost"]["total_exact_known_model_cost_usd"].startswith(
+            "1.4876297096"
+        ),
+        "R14 total cost drifted",
+    )
+    _require(
+        r14["terminal_incident"]["authorized_positions_not_started_after_trigger"]
+        == 79,
+        "R14 prevented positions drifted",
+    )
+    _require(
+        r14["terminal_incident"]["model_calls_after_trigger"] == 0,
+        "R14 post-trigger calls exist",
+    )
+    _require_text(tex, "R14 & 46/125 positions executed", "R14 history positions")
+    _require_text(tex, "USD~1.4876297096", "R14 history cost")
+    _require_text(tex, "prevented 79 authorized positions", "R14 fail-fast result")
 
     _require(outcome["final_decision"] == "HOLD", "R15 decision is not HOLD")
     _require(outcome["model_calls_after_selection"] == 0, "post-Selection calls exist")
@@ -203,8 +360,9 @@ def verify(project: Path) -> None:
         _require(figure.is_file() and figure.stat().st_size > 0, f"missing {figure.name}")
 
     print(
-        "AgentLoopGate paper facts verified against sealed R15 Selection, cost, "
-        "failure, ablation, reproduction, and manifest artifacts."
+        "AgentLoopGate paper facts verified against P0--R14 formation evidence "
+        "and sealed R15 Selection, cost, failure, ablation, reproduction, and "
+        "manifest artifacts."
     )
 
 

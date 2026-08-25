@@ -42,7 +42,11 @@ from agentloopgate.runtime.usage import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from audit_public_tree import ALLOWED_EMAILS, PII_RULES, SECRET_RULES  # noqa: E402
+from audit_public_tree import (  # noqa: E402
+    PII_RULES,
+    SECRET_RULES,
+    unapproved_email_matches,
+)
 from build_selection_hold_supplement import (  # noqa: E402
     build_selection_hold_supplement,
 )
@@ -776,7 +780,7 @@ def _scan_payloads(payloads: dict[str, bytes]) -> dict[str, Any]:
         for name, pattern in PII_RULES.items():
             matches = pattern.findall(data)
             if name == "email_address":
-                matches = [match for match in matches if match.lower() not in ALLOWED_EMAILS]
+                matches = unapproved_email_matches(matches)
             findings[name] += len(matches)
     nonzero = {key: value for key, value in sorted(findings.items()) if value}
     if nonzero:
