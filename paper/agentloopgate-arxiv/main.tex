@@ -4,6 +4,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{balance}
 \usepackage{graphicx}
 \usepackage{microtype}
 \usepackage{xcolor}
@@ -12,6 +13,11 @@
 \usepackage{seqsplit}
 \usepackage{xspace}
 \usepackage[hidelinks]{hyperref}
+
+\setcounter{dbltopnumber}{2}
+\renewcommand{\dbltopfraction}{0.95}
+\renewcommand{\dblfloatpagefraction}{0.85}
+\renewcommand{\textfraction}{0.05}
 
 \hypersetup{
   pdftitle={AgentLoopGate: Evidence-Governed Evolution and Fail-Closed Selection for Agent Harnesses},
@@ -273,7 +279,7 @@ between identities. Their legitimate role is process evidence---what failed,
 whether the system stopped, what evidence survived, and which control became
 mandatory in the successor.
 
-\begin{table*}[t]
+\begin{table*}[!t]
 \centering
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
@@ -348,7 +354,6 @@ Every successor retained the predecessor's raw evidence and used a new frozen
 identity when execution semantics changed.}
 \label{tab:formation-history}
 \end{table*}
-\clearpage
 
 \paragraph{Execution integrity before optimization.}
 P0--R6 showed that an optimizer is premature when a retry can escape its
@@ -649,6 +654,7 @@ was therefore \hold with zero Release calls. This negative candidate result is
 a positive governance result: self-evolution becomes a claim that must be
 earned by evidence rather than inferred from an optimizer's output.
 
+\balance
 \bibliographystyle{plain}
 \bibliography{references}
 
