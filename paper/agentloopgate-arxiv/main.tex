@@ -18,6 +18,14 @@
 \renewcommand{\dbltopfraction}{0.95}
 \renewcommand{\dblfloatpagefraction}{0.85}
 \renewcommand{\textfraction}{0.05}
+\raggedbottom
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {1.1ex plus 0.2ex minus 0.1ex}%
+  {-0.75em}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
 
 \hypersetup{
   pdftitle={AgentLoopGate: Evidence-Governed Evolution and Fail-Closed Selection for Agent Harnesses},
@@ -48,35 +56,25 @@ Selection for Agent Harnesses}
 \maketitle
 
 \begin{abstract}
-Language-model agents can revise prompts, tools, routing, and control flow from
-execution failures, but generating a harness change is not evidence that the
-change should ship. Aggregate benchmark scores can hide capability exchange;
-retries and missing traces can corrupt denominators; and an optimizer may
-evaluate its own proposal on coupled data. We present \system, a
-runtime-independent evidence and release-governance layer for agent harness
-evolution. It preserves the host's native trace, persistence, and telemetry,
-then binds content-addressed receipts, normalized runs, immutable snapshots,
-cost ledgers, and lineage to frozen objectives, splits, evaluators, pricing,
-and gates. External updaters may propose harness candidates, but promotion is
-never automatic. The architecture was formed through immutable P0--R14
-experiments and incident reviews that successively exposed retry, reply,
-lineage, pricing, evaluator, selection, fail-fast, and candidate-validation
-defects; these rounds are reported as formation evidence rather than pooled
-effectiveness evidence.
-
-In a frozen Banking reference validation with DeepSeek Harness and an external
-Agentic Harness Engineering updater, we executed all 125 authorized
-pre-release task positions. The baseline and three candidates scored
-6/15, 6/15, 5/15, and 6/15 on the identical Selection population. Every
-candidate gained task 017 but regressed baseline successes 062 and 095; paired
-95\% bootstrap intervals all included zero. \system therefore emitted
-\hold, held every candidate, and made zero Release calls. Exact known model
-cost was USD~3.908664788, with no unknown model-cost scope. No positive
-self-evolution effect is claimed. Headless fixtures further show coexistence
-with DeepSeek Harness JSONL/SQLite persistence and OpenTelemetry without
-replacing the native session log. The result demonstrates the value of
-fail-closed, task-paired governance even when the scientifically correct
-outcome is abstention.
+Language-model agents can revise prompts, tools, routing, and control flow, yet
+a proposed harness change is not evidence that it should ship. Aggregate
+scores can conceal capability exchange, retries and missing traces can corrupt
+denominators, and optimizers can evaluate their own proposals. We present
+\system, a runtime-independent release-governance layer that preserves native
+trace, persistence, and telemetry while binding evidence, cost, and lineage to
+frozen objectives, splits, evaluators, pricing, and gates. External updaters
+may propose candidates; promotion remains human-controlled. P0--R14 incidents
+are reported as system-formation rather than pooled effectiveness evidence. In
+a frozen Banking validation with DeepSeek Harness and an external Agentic
+Harness Engineering updater, we executed all 125 authorized pre-release
+positions. The baseline and three candidates scored 6/15, 6/15, 5/15, and 6/15
+on identical Selection tasks. Every candidate gained task 017 but regressed
+baseline successes 062 and 095; all paired 95\% bootstrap intervals included
+zero. \system therefore returned \hold for every candidate and made no Release
+calls. Exact known model cost was USD~3.908664788, with no unknown cost.
+Headless fixtures confirmed coexistence with DeepSeek Harness persistence and
+OpenTelemetry. No positive self-evolution effect is claimed; the result shows
+that fail-closed, task-paired governance makes abstention auditable.
 \end{abstract}
 
 \section{Introduction}
