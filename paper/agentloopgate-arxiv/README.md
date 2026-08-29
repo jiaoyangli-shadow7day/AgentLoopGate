@@ -1,6 +1,6 @@
 # AgentLoopGate arXiv paper source
 
-This directory contains the submission-shaped English manuscript for
+This directory contains parallel English and Chinese manuscripts for
 AgentLoopGate. Creating these files does not authorize arXiv submission or make
 the repository public.
 
@@ -10,11 +10,15 @@ From this directory:
 
 ```sh
 tectonic main.tex --keep-logs --keep-intermediates
+tectonic main-zh.tex --keep-logs --keep-intermediates
 ```
 
-The manuscript uses only source-local figures and standard TeX packages that
-Tectonic can resolve. The final reviewed PDF is copied to
-`output/pdf/agentloopgate-evidence-governed-evolution.pdf`.
+The manuscripts use only source-local figures and standard TeX packages that
+Tectonic can resolve. The final reviewed PDFs are copied to
+`output/pdf/agentloopgate-evidence-governed-evolution.pdf` and
+`output/pdf/agentloopgate-evidence-governed-evolution-zh.pdf`. The English
+manuscript remains the submission-shaped source of record; the Chinese version
+is a synchronized translation with the same claims and evidence boundaries.
 
 ## Before submission
 

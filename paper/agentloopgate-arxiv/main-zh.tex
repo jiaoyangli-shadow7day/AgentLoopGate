@@ -1,0 +1,463 @@
+\documentclass[UTF8,10pt,twocolumn,fontset=none]{ctexart}
+
+\usepackage[letterpaper,margin=0.72in,columnsep=0.25in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{balance}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{url}
+\usepackage{seqsplit}
+\usepackage{xspace}
+\usepackage[hidelinks]{hyperref}
+
+\setCJKmainfont{Songti SC}
+\setCJKsansfont{Heiti SC}
+\setCJKmonofont{Songti SC}
+
+\setcounter{dbltopnumber}{2}
+\renewcommand{\dbltopfraction}{0.95}
+\renewcommand{\dblfloatpagefraction}{0.85}
+\renewcommand{\textfraction}{0.05}
+\raggedbottom
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {1.1ex plus 0.2ex minus 0.1ex}%
+  {-1.5em}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\hypersetup{
+  pdftitle={AgentLoopGate：面向智能体执行框架的证据治理进化与失效闭合选择},
+  pdfauthor={JiaoyangLi},
+  pdfsubject={智能体执行框架进化的证据治理},
+  pdfkeywords={语言模型智能体, 智能体执行框架, 评测治理, 可复现性, DeepSeek Harness}
+}
+
+\definecolor{algblue}{HTML}{1D4ED8}
+\definecolor{algpurple}{HTML}{6D28D9}
+\definecolor{alggreen}{HTML}{15803D}
+\definecolor{algred}{HTML}{B91C1C}
+\newcommand{\system}{\textsc{AgentLoopGate}\xspace}
+\newcommand{\hold}{\textsc{Hold}\xspace}
+\newcommand{\ship}{\textsc{Ship-Recommended}\xspace}
+\newcommand{\reject}{\textsc{Reject}\xspace}
+\newcommand{\code}[1]{\texttt{#1}}
+\DeclareRobustCommand{\digest}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\leadparagraph}[1]{\par\vspace{0.6ex}\noindent\textbf{#1}\hspace{0.75em}\ignorespaces}
+\renewcommand{\refname}{参考文献}
+
+\title{\system：面向智能体执行框架的证据治理进化\\与失效闭合选择}
+\author{JiaoyangLi\\
+\small \href{mailto:jiaoyanglifly@gmail.com}{jiaoyanglifly@gmail.com}\\
+\small \url{https://github.com/jiaoyangli-shadow7day/AgentLoopGate}}
+\date{草稿 -- 2026年8月}
+
+\begin{document}
+\pagestyle{plain}
+\maketitle
+
+\begin{abstract}
+语言模型智能体可以根据执行失败修改提示词、工具、路由和控制流，但产生一个执行框架改动，并不等于已经证明该改动应当发布。聚合分数可能掩盖能力交换，重试和缺失轨迹可能污染分母，优化器也可能在耦合数据上评估自己的提案。本文提出 \system：一个与运行时无关的发布治理层。它保留宿主原生轨迹、持久化和遥测能力，同时把证据、成本和谱系绑定到冻结的目标、数据切分、评估器、定价和门禁。外部更新器可以提出候选方案，但晋升仍由人类控制。P0--R14 的事故被作为系统形成证据，而不是合并的有效性证据。在一个冻结的 Banking 验证中，我们将 DeepSeek Harness 与外部 Agentic Harness Engineering 更新器结合，执行了全部 125 个获授权的预发布位置。基线与三个候选在相同 Selection 任务上的得分分别为 6/15、6/15、5/15 和 6/15。每个候选都获得任务 017，却同时退化了基线成功任务 062 和 095；所有配对 95\% bootstrap 区间均包含零。因此 \system 对所有候选返回 \hold，且没有发起任何 Release 调用。已知模型成本精确为 3.908664788 美元，不存在未知模型成本范围。无模型夹具还确认了插件与 DeepSeek Harness 持久化及 OpenTelemetry 的共存。本文不主张获得了正向自进化效果；结果表明，失效闭合、任务配对的治理能够让“放弃发布”成为可审计的科学结论。
+\end{abstract}
+
+\section{引言}
+
+智能体执行框架把语言模型变成能够观察状态、调用工具、保存记忆、恢复会话并与用户交互的系统。近期工作通过语言反思\cite{shinn2023reflexion,madaan2023selfrefine}、学习提示词与流水线参数\cite{khattab2023dspy}、函数级优化\cite{zhang2024agentoptimizer}，或对智能体程序执行自动搜索\cite{hu2024adas}来改进此类系统。这些方法拓宽了可被修改的范围，但它们本身并没有规定：一项改动需要什么证据才足以发布。
+
+这一差异在有状态、使用工具的场景中尤其重要。候选方案可能在保持聚合分数不变的同时，用一种能力交换另一种能力；重试可能掩盖失败尝试及其成本；缺失轨迹或评估器事故可能悄然缩小分母；同一批数据也可能从诊断泄漏到选择。最后，可观测性数据可以帮助调试，却未必完整到足以充当发布证据。
+
+我们提出 \system，一个独立的证据治理与进化决策层。它不是另一套运行时、轨迹后端或自动部署系统。宿主原生执行日志仍然是“发生了什么”的事实来源。\system 增加可验证引用、不可变评测身份、受限更新器输入、独立的基线配对选择，以及返回 \ship、\hold 或 \reject 的字典序门禁。人类仍是唯一的晋升授权者。
+
+本文有四项贡献：
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item 提出与运行时无关的证据模型，在不替换原生持久化或遥测的前提下，把宿主轨迹绑定到归一化运行、候选、快照、成本与决策；
+  \item 提出失效闭合的进化协议，将诊断、Update-Check、基线配对 Selection 与条件式 Release 分离，并精确记录尝试与成本；该协议由可审计的 P0--R14 失败序列及版本化控制逐步形成；
+  \item 提供原生 DeepSeek Harness 插件，消费公开会话事件、对账 flush 快照、保留 JSONL/SQLite 与 OpenTelemetry，并将治理故障与智能体回合隔离；
+  \item 给出完整封存的 Banking 研究，显示两个聚合平局实际上都隐藏了“两个增益换两个退化”的能力交换，因此正确的系统结论是放弃发布。
+\end{enumerate}
+
+本文的经验主张有意保持狭窄：\system 发现了证据不足的进化，并在 Release 之前阻止了它。我们不主张外部更新器改进了智能体，不主张结果可推广到 Banking 之外，也不把夹具延迟解释为生产负载。
+
+\section{问题与设计目标}
+
+设 $A_0$ 为冻结的基线执行框架，外部更新器根据受限失败包产生候选 $C_1,\ldots,C_m$。对冻结 Selection 群体中的任务 $t$，$y_t(A)\in\{0,1\}$ 表示执行框架 $A$ 下的稳定成功。发布问题不只是 $\arg\max_A\sum_t y_t(A)$。只有当证据群体完整，且新增能力没有牺牲受保护的基线行为时，候选才应具备资格。
+
+\leadparagraph{目标。}
+系统应当：（i）接收来自多种更新器家族的提案，而不信任更新器自带分数；（ii）保持诊断、选择和发布数据互不交叉；（iii）让每项结论都可追溯到不可变的任务、运行、候选、快照与定价身份；（iv）把重试、超时、未知成本和基础设施无效作为一等事实；（v）保留宿主运行时的原生行为；（vi）让放弃成为成功的终止结果。
+
+\leadparagraph{非目标。}
+\system 不训练模型权重、不认证智能体安全、不替换宿主日志、不提供轨迹用户界面，也不部署被选中的候选。Banking 是参考验证包，而不是产品边界。
+
+\leadparagraph{信任边界。}
+可信内核包含模式、规范序列化、内容哈希、切分强制、评估器接口、候选注册表、尝试与成本账本，以及门禁。更新器工作区和可变执行框架资产不受信任。原始模型文本、用户模拟和外部遥测不能自行声明成功。
+
+\section{系统设计}
+
+\begin{figure*}[t]
+\centering
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.35}
+\small
+\begin{tabular}{c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c}
+\fbox{\parbox{0.155\textwidth}{\centering 宿主原生轨迹\\会话事件/原始结果}}
+& \fbox{\parbox{0.155\textwidth}{\centering 证据绑定\\回执/归一化运行}}
+& \fbox{\parbox{0.155\textwidth}{\centering 受限更新器\\候选/快照}}
+& \fbox{\parbox{0.155\textwidth}{\centering $A_0$ 配对评测\\检查/Selection}}
+& \fbox{\parbox{0.155\textwidth}{\centering 字典序门禁\\\textsc{Ship-}\\\textsc{Recommended}\\\hold/\reject}}
+\end{tabular}
+\vspace{3pt}
+
+\small 冻结的目标、切分、评估器、定价、协议和研究身份绑定每次转换。只有 Selection 返回候选且存在独立授权时才创建 Release；晋升永不自动发生。
+\caption{\system 将运行时事实、治理证据、候选生成和发布决策分离。宿主轨迹仍是执行事实来源；内容寻址的治理工件反向引用该轨迹。}
+\label{fig:architecture-zh}
+\end{figure*}
+
+\subsection{证据平面}
+
+证据路径分为四个平面。H0 是宿主原生事实来源，即 DeepSeek Harness 仅追加会话日志或基准原始结果。L0 保存 \emph{SourceTraceRef} 和脱敏证据回执。L1 保存归一化的运行、工具、状态、延迟、用量与成本事实。L2 保存评测工件，包括失败包、候选与快照清单、批次汇总、统计、谱系和决策。每个对象使用规范 JSON 或 YAML 以及 SHA-256 摘要。正式结论必须沿该链返回 H0。
+
+遥测不会被刻意提升为评测真值。OpenTelemetry 是面向轨迹、指标和日志的厂商中立框架\cite{opentelemetry2026}；导出器可能有用，也可能缺失、被采样或被重新配置。因此 \system 与 OTel 共存，但把完整性建立在宿主会话事件流和认证回执上。
+
+\subsection{冻结身份与不可变生命周期}
+
+正式实验会冻结目标、六个隔离任务池、评估器、定价、运行时固定版本、协议、研究计划、源代码修订和基线快照。每个付费操作先写入持久的 \code{STARTED} 事件，随后只写入一个终止事件。恢复操作验证已有字节，仅继续尚未执行的工作，不能悄然重跑已经完成的付费位置。
+
+成本包含两个不同问题：有效运行的比较成本是否精确，以及全部已观察尝试表面是否完整。缺失成本只能记为 \code{partial} 或 \code{unavailable}，绝不能记作零。基础设施无效运行在性能分母之外报告；如果注册覆盖不完整，则阻断整个批次。
+
+\subsection{受限外部更新器}
+
+更新器只接收由 Update-Source 导出的失败包，以及父快照中列入白名单的可变资产。它不能读取 Selection 或 Release 任务、金标准答案、评估器代码、既往私有决策或可信内核。输出必须经过路径范围、模式、语义差异、运行时能力绑定和谱系验证，之后才能注册。更新器原生顺序作为证据保留，但不构成发布决策。
+
+\subsection{基线配对选择与条件式发布}
+
+Update-Check 以较低成本拒绝格式错误或明显有害的候选。存活候选与 $A_0$ 随后在完全相同的 Selection 任务上运行。对候选 $C$，定义配对差 $d_t=y_t(C)-y_t(A_0)$、增益集 $G_C=\{t:d_t=1\}$ 和退化集 $R_C=\{t:d_t=-1\}$。R15 正确性门禁要求
+
+\begin{equation}
+\sum_t d_t > 0, \qquad R_C=\varnothing,
+\label{eq:correctness-zh}
+\end{equation}
+
+同时还要求证据完整、严重违规为零、重试或超时不增加、p95 延迟比不高于 1.2，且全尝试成本比不高于 1.2。标量分数平局不属于增益。
+
+若没有候选满足全部前提，Selection 返回 \hold 并禁止 Release 调用。即便选出了候选，Release-ID、Release-OOD 和 Replay 仍需单独绑定的执行授权。最终的 \ship 也只是建议，而不是部署。
+
+\section{DeepSeek Harness 集成}
+
+DeepSeek Harness 是由插件组合的智能体运行时，其持久会话日志记录模型上下文、工具调用与生命周期事件\cite{deepseekharness2026}。\system 以树外 Cordis bundle 的形式集成到固定的开发者预览修订；没有插件时，Python 核心仍可独立使用。
+
+观察器订阅公开的会话生命周期和事件接口。实时路径提供低延迟回执；每次 flush 都与权威 \code{session.events} 快照对账，从而恢复构造、续跑或瞬时缓冲区缺口。序列空洞会将证据标记为不完整。插件不会注册竞争性的遥测后端，不查询私有 SQLite 表，也不重写原生 JSONL/SQLite。桥接故障与智能体回合隔离，但会阻止受影响证据进入正式决策。卸载时会移除工具、监听器和桥接子进程。
+
+这种安排让原生轨迹与治理证据互为补充。开发者保留既有会话持久化和 OTel 导出器；\system 只增加内容寻址的来源证明与决策语义。
+
+\section{系统形成与失败经验：P0--R14}
+
+\system 并非一次设计完成。当前契约来自一系列冻结实验、失败预检、部分批次和事故复盘。仓库的实验身份从 \code{EXP\_BANKING\_P0} 直接跳到 \code{EXP\_BANKING\_R2}；不存在注册的 \code{EXP\_BANKING\_R1} 身份。我们保留这个命名缺口，而不虚构一次运行。P0--R14 也不能合并成有效性曲线，因为不同身份之间的协议、证据模式、基线，有时甚至评估器输入都发生了变化。它们的合理作用是过程证据：哪里失败、系统是否停止、哪些证据得以保留，以及哪个控制在后继版本中成为强制要求。
+
+\begin{table*}[!t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.2pt}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{
+  >{\raggedright\arraybackslash}p{0.075\textwidth}
+  >{\raggedright\arraybackslash}p{0.205\textwidth}
+  >{\raggedright\arraybackslash}p{0.285\textwidth}
+  >{\raggedright\arraybackslash}p{0.355\textwidth}
+}
+\toprule
+轮次 & 终止证据 & 暴露的故障 & 后继保留的控制 \\
+\midrule
+P0--R2 & P0 以被取代的 \hold 保存；R2 A4 保留一次失败协议诊断 & 冻结的单次重试意图与实际调用的运行时默认值不同；陈旧验收、源码打包、忽略规则和 Linux 异步行为也未通过 clean-room 检查 & 对执行协议做内容寻址；以“取代”代替重写；付费取证前强制执行源码工件与干净检出的 Linux 验证 \\
+R3 & 22/25 个 Update-Source 位置有效；\hold & 外层恢复再次应用每进程重试预算，且被丢弃的尝试丢失了 User Simulator 成本 & 全局每位置尝试上限；仅追加的任务-尝试账本与独立 Agent/User 用量账本；未知成本绝不记为零 \\
+R4 & 24/25 有效；\hold；精确全尝试模型成本 0.6917880208 美元 & 一个反复出现且可唯一映射的回复包装器仍未被识别 & 仅当工具身份与参数明确时才做窄白名单归一化；歧义语法继续失效闭合 \\
+R5--R6 & R5：23/25 有效；R6：24/25 有效；均为 \hold。R6 对账得到精确全尝试成本 0.7698343648 美元 & 仅推理的空最终回复、相同的内外层超时、额外的显式回复形态，以及间接失败调用谱系 & 单独记账的同会话“仅最终回复”修复；有序超时；直接任务/尝试/会话连接；不从隐藏推理中推断 \\
+R7--R8 & R7 完成 Source、创建三个候选并完成 $A_0$ Check；首个候选 Check 部分失败。R8 未产生付费调用 & 动态定价把非零 token 的 User 成本错误算成精确零；后续审计还发现汇总与门禁读取原始成本而非直接账本成本 & 用正 token 不变量执行冻结价格重算；直接成本必须端到端传播到汇总、曲线和最终门禁 \\
+R9 & 25/25 Source 有效；不可变 \hold；精确全尝试成本 0.7015112488 美元 & 任务 053 的金标准夹具遗漏了必要用户动作，使正确轨迹看起来错误 & 确定性的无模型原因隔离；版本化评估器覆盖层；证据污染时阻止候选生成 \\
+R10 & 95 个正式位置；付费 \hold；截至 C2 的精确模型成本 3.0651904832 美元 & Selection 遗漏 $A_0$、强制选出胜者、忽略多项全尝试运行事实、接纳重复候选，并允许未绑定工具路由 & 同池基线配对；一等放弃语义；全尝试重试/超时/p95/成本输入；语义去重与运行时能力绑定 \\
+R11--R12 & R11：24/25 Source 有效。R12：34/35 个已执行位置有效；均为 \hold。R12 观察到 Provider 成本下界 1.1970712488 美元 & 失败尝试封存缺少直接谱系；User Simulator 空消息与更新器使用进程全局 \code{/tmp} 破坏后继执行 & 对已有字节仅验证恢复；受限的“仅最终回复”User 修复；尝试局部的更新器运行时与沙箱医生；每次修复都需新身份 \\
+R13 & 24/25 Source 有效；\hold。发生永久无效后，12 个排队位置仍产生 588 次调用，已知成本 0.4686327800 美元 & 跨阶段门禁有效，但串行批次缺少位置级快速失败 & 重试耗尽后，在下一位置前停止，同时保留失败位置、未知成本范围、原生轨迹和不完整分母 \\
+R14 & 执行 46/125 个位置；\hold；精确成本 1.4876297096 美元。快速失败阻止 79 个授权位置启动 & 候选预检检查的是基线字节与补丁 token，而非物化后的预期字节；唯一完成的候选 Check 退化了一个基线成功 & 在隔离树中应用每个补丁并在注册前验证最终字节；封存一等部分 \hold；恢复仅执行验证 \\
+\bottomrule
+\end{tabular}
+\caption{P0--R14 的系统形成。计数和成本是已观察历史证据，不能作为候选有效性的可比估计。每个后继都保留前序原始证据，并在执行语义变化时使用新的冻结身份。}
+\label{tab:formation-history-zh}
+\end{table*}
+
+\leadparagraph{先保证执行完整性，再谈优化。}
+P0--R6 表明：当重试可以逃逸预算、被丢弃的调用可以从成本中消失，或一种回复表示可以把明确意图变成 Infrastructure Invalid 时，启动优化器为时过早。因此，这一序列把尝试拓扑、超时归属、回复归一化和直接谱系纳入可信内核。重要的是，恢复出可解析或完整回合并不会改写业务结果；修复后的位置仍可能是有效的任务失败。
+
+\leadparagraph{先保证决策完整性，再谈发布。}
+R7--R10 把故障边界推向下游。即使执行完整，动态价格查询仍可能产生错误的精确零，汇总可能读取错误成本平面，损坏的金标准夹具可能污染失败包，Selection 也可能在没有配对基线时强制产生胜者。这些事故形成了 R15 使用的冻结价格权威、评估器版本化、候选语义与能力检查、基线配对 Selection，以及一等 \hold 语义。
+
+\leadparagraph{快速失败但不删除证据。}
+R11--R14 检验恢复与停止行为。系统反复保留部分证据，并拒绝填补缺失分母。R13 量化了串行批次中的真实效率故障；R14 随后证明新的位置级停止阻断了剩余队列，同时在 Selection 之前暴露了下一个控制平面缺陷。这正是失效闭合进化的实际含义：失败被保留为证据，而不是为了让实验继续而被隐藏。
+
+综合来看，P0--R14 支持的是系统主张，而非正向进化主张。它们说明架构由可观察失败塑造，并且每个被发现的失败都转化为后继版本中可执行的控制。R15 是由此形成的基线约束预发布策略的第一次完整确认性应用。
+
+\section{Banking R15 方法}
+
+\subsection{参考环境}
+
+本研究使用由 $\tau$ 系列工具-智能体-用户基准派生的知识密集型 Banking 环境。这类基准评测有状态对话、策略遵循、API 使用和最终环境状态，而不只评测静态文本\cite{yao2024taubench}。ToolSandbox 也强调有状态工具使用评测\cite{lu2024toolsandbox}。我们用 Banking 演练完整证据路径，而不是定义 \system 的适用领域。
+
+执行模型与用户模拟器均为冻结运行时参数下的 DeepSeek 端点。外部更新器为提交 \code{8b2a55d97590363fe50c3cc6b5e833b020a4bb4c} 上的 \code{agentic-harness-engineering} 0.1.0。正式执行前，基准运行时、协议、研究、源码树、定价与 $A_0$ 均已内容寻址。
+
+\subsection{注册的预发布表面}
+
+R15 执行了 25 个 Update-Source 位置、40 个 Update-Check 位置（$A_0$ 加三个候选，每项各 10 个），以及 60 个 Selection 位置（$A_0$ 加三个候选，每项各 15 个）：九个完整批次共 125/125 个授权位置。所有位置均有效，没有出现 Infrastructure Invalid 运行。实验不包含 Release 授权。
+
+外部更新器按原生顺序输出三个语义不同的候选，记为 C1--C3。Selection 以稳定任务成功作为主要终点。延迟、严重违规、重试、超时与全尝试成本是门禁输入，而不是事后诊断。
+
+\subsection{不确定性与多重性}
+
+对每个候选，我们对 15 个配对任务差值 $d_t$ 执行 10,000 次确定性 bootstrap 重采样，并报告 $\bar d$ 的最近秩 95\% 区间。bootstrap 种子已预注册，每次比较都导出内容绑定的有效种子。统计单位是任务，而不是试验或模型调用\cite{efron1979bootstrap}。区间仅用于描述冻结 Selection 群体：同一更新器产生的三个提案彼此相关，因此我们既不提出经多重性校正的优越性主张，也不做跨领域推断。
+
+\subsection{研究问题}
+
+我们考察：独立治理是否发现聚合分数遗漏的任务级能力交换（RQ1）；当没有候选通过冻结门禁时，系统是否在 Release 前放弃（RQ2）；重试和失败期间证据与成本是否保持完整（RQ3）；DeepSeek Harness 插件是否在无头夹具中与原生持久化及 OTel 共存（RQ4）。
+
+\section{结果}
+
+\subsection{聚合平局掩盖了共同退化}
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrrrrrl}
+\toprule
+方案 & 稳定成功 & 增益 & 退化 & 配对 $\bar d$ [95\% CI] & p95 比 & 成本比 & 处置 \\
+\midrule
+$A_0$ & 6/15 & -- & -- & -- & 1.000 & 1.000 & 基线 \\
+C1 & 6/15 & 017, 096 & 062, 095 & 0.000 [$-$.267, .267] & 1.882 & 1.121 & 留置 \\
+C2 & 5/15 & 017, 090 & 056, 062, 095 & $-$.067 [$-$.333, .200] & 1.670 & 1.108 & 留置 \\
+C3 & 6/15 & 017, 090 & 062, 095 & 0.000 [$-$.267, .267] & 1.652 & 1.127 & 留置 \\
+\bottomrule
+\end{tabular}
+\caption{相同 15 任务群体上的冻结 Selection 结果。成本比使用全部已观察尝试成本；p95 比相对于 $A_0$。每个候选都违反了严格增益、零退化和 p95 非劣要求。}
+\label{tab:selection-zh}
+\end{table*}
+
+C1 与 C3 同 $A_0$ 均为 6/15，C2 为 5/15。这些平局并不代表稳定等价。每个候选都获得任务 017，并失去相同的基线成功任务 062 与 095；C2 还失去 056。C1 额外获得 096，而 C2 与 C3 获得 090。因此，两个聚合平局都代表“两个增益交换两个受保护成功”。所有配对区间均包含零。
+
+运行证据也独立淘汰了每个候选。所有 p95 延迟比都超过 1.2；C1 还增加一次超时。全尝试成本比均在 1.2 内，但都高于 $A_0$。由于式\ref{eq:correctness-zh}是前提条件而非加权分数，较低成本不能补偿退化。
+
+\begin{figure*}[t]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+\centering
+\begin{tikzpicture}[x=0.36cm,y=0.36cm,font=\scriptsize]
+  \node[anchor=west,font=\small\bfseries] at (0,9.2) {相对 $A_0$ 的配对 Selection 增益与退化};
+  \node[anchor=west,text=gray] at (0,8.4) {相同 15 任务 Selection 池上的任务计数};
+  \draw[gray] (1,1.4) -- (21,1.4);
+  \fill[alggreen] (4,1.4) rectangle (5.4,5.0);
+  \fill[algred] (5.8,1.4) rectangle (7.2,5.0);
+  \fill[alggreen] (10,1.4) rectangle (11.4,5.0);
+  \fill[algred] (11.8,1.4) rectangle (13.2,6.8);
+  \fill[alggreen] (16,1.4) rectangle (17.4,5.0);
+  \fill[algred] (17.8,1.4) rectangle (19.2,5.0);
+  \node at (5.6,0.7) {C1}; \node at (11.6,0.7) {C2}; \node at (17.6,0.7) {C3};
+  \node at (4.7,5.35) {2}; \node at (6.5,5.35) {2};
+  \node at (10.7,5.35) {2}; \node at (12.5,7.15) {3};
+  \node at (16.7,5.35) {2}; \node at (18.5,5.35) {2};
+  \draw[alggreen,line width=2pt] (15.5,8.5)--(16.8,8.5); \node[anchor=west] at (17,8.5) {增益};
+  \draw[algred,line width=2pt] (15.5,7.7)--(16.8,7.7); \node[anchor=west] at (17,7.7) {退化};
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\centering
+\begin{tikzpicture}[font=\scriptsize]
+  \node[anchor=west,font=\small\bfseries] at (0,4.4) {Selection 门禁瀑布};
+  \node[anchor=west,text=gray] at (0,3.95) {无候选通过全部前提；Release 调用 = 0};
+  \node[rounded corners,fill=alggreen,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (1.15,2.9) {证据完整性\\\textbf{通过}};
+  \node[rounded corners,fill=algred,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (3.75,2.9) {严格稳定增益\\\textbf{失败}};
+  \node[rounded corners,fill=algred,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (6.35,2.9) {零稳定退化\\\textbf{失败}};
+  \node[rounded corners,fill=algred,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (1.15,1.55) {p95 延迟 $\leq1.2\times A_0$\\\textbf{失败}};
+  \node[rounded corners,fill=alggreen,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (3.75,1.55) {全尝试成本 $\leq1.2\times A_0$\\\textbf{通过}};
+  \node[rounded corners,fill=algpurple,text=white,text width=2.1cm,minimum height=0.85cm,align=left] at (6.35,1.55) {治理终态\\\textbf{HOLD}};
+  \node[anchor=west] at (0,0.45) {HOLD 是成功的失效闭合治理结果，而不是部署。};
+\end{tikzpicture}
+\end{minipage}
+\caption{左：配对 Selection 群体中候选相对 $A_0$ 的增益与退化。右：失效闭合门禁结果。图中只包含 Selection；Release 未运行。两个面板均为绑定到 Selection 摘要 \digest{b5e800...00466} 的确定性视图。}
+\label{fig:selection-zh}
+\end{figure*}
+
+\subsection{系统正确地选择了放弃}
+
+最终原因是 \nolinkurl{no_candidate_passed_baseline_bound_selection_policy}。\system 留置 C1--C3，把治理候选设为 null，返回 \hold，并在 Selection 之后产生零次模型调用。不存在 Release-ID、Release-OOD、Replay、晋升或部署工件。这是正常且成功的终态：系统拒绝从证据不足的候选阶梯中制造一个胜者。
+
+因此，就治理行为而非候选质量而言，RQ1 与 RQ2 得到肯定回答。独立配对选择把更新器原生排名转化为放弃，而条件式 Release 边界在前提失败后阻止了额外付费评测。
+
+\subsection{证据与成本实现精确对账}
+
+九个批次都具备精确记账。调用账本包含 4,378 次终止模型调用、10,343,844 个输入 token、4,648,289 个输出 token、222,019,328 个缓存读取 token、零个未解决调用和零次提供商级重试。任务级重试与超时事实单独保留在批次证据中。正式批次成本为 3.8830976464 美元；外部更新器调用成本为 0.0255671416 美元；精确已知模型成本为 3.9086647880 美元。未知模型成本范围为空。本地计算与 GitHub Actions 的货币成本被明确标记为未计量或不可用，而不是零。
+
+正式过程墙钟时间为 52,591.59 秒（14.61 小时）。该时长包含刻意串行、低并发的执行路径，不应被理解为最短可达运行时间。它证明路径、时长、重试、调用、token 与成本可以在执行中作为证据保留，而不是事后重建。
+
+\subsection{插件在夹具范围内通过共存验证}
+
+一个注册的无模型消融分别对 JSONL 和 SQLite 持久化执行 30 次配对迭代，每次包含 100 个逻辑会话事件。每次迭代中，原生持久化均得以保留，逻辑会话事件哈希等价，观察器覆盖完整，且 OTel 共存保持为真。JSONL 开销的 p50 为 $-0.308$ ms，p95 为 16.424 ms；SQLite 开销的 p50 为 0.244 ms，p95 为 0.542 ms。负样本来自本地计时噪声。这些测量只验证无头夹具中的生命周期共存，不代表生产吞吐或尾延迟服务目标。
+
+另一个合成完整性控制展示了门禁价值：关闭评测完整性时，夹具会返回 \ship；生产门禁则因 \code{evaluation\_integrity} 返回 \hold。由于这是合成控制，它证明的是软件行为，而非 R15 的因果估计。
+
+\section{讨论}
+
+\leadparagraph{发生了什么进化？}
+外部更新器产生了三个真实、可执行的执行框架提案，且三者都改变了任务成功表面。这是候选生成的证据，不是正向进化的证据。R15 反而提出一个方向性假设：未来更新器应把稳定基线成功集视作受保护约束，并针对失败簇提出稀疏改动。检验该假设需要新的冻结身份和未触碰的确认任务；R15 不能验证一个在看到其 Selection 失败后才设计的机制。
+
+\leadparagraph{为什么不用加权分数优化？}
+加权目标允许成本或延迟补偿正确性退化。在高风险动作领域，这会让策略重要能力消失在不变的平均值后面。字典序前提表达了更强的发布契约：先保证证据，再保证受保护正确性，最后保证运行非劣。不同应用可以冻结不同门禁，但在看到结果后修改门禁必须启动新研究。
+
+\leadparagraph{轨迹与遥测。}
+可观测性与评测证据有交集，但并不相同。原生会话日志回答运行时记录了什么；OTel 回答已配置埋点导出了什么。\system 保持原生日志的权威性，并增加专门服务于决策完整性的回执。开发者无需因此放弃既有持久化或导出器。
+
+\leadparagraph{负结果也是系统证据。}
+智能体进化研究自然偏好方法提升聚合指标的案例。治理系统也应在没有提案值得发布时接受评测。R15 演练了更具对抗性的分支：合理、可执行的候选改变了行为，却违反受保护约束。正确放弃、精确记账，以及证明没有启动 Release 尾部，构成了主要结果。
+
+\section{相关工作}
+
+\leadparagraph{语言智能体改进。}
+ReAct 交错执行推理与动作\cite{yao2023react}；Reflexion 跨试验保存语言反馈\cite{shinn2023reflexion}；Self-Refine 迭代批评输出\cite{madaan2023selfrefine}。DSPy 针对指标编译声明式语言模型流水线\cite{khattab2023dspy}。AgentOptimizer 把函数视作可学习的智能体参数\cite{zhang2024agentoptimizer}，Automated Design of Agentic Systems 则搜索智能体程序\cite{hu2024adas}。\system 与这些方法互补：它不提出更优优化算法，而是约束输入、认证结果、独立选择提案，并治理评测是否可以继续。
+
+\leadparagraph{智能体评测与工具安全。}
+AgentBench 在交互环境中评测智能体\cite{liu2023agentbench}；$\tau$-bench 聚焦工具-智能体-用户交互及可靠性\cite{yao2024taubench}；ToolSandbox 增加有状态的在策略工具执行\cite{lu2024toolsandbox}；ToolEmu 使用模拟沙箱识别高风险工具行为\cite{ruan2023toolemu}。\system 把此类基准适配器当作证据生产者，并增加跨实验的生命周期、切分、谱系、成本与发布语义。
+
+\leadparagraph{可复现性与治理。}
+经典 bootstrap 方法量化经验群体的不确定性\cite{efron1979bootstrap}。\system 绑定精确群体、种子、批次摘要和比较工件，因此区间不能脱离底层运行而漂移。其贡献是运行层面的：统计输出是内容寻址决策路径中的一个前提，而不是证据完整性的替代品。
+
+\section{局限与伦理}
+
+R15 只覆盖一个 Banking 环境、一个更新器后端、一个模型/运行时家族、三个相关候选，以及 15 任务 Selection 群体。因此 bootstrap 区间较宽且仅具描述性。没有候选进入 Release，所以不存在 Release-ID、OOD、Replay 或跨领域有效性证据。插件开销研究是在 arm64 macOS 上运行的本地合成夹具，不是生产负载测试。用户模拟与提供商方差可能影响结果。门禁审查的人因正式研究也尚未开展。
+
+研究不公开原始客户或会话内容。公开工件是脱敏聚合；原始轨迹、提示词、模型响应、凭据和隐藏基准内容保持私有。clean-room 验证包含密钥与直接 PII 扫描。系统从不自动晋升。这些控制降低意外发布风险，但不能证明系统能抵御恶意宿主、受损评估器或所有形式的提示注入。
+
+\section{可复现性与工件可用性}
+
+源码树包含 Python 治理核心、DeepSeek Harness bundle、无密钥演示、冻结配置身份、单元与集成测试，以及脱敏的 18 文件 R15 v1.1 结果包。该结果包无需原始轨迹即可独立验证。其 Manifest 摘要为 \digest{sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8}；它绑定的私有 Outcome 摘要为 \digest{sha256:827ed2a5b3337832c49cd255f17568fad3a58fe201860311d66decb83ba0bdc3}。
+
+统一 clean-room 命令运行 Python 测试与演示，构建 sdist 和 wheel，对插件执行类型检查与测试，运行无头一致性验证，打包 bundle，验证两个 R15 结果包，并扫描预期公开树中的密钥与直接 PII。仓库已准备在标题栏给出的 URL；截至本稿，仓库可见性和 arXiv 投稿仍是需要所有者另行授权的动作。
+
+\section{结论}
+
+\system 将“生成智能体执行框架改动的能力”与“发布该改动的权力”分开。其证据契约保留宿主原生轨迹，不可变生命周期使重试与成本可审计，$A_0$ 配对门禁使能力交换可见。在 Banking R15 中，每个更新器提案都获得了某些行为，也都退化了受保护成功，没有提案证明严格稳定改进。因此系统的正确结果是 \hold，Release 调用为零。这个负面的候选结果构成正面的治理结果：自进化不再是根据优化器输出推断的事实，而是必须由证据赢得的主张。
+
+\balance
+\begingroup
+\small
+\bibliographystyle{plain}
+\bibliography{references}
+\endgroup
+
+\clearpage
+\onecolumn
+\appendix
+\section{证据绑定}
+
+表\ref{tab:bindings-zh}列出本文使用的主要内容身份。这里保留完整值，使论文无需私有执行数据即可与脱敏结果包核对。
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+工件 & 摘要或身份 \\
+\midrule
+实验 & \code{EXP\_BANKING\_R15} \\
+协议 & \digest{sha256:b40198176f9de2b39c9433131455bc0af07eee54650327622677cd9085b84a5f} \\
+研究 & \digest{sha256:bd5988f4f89068fa6347728f6b88ee4b8d8d1f644931ec110944e06b74e25043} \\
+执行源 & \digest{tree:sha256:0e3d0794bd21c5f20ff78512144e50da37b16a9784fa948a13055f6c847b4c8e} \\
+Selection & \digest{sha256:b5e800793f700e1d096a325961b3f40bac8cd93d12dddbdcbc111d48fa600466} \\
+统计 & \digest{sha256:8bc2da84cefc7ed100947401a6277d9fab49109ce29d065f91b064a3a2f5b8ba} \\
+Outcome & \digest{sha256:827ed2a5b3337832c49cd255f17568fad3a58fe201860311d66decb83ba0bdc3} \\
+公开结果包 & \digest{sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8} \\
+\bottomrule
+\end{tabular}
+\caption{R15 结果的内容寻址身份。}
+\label{tab:bindings-zh}
+\end{table}
+
+\section{形成证据审计映射}
+
+表\ref{tab:formation-audit-zh}把 P0--R14 叙事绑定到仓库中追踪的历史记录。这些工件仍属于历史上下文，不会被悄然提升到 R15 决策群体。
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{
+  >{\raggedright\arraybackslash}p{0.16\textwidth}
+  >{\raggedright\arraybackslash}p{0.75\textwidth}
+}
+\toprule
+轮次 & 主要仓库证据 \\
+\midrule
+P0--R4 & \path{configs/formal_experiment.yaml};
+\path{docs/adr/0002-version-formal-execution-protocol-for-banking-r2.md};
+\path{SPEC.md} 第 16.4--16.6 节；\path{artifacts/research/} 下的 R3/R4 执行与回复校准 \\
+R5--R8 & \path{artifacts/research/banking_r5/execution_diagnosis.json};
+\path{banking_r6/execution_diagnosis.json};
+\path{banking_r7/execution_diagnosis.json};
+\path{banking_r8/cost_incident_diagnosis.json} \\
+R9--R10 & \path{artifacts/research/banking_r9/experiment_hold.json};
+\path{banking_r9/eval_incident_task_053.json};
+\path{banking_r10/selection_design_correction.json} \\
+R11--R12 & \path{docs/research/banking-r11-preregistration.md};
+\path{artifacts/research/banking_r12/formal_execution_seal.json};
+\path{docs/research/banking-r12-successor-plan.md} \\
+R13--R14 & \path{artifacts/research/banking_r13/formal_execution_seal.json};
+\path{banking_r13/fail_fast_incident.json};
+\path{banking_r14/formal_execution_seal.json};
+\path{docs/research/banking-r14-terminal.md} \\
+\bottomrule
+\end{tabular}
+\caption{系统形成叙事的审计来源。第一个完整前缀之后的工件路径均相对于 \texttt{artifacts/research}。}
+\label{tab:formation-audit-zh}
+\end{table}
+
+\section{候选级运行值}
+
+基线全尝试成本为 0.4520428360 美元。C1、C2、C3 的成本分别为 0.5066522160、0.5009778704 和 0.5095613824 美元。它们的 p50/p95 延迟（毫秒）分别为 264,917/1,838,752、273,388/1,631,601 和 314,154/1,614,647；$A_0$ 为 265,903/977,157。C1 与 $A_0$ 各记录一次任务重试；只有 C1 记录一次超时。所有候选均无严重违规或 Infrastructure Invalid 运行。
+
+\section{主张到工件的审计映射}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{
+  >{\raggedright\arraybackslash}p{0.28\textwidth}
+  >{\raggedright\arraybackslash}p{0.62\textwidth}
+}
+\toprule
+论文主张 & 脱敏 R15 证据来源 \\
+\midrule
+Selection 分数、配对增益/退化集、门禁发现和治理 null 候选 & \path{selection.json}; \path{reports/selection_hold.json} \\
+配对 bootstrap 区间、统计单位、种子和多重性范围 & \path{statistics.json} \\
+精确批次与全实验模型成本 & \path{cost_summary.json} \\
+调用、token、提供商重试、失败与运行时长 & \path{failure_accounting.json} \\
+Selection 后零调用、零 Release 批次和终止 \hold & \path{selection_hold_outcome.json} \\
+插件持久化/OTel 共存及合成完整性控制 & \path{ablations/plugin_coexistence_overhead.json}; \path{ablations/integrity_gate.json} \\
+冻结源、协议、研究和结果包身份 & \path{reproduction.json}; \path{manifest.json} \\
+\bottomrule
+\end{tabular}
+\caption{18 文件脱敏 R15 v1.1 结果包中的主张级映射。路径相对于 \texttt{artifacts/research/banking\_r15/release\_v2}。}
+\label{tab:audit-map-zh}
+\end{table}
+
+仓库包含一个无模型验证器，用于核查论文作者身份、P0--R14 形成主张、R15 决策、分数、配对变化、区间、成本、用量、消融、摘要、引用、主张边界和图表是否与追踪工件一致：
+
+\begin{quote}
+\small\ttfamily
+uv run python -m scripts.verify\_arxiv\_paper --project .
+\end{quote}
+
+重建或检查本论文不会调用提供商模型，也不会重跑 R15。正式实验 Replay 需要新的冻结身份，不属于论文构建范围。
+
+\end{document}
