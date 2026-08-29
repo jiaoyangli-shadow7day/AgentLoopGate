@@ -42,16 +42,16 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Position-level permanent-Infra fail-fast | PASS IN REAL R14 EXECUTION | Trigger `c3a8e4…f5052`; two failed attempts retained; next position and post-trigger calls zero; 79 later authorized positions did not start | Preserve R14; carry the control into the successor |
 | Exact paid-execution authorization | PASS / CONSUMED | R15 machine capability `AUTH_B5C002E677E9EBADF70D` bound exactly 25+40+60 positions and external Updater; no Release scope | Do not reuse or broaden it |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL / FINAL CI PENDING | 2026-08-29 intended-tree run: 221 Python and 13 TypeScript tests; Ruff, paper facts, both R15 packages, sdist→wheel, DSH conformance/build/pack passed | Record CI on the committed tree |
-| Secret and direct-PII audit | PASS LOCAL / FINAL CI PENDING | 2026-08-29 intended-tree audit scanned 377 text files with zero findings and withheld paths/values | Record CI on the committed tree |
+| Full source/release-artifact clean-room | PASS LOCAL + CI | Commit `99773d4`: 221 Python and 13 TypeScript tests; Ruff, paper facts, both R15 packages, sdist→wheel, DSH conformance/build/pack passed locally and in clean-room run `33252845445` | Preserve on future source changes |
+| Secret and direct-PII audit | PASS LOCAL + CI | Commit `99773d4`: intended-tree audit scanned 377 text files with zero findings; clean-room run `33252845445` passed | Repeat on future public-tree changes |
 | Corrected pre-Release paid checkpoint | R15 TERMINAL HOLD | 125/125 positions, 125 valid, zero Infra Invalid; exact known model cost USD `3.9086647880000000116`; outcome `827ed2…bdc3` | No paid continuation is required or permitted under R15 |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
 | Minimal ablations and uncertainty | PASS FOR HOLD STORY / LIMITED | R15 integrity `4ccbf1…1720`; DSH `7ae1a9…b66c`; three 10,000-resample paired Selection intervals sealed at statistics `8bc2da…5b8ba` | Treat fixture overhead and the three dependent candidates as descriptive, not causal |
-| Sanitized public Banking result package | PUBLICATION AUTHORIZED / LOCAL CHECK PASS | 18 files including four Selection-only figures and a technical report; manifest `79e9a8…364c8`; 2026-08-29 independent verification and Secret/PII scan passed; creation-time publication flag false | Confirm from the final anonymous clone without rewriting package bytes |
+| Sanitized public Banking result package | PUBLIC AND VERIFIED | 18 files including four Selection-only figures and a technical report; manifest `79e9a8…364c8`; local, CI, and anonymous-clone verification passed; creation-time publication flag false | Never rewrite package bytes |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
-| GitHub repository publication | AUTHORIZED / FINAL CHECK PENDING | `jiaoyangli-shadow7day/AgentLoopGate`; explicit Owner instruction on 2026-08-29 | Publish only after the intended commit and CI pass, then verify anonymous access |
+| GitHub repository publication | PASS / PUBLIC | `jiaoyangli-shadow7day/AgentLoopGate`; explicit Owner instruction, commit `99773d4`, CI run `33252845445`, and anonymous clone on 2026-08-29 | Preserve the public trust boundary |
 | Version-controlled private CI seal | PASS FOR R15 V1.1 EVIDENCE | Commit `0aa389c`, run `32758090900`, job `97530183013`; 219 Python and 13 TypeScript tests, both R15 packages independently verified, 367-file scan zero findings; repository remained private | Retain through any later publication authorization |
-| Public repository visibility | AUTHORIZED / FINAL CHECK PENDING | Active Goal and 2026-08-29 Owner instruction | Record final public URL, commit, CI, and anonymous verification |
+| Public repository visibility | PASS | [Public repository](https://github.com/jiaoyangli-shadow7day/AgentLoopGate), commit `99773d4`; README/LICENSE raw reads and credential-free clone verified | Reverify after repository transfer or default-branch change |
 | Registry publication, Promote, deployment, or paper submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction |
 
 ## What the current evidence proves
@@ -132,3 +132,8 @@ candidate evolution or cross-domain generalization.
 7. Apply the 2026-08-29 Owner authorization to the audited repository only;
    verify anonymous access afterward. Ask separately before a registry upload,
    Promote/deployment, announcement, or paper/report submission.
+
+Steps 6 and 7 completed for publication commit `99773d4` and clean-room run
+`33252845445`. The public anonymous clone installed successfully, reported
+`no_key_mode:true` and `status:ready`, and reproduced R15 package manifest
+`79e9a8…364c8`.

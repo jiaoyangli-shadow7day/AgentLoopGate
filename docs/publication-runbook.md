@@ -19,8 +19,8 @@ paper submission, or disclosure of ignored/private evidence.
   scope: none. Local and GitHub Actions compute monetary cost remain unknown.
 - Release-ID, Release-OOD, Replay, Promote, deployment, GitHub Release, and
   submission were not run.
-- Repository: `jiaoyangli-shadow7day/AgentLoopGate`; intended public state is
-  `PUBLIC` after all pre-publication checks pass.
+- Repository: `jiaoyangli-shadow7day/AgentLoopGate`; verified state is `PUBLIC`
+  as of 2026-08-29.
 
 The scientific claim is governance utility: AgentLoopGate detected paired
 capability regressions hidden by aggregate ties and failed closed. The result
@@ -55,7 +55,8 @@ Acceptance before the visibility change requires:
    the active 2026-08-29 Owner instruction satisfies that external blocker;
 3. the working tree is clean, the remote default branch points at the intended
    commit, and its latest private CI run succeeded;
-4. GitHub still reports `PRIVATE` before the authorized visibility action.
+4. GitHub reports `PRIVATE` before the authorized visibility action. This was
+   verified immediately before the 2026-08-29 action.
 
 ## Current authority boundary
 
@@ -86,8 +87,16 @@ Only after the exact visibility authorization is present in the active task:
    rewriting the content-addressed R15 package.
 
 Making a repository private again cannot retract clones or cached public
-content. A failed preauthorization check therefore blocks publication instead
+content. A failed pre-publication check therefore blocks publication instead
 of relying on rollback.
+
+This procedure completed on 2026-08-29 for commit
+`99773d44b1a618eb1a6087cf0575cf61e0223e4f`. Clean-room run
+[`33252845445`](https://github.com/jiaoyangli-shadow7day/AgentLoopGate/actions/runs/33252845445)
+passed on that commit before the visibility change. GitHub then reported
+`PUBLIC`, and an unauthenticated shallow clone reproduced the same commit,
+installed with `uv sync --frozen`, returned a ready no-key doctor result, and
+independently verified the 18-file R15 package.
 
 ## Separate future actions
 

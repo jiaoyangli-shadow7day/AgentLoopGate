@@ -55,5 +55,27 @@ Python sdist-to-wheel installation, DeepSeek Harness build/conformance/pack,
 and the public-tree Secret/direct-PII audit passed. The audit scanned 377 text
 files with zero findings; binary files were not interpreted as text.
 
-Pending the final committed-tree CI seal, visibility change, and anonymous
-clone verification.
+The audited publication tree was committed as
+`99773d44b1a618eb1a6087cf0575cf61e0223e4f`. GitHub clean-room run
+[`33252845445`](https://github.com/jiaoyangli-shadow7day/AgentLoopGate/actions/runs/33252845445)
+completed successfully on that exact commit before publication.
+
+The repository was then changed from `PRIVATE` to `PUBLIC` under the Owner's
+authorization. Post-publication checks confirmed:
+
+- GitHub reports `PUBLIC` at
+  <https://github.com/jiaoyangli-shadow7day/AgentLoopGate>;
+- unauthenticated HTTP reads of the repository, README, and license succeeded;
+- a credential-free shallow clone resolved to the publication commit;
+- `uv sync --frozen` succeeded in that clone;
+- `agentloopgate doctor --json` returned `no_key_mode:true`,
+  `status:ready`, and version `0.1.0`;
+- the clone contained both papers, the DeepSeek Harness plugin, license and
+  community files, and the sanitized R15 result package;
+- independent package verification reproduced manifest
+  `sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8`
+  with 18 files and zero Secret/direct-PII findings.
+
+The publication-record update changes documentation only. It does not alter
+the verified source, paper PDF, plugin, or content-addressed R15 package from
+the publication commit.
