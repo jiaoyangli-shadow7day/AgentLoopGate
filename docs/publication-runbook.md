@@ -1,8 +1,12 @@
 # AgentLoopGate publication authorization runbook
 
-This runbook prepares a safe repository-visibility change. It does not grant
-authorization, publish the repository, create a GitHub Release, promote a
-candidate, deploy software, or submit a report.
+This runbook records the safety boundary and verification procedure for the
+public source release. On 2026-08-29, the Owner explicitly instructed the
+operator to open-source the project and every repository material that can be
+safely published. That instruction authorizes the scoped repository visibility
+change and publication of the audited tracked tree. It does not authorize a
+package-registry upload, candidate promotion, deployment, paid experiment,
+paper submission, or disclosure of ignored/private evidence.
 
 ## Frozen publication candidate
 
@@ -15,15 +19,19 @@ candidate, deploy software, or submit a report.
   scope: none. Local and GitHub Actions compute monetary cost remain unknown.
 - Release-ID, Release-OOD, Replay, Promote, deployment, GitHub Release, and
   submission were not run.
-- Repository: `jiaoyangli-shadow7day/AgentLoopGate`; current required state is
-  `PRIVATE`.
+- Repository: `jiaoyangli-shadow7day/AgentLoopGate`; intended public state is
+  `PUBLIC` after all pre-publication checks pass.
 
 The scientific claim is governance utility: AgentLoopGate detected paired
 capability regressions hidden by aggregate ties and failed closed. The result
 does not establish positive AHE evolution, a deployable candidate, or
 cross-domain generalization.
 
-## Preauthorization verification
+The package field `publication_authorized:false` is immutable creation-time
+provenance: the package cannot authorize its own publication. It is deliberately
+preserved after the later Owner authorization and must not be rewritten.
+
+## Pre-publication verification
 
 Run from a clean checkout of the intended default-branch commit:
 
@@ -37,24 +45,25 @@ gh run list --repo jiaoyangli-shadow7day/AgentLoopGate \
   --branch "$(git branch --show-current)" --limit 1
 ```
 
-Acceptance requires:
+Acceptance before the visibility change requires:
 
 1. clean-room, package verification, DeepSeek Harness conformance, build, and
    Secret/direct-PII audit all pass;
-2. the publication-candidate verifier reports
+2. the publication-candidate verifier reports the immutable package state
    `ready_for_owner_publication_review`, `publication_authorized:false`, and
-   only `owner_publication_authorization` as a remaining blocker;
+   only `owner_publication_authorization` as its historical workflow blocker;
+   the active 2026-08-29 Owner instruction satisfies that external blocker;
 3. the working tree is clean, the remote default branch points at the intended
    commit, and its latest private CI run succeeded;
 4. GitHub still reports `PRIVATE` before the authorized visibility action.
 
-## Authority boundary
+## Current authority boundary
 
-Changing visibility requires a new, explicit Owner instruction that names the
-repository and authorizes `PRIVATE` → `PUBLIC`. Authorization to make the
-repository public does not implicitly authorize any of the following:
+The active Owner instruction authorizes `jiaoyangli-shadow7day/AgentLoopGate`
+to change from `PRIVATE` to `PUBLIC` and makes every audited tracked file
+publicly readable. It does not authorize any of the following:
 
-- a GitHub Release, package-registry publication, DOI, announcement, or paper
+- a package-registry publication, DOI, external announcement, or paper
   submission;
 - Release-ID/OOD/Replay experiments or other paid model calls;
 - Promote, deployment, or changing the R15 `HOLD` conclusion;
@@ -65,9 +74,9 @@ repository public does not implicitly authorize any of the following:
 
 Only after the exact visibility authorization is present in the active task:
 
-1. repeat the preauthorization verification without modifying the tree;
+1. repeat the pre-publication verification without modifying the tree;
 2. record the authorized repository, intended visibility, commit, CI run, and
-   the fact that GitHub Release/Promote/submission remain outside scope;
+   the fact that registry publication/Promote/submission remain outside scope;
 3. execute the single scoped GitHub visibility change;
 4. query GitHub immediately and require `visibility: PUBLIC` on the same
    repository and default-branch commit;
@@ -82,7 +91,7 @@ of relying on rollback.
 
 ## Separate future actions
 
-A GitHub Release or report submission requires its own Owner instruction and a
-new review of version/tag metadata and publication venue. R15 remains a
-Selection-HOLD systems result; no Release evaluation should be fabricated to
+A package-registry upload, report submission, DOI, announcement, or deployment
+requires its own Owner instruction and a new review of the target. R15 remains
+a Selection-HOLD systems result; no Release evaluation should be fabricated to
 fill figures or tables.

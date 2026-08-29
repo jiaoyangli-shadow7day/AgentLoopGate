@@ -1,5 +1,35 @@
 # AgentLoopGate
 
+AgentLoopGate is an evidence and release-governance layer for improving agent
+harnesses. An external updater may propose changes to instructions, routing, or
+tool-facing configuration, but AgentLoopGate decides whether the evidence is
+complete enough to evaluate the proposal and whether the proposal may advance.
+It preserves the host runtime's native traces, records immutable lineage and
+cost evidence, compares candidates with the same baseline tasks, and fails
+closed as `HOLD` when gains are uncertain or protected behavior regresses. It
+never deploys a candidate automatically.
+
+The first reference validation uses DeepSeek Harness and a Banking benchmark.
+Its scientifically correct result is an abstention: three generated candidates
+failed the frozen no-regression rule, so none advanced to Release evaluation.
+This supports the system claim that aggregate ties can hide capability exchange
+and that a paired evidence gate can prevent an unsafe release. It does **not**
+claim that the updater achieved positive self-evolution or that the result
+generalizes beyond this validation setting.
+
+- Start without an API key: [No-key quickstart](#无-key-quickstart)
+- Read the papers: [English PDF](output/pdf/agentloopgate-evidence-governed-evolution.pdf),
+  [Chinese PDF](output/pdf/agentloopgate-evidence-governed-evolution-zh.pdf), and
+  [English LaTeX source](paper/agentloopgate-arxiv/main.tex)
+- Inspect the result: [R15 analysis](docs/research/banking-r15-results.md) and
+  [independently verifiable sanitized package](artifacts/research/banking_r15/release_v2/)
+- Integrate with DeepSeek Harness: [plugin guide](docs/deepseek-harness.md)
+- Understand the public scope and evidence limits:
+  [release readiness](docs/release-readiness.md)
+- 中文项目说明见下文。
+
+## 中文说明
+
 AgentLoopGate 是面向知识密集型行动 Agent 的持续改进与发布治理层：它冻结“什么叫用户
 价值”，从失败轨迹生成受控的 Harness 修改，再用独立评测、安全、回归和成本硬门决定新
 版本应当 `SHIP`、`HOLD` 还是 `ROLLBACK`。
@@ -30,7 +60,8 @@ AgentLoopGate 全部 HOLD，没有启动 Release-ID/OOD/Replay。精确已知模
 [Banking R15 results](docs/research/banking-r15-results.md)，包含配对不确定性、四张终态图和
 技术报告的可独立验证 18 文件脱敏包见
 [`artifacts/research/banking_r15/release_v2/`](artifacts/research/banking_r15/release_v2/)；其
-`publication_authorized` 仍为 `false`。
+`publication_authorized:false` 记录的是该不可变结果包在生成时不能自行授权发布，并不表示
+仓库当前的公开状态，也不会因后续 Owner 授权而改写。
 
 历史实验 `EXP_BANKING_R10` 截至 C2 Selection 封存，已完成 25 个
 Update-Source 位置、A0/C1/C2/C3 各 10 个 Update-Check 位置，以及 C1/C2 各 15 个 Selection

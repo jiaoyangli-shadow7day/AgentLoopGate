@@ -1,6 +1,6 @@
 # AgentLoopGate open-source and paper readiness
 
-Status date: 2026-08-25
+Status date: 2026-08-29
 
 Current paid-evidence checkpoint: terminal `EXP_BANKING_R15` Selection-HOLD.
 It completed all 125 authorized pre-Release positions: 25 Update-Source, 40
@@ -10,16 +10,18 @@ produced three candidates. Selection scores were A0 6/15, candidate 1 6/15,
 candidate 2 5/15, and candidate 3 6/15. Every candidate regressed the same A0
 successes `task_062` and `task_095`; candidate 2 also regressed `task_056`.
 AgentLoopGate held all three candidates under the frozen strict-gain,
-zero-regression and operational-evidence policy. Release, Promote, visibility
-change, and publication remained at zero.
+zero-regression and operational-evidence policy. Release and Promote remained
+at zero. The later 2026-08-29 Owner instruction authorized publication of the
+audited repository; it did not change the experimental outcome.
 
 The terminal outcome is
 `827ed2…bdc3`; exact known model cost is USD `3.9086647880000000116`,
 with no unknown model-cost scope. A sanitized 18-file local result package has
 independently verified at manifest `79e9a8…364c8` with zero Secret/direct-PII
-findings and `publication_authorized: false`. This completes the corrected
-governance story but does not establish a positive AHE self-evolution result.
-The repository must remain private until a separate Owner publication action.
+findings and `publication_authorized: false`. That field records the package's
+creation-time authority boundary and remains immutable after the later Owner
+publication instruction. This completes the corrected governance story but
+does not establish a positive AHE self-evolution result.
 
 This is the requirement-to-evidence checklist for the v1 release. Passing local
 tests proves software behavior, not a positive self-evolution effect. A real
@@ -40,16 +42,17 @@ corrected, baseline-bound Selection policy and all evidence is sealed.
 | Position-level permanent-Infra fail-fast | PASS IN REAL R14 EXECUTION | Trigger `c3a8e4…f5052`; two failed attempts retained; next position and post-trigger calls zero; 79 later authorized positions did not start | Preserve R14; carry the control into the successor |
 | Exact paid-execution authorization | PASS / CONSUMED | R15 machine capability `AUTH_B5C002E677E9EBADF70D` bound exactly 25+40+60 positions and external Updater; no Release scope | Do not reuse or broaden it |
 | DeepSeek Harness native Trace/Persistence/Telemetry coexistence | PASS FOR SYSTEM/FIXTURE EVIDENCE | Bundle lifecycle and headless conformance; JSONL/SQLite/OTel coexistence tests | Retain exact pin and rerun final clean-room |
-| Full source/release-artifact clean-room | PASS LOCAL + PRIVATE LINUX FOR R15 | Private CI for the v1.1 evidence commit: 219 Python and 13 TypeScript tests; Ruff, sdist→wheel, DSH conformance/build/pack passed | Repeat only if the intended publication commit changes executable or evidence bytes |
-| Secret and direct-PII audit | PASS FOR R15 FROZEN TREE | Private CI for the v1.1 evidence commit scanned 367 files with zero findings and withheld paths/values | Repeat only if the intended publication tree changes |
+| Full source/release-artifact clean-room | PASS LOCAL / FINAL CI PENDING | 2026-08-29 intended-tree run: 221 Python and 13 TypeScript tests; Ruff, paper facts, both R15 packages, sdist→wheel, DSH conformance/build/pack passed | Record CI on the committed tree |
+| Secret and direct-PII audit | PASS LOCAL / FINAL CI PENDING | 2026-08-29 intended-tree audit scanned 377 text files with zero findings and withheld paths/values | Record CI on the committed tree |
 | Corrected pre-Release paid checkpoint | R15 TERMINAL HOLD | 125/125 positions, 125 valid, zero Infra Invalid; exact known model cost USD `3.9086647880000000116`; outcome `827ed2…bdc3` | No paid continuation is required or permitted under R15 |
 | Real Release-ID/OOD/Replay | CONDITIONAL UNDER STANDING PRIVATE MANDATE | Software paths and deterministic Gate fixtures exist | Run only if corrected Selection returns `SELECT` and a separately bound machine capability verifies; skip on HOLD |
 | Minimal ablations and uncertainty | PASS FOR HOLD STORY / LIMITED | R15 integrity `4ccbf1…1720`; DSH `7ae1a9…b66c`; three 10,000-resample paired Selection intervals sealed at statistics `8bc2da…5b8ba` | Treat fixture overhead and the three dependent candidates as descriptive, not causal |
-| Sanitized public Banking result package | PASS LOCALLY / NOT PUBLISHED | 18 files including four Selection-only figures and a technical report; manifest `79e9a8…364c8`; independent verification and Secret/PII scan passed; publication flag false | Re-run at the final publication commit |
+| Sanitized public Banking result package | PUBLICATION AUTHORIZED / LOCAL CHECK PASS | 18 files including four Selection-only figures and a technical report; manifest `79e9a8…364c8`; 2026-08-29 independent verification and Secret/PII scan passed; creation-time publication flag false | Confirm from the final anonymous clone without rewriting package bytes |
 | README, license, and third-party declarations | PASS LOCALLY | `README.md`, Apache-2.0 `LICENSE`, `THIRD_PARTY_NOTICES.md` | Recheck packaged archives and links |
-| Private GitHub repository | PASS | `jiaoyangli-shadow7day/AgentLoopGate`, private visibility | Keep private until explicit Owner authorization |
+| GitHub repository publication | AUTHORIZED / FINAL CHECK PENDING | `jiaoyangli-shadow7day/AgentLoopGate`; explicit Owner instruction on 2026-08-29 | Publish only after the intended commit and CI pass, then verify anonymous access |
 | Version-controlled private CI seal | PASS FOR R15 V1.1 EVIDENCE | Commit `0aa389c`, run `32758090900`, job `97530183013`; 219 Python and 13 TypeScript tests, both R15 packages independently verified, 367-file scan zero findings; repository remained private | Retain through any later publication authorization |
-| Public visibility, Release, or submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction after final acceptance |
+| Public repository visibility | AUTHORIZED / FINAL CHECK PENDING | Active Goal and 2026-08-29 Owner instruction | Record final public URL, commit, CI, and anonymous verification |
+| Registry publication, Promote, deployment, or paper submission | NOT AUTHORIZED | Active Goal and SPEC trust boundary | Requires a separate explicit Owner instruction |
 
 ## What the current evidence proves
 
@@ -124,7 +127,8 @@ candidate evolution or cross-domain generalization.
    Protocol, Study, source revision, baseline, and preregistration.
 5. Preserve the terminal R15 HOLD, its consumed pre-Release capability, exact
    cost evidence, publication-tool incidents, and the verified sanitized package.
-6. Run final clean-checkout build/install/test, Secret/PII audit and private CI
+6. Run final clean-checkout build/install/test, Secret/PII audit and CI
    at the intended open-source commit; finish report prose and limitations.
-7. Ask the Owner separately before changing repository visibility, publishing
-   a Release, or submitting a paper/report.
+7. Apply the 2026-08-29 Owner authorization to the audited repository only;
+   verify anonymous access afterward. Ask separately before a registry upload,
+   Promote/deployment, announcement, or paper/report submission.

@@ -2,16 +2,16 @@
 
 ## Supported versions
 
-Until the first public Release, security fixes are applied to the current
-default development line. A version support table will be published with the
-first Release.
+Security fixes are applied to the current `0.1.x` line on the default branch.
+Older experiment identities and evidence packages are immutable research
+records, not independently supported software versions.
 
 ## Reporting a vulnerability
 
 Do not disclose a suspected vulnerability in a public issue. Use GitHub's
-private vulnerability-reporting flow for this repository when it is available;
-while the repository remains private, contact the repository Owner through an
-existing private channel.
+private vulnerability-reporting flow for this repository when it is available.
+If that flow is unavailable, contact the maintainer at
+`jiaoyanglifly@gmail.com`.
 
 Include the affected revision, impact, reproduction steps, and whether the
 issue may expose secrets, customer data, benchmark content, Trace evidence,

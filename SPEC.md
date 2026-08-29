@@ -614,6 +614,10 @@ Scope 的机器能力凭据，不能启动 Batch。2026-08-23 起，Owner 已对
 授权或 Coding Agent 自行推断仍不构成许可；持续委托及每个精确机器凭据必须同时可审计。历史实验的
 原授权边界保持不可变。治理记录见 `docs/research/standing-experiment-mandate.md`。
 
+2026-08-29，Owner 另行明确授权将 `jiaoyangli-shadow7day/AgentLoopGate` 仓库及通过公开审计的
+已跟踪材料开源。该后续授权只改变仓库和脱敏材料的发布权限，不追溯改写任何实验原授权、Outcome、
+候选决策或内容哈希，也不授权 Promote、部署、付费实验、包注册表上传或论文投稿。
+
 ### 5.6 最小评估审计
 
 P0 不建设大型评估审计平台，但必须完成：

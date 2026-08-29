@@ -3,7 +3,7 @@
 All notable changes to AgentLoopGate will be documented in this file. The
 project follows semantic versioning after its first public Release.
 
-## Unreleased
+## 0.1.0 - 2026-08-29
 
 ### Added
 
@@ -32,4 +32,5 @@ project follows semantic versioning after its first public Release.
 - Existing-only recovery can seal evidence after a runtime repair while new
   paid execution remains strictly runtime-bound.
 
-No public Release has been published yet.
+This is the first public source release. No package-registry publication or
+candidate deployment is implied.

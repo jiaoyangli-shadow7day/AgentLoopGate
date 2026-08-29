@@ -64,7 +64,8 @@ We present \system, a runtime-independent governance layer for evaluating
 harness changes before release. The system preserves the host runtime's native
 traces and telemetry, while adding immutable experiment identities, complete
 attempt and cost accounting, independent baseline-paired evaluation, and a
-fail-closed decision gate. Candidate generators remain interchangeable, and
+fail-closed decision gate that stops when evidence is incomplete or no
+candidate qualifies. Candidate generators remain interchangeable, and
 promotion is never automatic. We evaluate the design in two ways. First, we
 trace how failures observed across P0--R14 led to the current evidence
 contracts. Second, we conduct a frozen Banking study with DeepSeek Harness and
@@ -153,6 +154,15 @@ seen diagnostic evidence and may use an objective that differs from the
 release policy. A separate Selection stage must therefore judge every
 candidate on evidence the updater did not control.
 
+A \emph{candidate} is an immutable snapshot of the permitted harness assets,
+such as instructions, routing rules, or tool-facing configuration. It is not a
+new model and does not modify model weights. We call a task \emph{stably
+successful} when it succeeds in every trial registered for that stage. R15
+used one trial per Selection task, so stable success there is simply success on
+that task; a later Release stage would have required three successful trials.
+One \emph{position} means one execution of a particular harness variant on one
+task in one registered trial.
+
 For each task $t$ in a frozen Selection set, let
 $y_t(A)\in\{0,1\}$ indicate whether harness $A$ succeeds stably. Choosing the
 largest value of $\sum_t y_t(A)$ is insufficient. It ignores which tasks
@@ -187,6 +197,23 @@ model weights, certify general agent safety, replace host logs, provide a trace
 viewer, or deploy a selected candidate. Banking is one reference validation
 environment, not the product boundary of the system.
 
+\subsection{A concrete pass through the pipeline}
+
+The stage names used throughout the paper describe a simple progression.
+\emph{Update-Source} runs the baseline on diagnostic tasks and turns its
+failures into the only task evidence visible to the updater. The updater uses
+that bundle to construct one or more candidates. \emph{Update-Check} runs a
+small, separate screening set so malformed or clearly harmful candidates can
+be removed cheaply. \emph{Selection} then runs the baseline and every survivor
+on the same hidden tasks and may either choose one candidate or abstain.
+
+Only a selected candidate can enter \emph{Release}. Release-ID repeats the
+comparison on held-out in-distribution tasks, Release-OOD tests transfer to
+held-out workflow families, and Replay revisits preregistered earlier cases to
+detect forgetting. These stages use separate evidence and separate execution
+authority. Figure~\ref{fig:architecture} shows where the records and decisions
+are created along this path.
+
 \section{System Design}
 
 Figure~\ref{fig:architecture} follows one candidate from execution to a release
@@ -204,9 +231,9 @@ silently becoming a release claim.
 \begin{tabular}{c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c@{\ $\rightarrow$\ }c}
 \fbox{\parbox{0.155\textwidth}{\centering Host-native trace\\Session events / raw result}}
 & \fbox{\parbox{0.155\textwidth}{\centering Evidence binding\\Receipt / normalized run}}
-& \fbox{\parbox{0.155\textwidth}{\centering Bounded updater\\Candidate / snapshot}}
-& \fbox{\parbox{0.155\textwidth}{\centering A0-paired evaluation\\Check / Selection}}
-& \fbox{\parbox{0.155\textwidth}{\centering Lexicographic gate\\\ship / \hold / \reject}}
+& \fbox{\parbox{0.155\textwidth}{\centering Limited-access updater\\Candidate / snapshot}}
+& \fbox{\parbox{0.155\textwidth}{\centering Same-task comparison\\Baseline / candidate}}
+& \fbox{\parbox{0.155\textwidth}{\centering Ordered release gate\\\ship / \hold / \reject}}
 \end{tabular}
 \vspace{3pt}
 
@@ -219,16 +246,17 @@ of truth; content-addressed governance artifacts refer back to it.}
 \label{fig:architecture}
 \end{figure*}
 
-\subsection{Evidence planes}
+\subsection{From a native trace to decision evidence}
 
 The evidence model preserves both the original runtime record and the
-structured facts needed for comparison. At H0, the host runtime stores its
-native append-only session log or benchmark result. L0 adds a
-\emph{SourceTraceRef} and a redacted receipt that identifies those bytes. L1
-normalizes facts such as tool use, final state, latency, token usage, and cost.
-L2 contains the study-level objects: failure bundles, candidate manifests,
+structured facts needed for comparison. The host runtime first stores its
+native append-only session log or benchmark result. \system then adds a
+\emph{SourceTraceRef}, which points back to those bytes, and a redacted receipt
+that proves which source was used. A normalized run extracts comparable facts
+such as tool use, final state, latency, token usage, and cost. Study-level
+artifacts finally combine those runs into failure bundles, candidate manifests,
 batch summaries, statistics, lineage, and decisions. Canonical JSON or YAML and
-SHA-256 digests bind each layer to the previous one.
+SHA-256 digests bind each step to the one before it.
 
 This layered design answers two different questions without confusing them.
 The native log answers, ``What did the runtime record?'' The normalized and
@@ -244,10 +272,11 @@ authenticated receipts.
 
 \subsection{Frozen identities and immutable lifecycle}
 
-Before formal execution begins, the system freezes the objective, six isolated
-task pools, evaluator, pricing, runtime versions, protocol, study plan, source
-revision, and baseline snapshot. These identities prevent a result from being
-quietly paired with a later evaluator, price table, or harness revision.
+Before formal execution begins, the system freezes the objective, the isolated
+stage-specific task pools and replay set, evaluator, pricing, runtime versions,
+protocol, study plan, source revision, and baseline snapshot. These identities
+prevent a result from being quietly paired with a later evaluator, price table,
+or harness revision.
 
 Execution then follows an append-only lifecycle. Every paid operation writes a
 durable \code{STARTED} event before the call and exactly one terminal event
@@ -263,7 +292,7 @@ zero. Infrastructure-invalid runs remain outside the performance denominator,
 but their attempts and costs remain visible. A batch with incomplete registered
 coverage cannot support a formal decision.
 
-\subsection{Bounded external updater}
+\subsection{A candidate generator with limited access}
 
 An updater should see enough evidence to propose a useful change, but not the
 evidence that will later judge that change. \system therefore gives it a
@@ -329,7 +358,9 @@ isolated from the agent turn so that governance cannot crash the running agent,
 but incomplete evidence is not allowed into a formal decision. Unloading the
 plugin removes its tools, listeners, and child process. In this way developers
 keep DeepSeek Harness persistence and their existing OTel exporter, while
-\system adds provenance, completeness checks, and release semantics.
+\system adds three reusable capabilities: a verifiable link back to the native
+trace, normalized run and cost facts, and an evidence-based decision about
+whether evaluation may advance.
 
 \section{System Formation and Failure Experience: P0--R14}
 
@@ -693,8 +724,11 @@ for governance: a self-evolution claim must be supported by complete evidence,
 and the system must be able to explain when that evidence is not enough.
 
 \balance
+\begingroup
+\small
 \bibliographystyle{plain}
 \bibliography{references}
+\endgroup
 
 \clearpage
 \onecolumn

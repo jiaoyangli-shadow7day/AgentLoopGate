@@ -25,6 +25,8 @@ REQUIRED_COMMUNITY_FILES = {
     "CHANGELOG.md",
 }
 REQUIRED_RESEARCH_FILES = {
+    "docs/open-source-release.md",
+    "docs/paper/english-reader-review.md",
     "docs/release-readiness.md",
     "docs/publication-runbook.md",
     "docs/research/banking-r15-results.md",
@@ -32,6 +34,9 @@ REQUIRED_RESEARCH_FILES = {
     "artifacts/research/banking_r15/pre_run_preregistration.json",
     "artifacts/research/banking_r15/ablations/integrity_gate.json",
     "artifacts/research/banking_r15/ablations/plugin_coexistence_overhead.json",
+    "output/pdf/agentloopgate-evidence-governed-evolution.pdf",
+    "output/pdf/agentloopgate-evidence-governed-evolution-zh.pdf",
+    "paper/agentloopgate-arxiv/main.tex",
 }
 DISALLOWED_TRACKED_ROOTS = {"runs", "snapshots", "candidates", "reports"}
 EXPECTED_MANIFEST = "sha256:79e9a8dd31009f969cdd79021bbcc857c827dc1d5a6808a28fd05937e4f364c8"
