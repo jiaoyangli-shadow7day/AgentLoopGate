@@ -11,6 +11,9 @@ const temporary = mkdtempSync(join(tmpdir(), 'agentloopgate-dsh-conformance-'))
 const dshHome = join(temporary, 'dsh-home')
 const dsh = resolve(packageRoot, 'node_modules/.bin/dsh')
 const environment = { ...process.env, DSH_HOME: dshHome }
+// The fresh DSH profile has no packageManager field. Use Corepack's activated
+// pnpm version instead of resolving an unrelated latest release for that directory.
+environment.COREPACK_DEFAULT_TO_LATEST = '0'
 for (const key of [
   'DEEPSEEK_API_KEY',
   'HTTP_PROXY',
