@@ -4,6 +4,7 @@ import subprocess
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -30,10 +31,92 @@ from agentloopgate.updaters import (
     UpdaterAdapter,
     UpdaterHealth,
 )
+from agentloopgate.updaters.ahe import _reconcile_proxy_counts
 
 DIGEST_A = "sha256:" + "a" * 64
 DIGEST_B = "sha256:" + "b" * 64
 DIGEST_C = "sha256:" + "c" * 64
+
+
+def test_updater_proxy_call_count_mismatch_fails_closed() -> None:
+    known = Decimal("0.01")
+    assert _reconcile_proxy_counts(1, 0, 1, 0, CostStatus.EXACT, known) == (
+        1, 0, CostStatus.EXACT, False,
+    )
+    assert _reconcile_proxy_counts(2, 0, 1, 0, CostStatus.EXACT, known) == (
+        2, 1, CostStatus.PARTIAL, True,
+    )
+    assert _reconcile_proxy_counts(1, 1, 1, 0, CostStatus.EXACT, known) == (
+        1, 1, CostStatus.PARTIAL, True,
+    )
+    assert _reconcile_proxy_counts(1, 0, 0, 0, CostStatus.UNAVAILABLE, None) == (
+        1, 1, CostStatus.UNAVAILABLE, True,
+    )
+
+
+@pytest.mark.parametrize("observed, expected_exit", [((10, 2, 3), 0), ((11, 2, 3), 70), (None, 70)])
+def test_updater_compares_provider_usage_to_child_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, observed, expected_exit: int,
+) -> None:
+    import agentloopgate.updaters.ahe as ahe_module
+
+    class Proxy:
+        token = "fixture-token"
+        base_url = "http://127.0.0.1:1234"
+        port = 1234
+
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def counts(self):
+            return 1, 0
+
+        def usage_totals(self):
+            return observed
+
+    monkeypatch.setattr(ahe_module, "CredentialProxy", Proxy)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "synthetic-provider-key")
+    runner = AheExternalRunner(tmp_path / "checkout", project_root=tmp_path,
+                               input_price_per_million=Decimal("1"),
+                               cache_read_price_per_million=Decimal("1"),
+                               output_price_per_million=Decimal("1"))
+    monkeypatch.setattr(runner, "doctor", lambda: SimpleNamespace(ready=True))
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(runner, "_prepare_runtime_paths", lambda _root: {
+        "root": runtime, "bash_results": runtime,
+    })
+    monkeypatch.setattr(runner, "_install_evolve_agent", lambda _root: None)
+    monkeypatch.setattr(runner, "_begin_attempt", lambda *_args, **_kwargs: tmp_path)
+    preserved = {}
+
+    def preserve(_request, **kwargs):
+        preserved.update(kwargs)
+        return tmp_path
+
+    monkeypatch.setattr(runner, "_preserve_attempt", preserve)
+    monkeypatch.setattr(runner, "_usage_accounting", lambda _path: (
+        10, 2, 3, 1, 0, CostStatus.EXACT, Decimal("0.000015"),
+    ))
+    monkeypatch.setattr(ahe_module.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(
+        returncode=0, stdout="", stderr="",
+    ))
+    request = AheRunRequest(attempt_id="ATT_1", candidate_id="C_1", experiment_root=tmp_path,
+                            allowed_paths=["harness/a.md"], query="fixture")
+    result = runner.run(request)
+    assert result.exit_code == expected_exit
+    assert preserved["proxy_usage"] == observed
+    if expected_exit:
+        assert result.unresolved_model_call_count > 0
+        assert result.cost_status is (CostStatus.PARTIAL if observed else CostStatus.UNAVAILABLE)
+    else:
+        assert result.cost_status is CostStatus.EXACT
 
 
 def test_ahe_usage_accounting_never_turns_unknown_cost_into_zero(
@@ -90,13 +173,14 @@ def test_ahe_direct_environment_binds_checkout_import_and_removes_proxies(
     ):
         monkeypatch.setenv(name, "socks5://invalid.example:1")
     monkeypatch.setenv("PYTHONPATH", "/existing/path")
+    monkeypatch.setenv("UNRELATED_SECRET", "fixture")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "synthetic-provider-secret")
 
     environment = runner._base_environment()
 
-    assert environment["PYTHONPATH"].split(":") == [
-        str(checkout.resolve()),
-        "/existing/path",
-    ]
+    assert environment["PYTHONPATH"] == str(checkout.resolve())
+    assert "UNRELATED_SECRET" not in environment
+    assert "DEEPSEEK_API_KEY" not in environment
     assert environment["NO_PROXY"] == environment["no_proxy"] == "*"
     assert not any(
         name in environment
@@ -176,6 +260,13 @@ def test_ahe_routes_all_runtime_output_under_attempt_root(tmp_path: Path) -> Non
 def test_ahe_doctor_executes_nexau_bash_inside_formal_sandbox(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    probe = subprocess.run(
+        [".cache/agentic-harness-engineering/.venv/bin/python", "-c",
+         "import nexau, yaml, dotenv"],
+        capture_output=True,
+    )
+    if probe.returncode:
+        pytest.skip("pinned AHE dependencies are not installed")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "fixture-doctor-only")
     runner = AheExternalRunner(
         Path(".cache/agentic-harness-engineering"),
@@ -415,6 +506,8 @@ def test_ahe_sandbox_allows_staging_writes_and_denies_outside(tmp_path: Path) ->
     dependency = runtime / "pyproject.toml"
     dependency.write_text("runtime\n", encoding="utf-8")
     denied = (tmp_path / "outside.txt").resolve()
+    external_secret = tmp_path / "external-secret.txt"
+    external_secret.write_text("synthetic-secret", encoding="utf-8")
     profile = AheSandbox(
         staging,
         protected_root=protected,
@@ -436,6 +529,10 @@ def test_ahe_sandbox_allows_staging_writes_and_denies_outside(tmp_path: Path) ->
         capture_output=True,
         text=True,
     )
+    denied_external_read = subprocess.run(
+        ["sandbox-exec", "-p", profile, "/bin/cat", str(external_secret)],
+        capture_output=True, text=True,
+    )
     allowed_runtime_read = subprocess.run(
         [
             "sandbox-exec",
@@ -453,5 +550,120 @@ def test_ahe_sandbox_allows_staging_writes_and_denies_outside(tmp_path: Path) ->
     assert allowed_run.returncode == 0
     assert denied_run.returncode != 0
     assert denied_read.returncode != 0
+    assert denied_external_read.returncode != 0
+    assert "synthetic-secret" not in denied_external_read.stdout
     assert allowed_runtime_read.returncode == 0
     assert not denied.exists()
+
+
+@pytest.mark.skipif(not Path("/usr/bin/sandbox-exec").is_file(), reason="macOS only")
+def test_ahe_sandbox_cannot_signal_an_unrelated_process(tmp_path: Path) -> None:
+    victim = subprocess.Popen(["/bin/sleep", "10"])
+    try:
+        result = subprocess.run(
+            ["/usr/bin/sandbox-exec", "-p", AheSandbox(tmp_path).profile(),
+             "/bin/kill", "-TERM", str(victim.pid)],
+            capture_output=True, text=True,
+        )
+        assert result.returncode != 0
+        assert victim.poll() is None
+    finally:
+        victim.terminate()
+        victim.wait(timeout=5)
+
+
+@pytest.mark.skipif(not Path("/usr/bin/sandbox-exec").is_file(), reason="macOS only")
+def test_ahe_sandbox_can_stop_its_own_child(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["/usr/bin/sandbox-exec", "-p", AheSandbox(tmp_path).profile(), "/bin/sh", "-c",
+         'sleep 10 & child=$!; kill "$child"; wait "$child" 2>/dev/null; exit 0'],
+        capture_output=True, text=True, timeout=5,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.skipif(
+    not Path(".cache/agentic-harness-engineering/.venv/bin/python").is_file()
+    or not Path("/usr/bin/sandbox-exec").is_file(),
+    reason="requires the pinned local AHE checkout on macOS",
+)
+def test_real_ahe_with_mock_model_reconciles_proxy_and_usage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+    import json
+
+    import agentloopgate.updaters.ahe as ahe_module
+
+    checkout = Path(".cache/agentic-harness-engineering").resolve()
+    probe = subprocess.run(
+        [str(checkout / ".venv/bin/python"), "-c", "import nexau, yaml, dotenv"],
+        capture_output=True,
+    )
+    if probe.returncode:
+        pytest.skip("pinned AHE dependencies are not installed")
+    real_proxy = ahe_module.CredentialProxy
+    requests = []
+
+    class Response(io.BytesIO):
+        status = 200
+
+        def __init__(self, body: bytes, content_type: str):
+            super().__init__(body)
+            self.headers = {"Content-Type": content_type}
+
+    class FixtureProvider:
+        def open(self, request, timeout):
+            assert timeout == 120
+            assert request.get_header("Authorization") == "Bearer fixture-provider-key"
+            payload = json.loads(request.data)
+            requests.append(payload)
+            usage = {"prompt_tokens": 10, "completion_tokens": 3,
+                     "prompt_cache_hit_tokens": 2, "total_tokens": 13}
+            if payload.get("stream"):
+                common = {"id": "fixture", "object": "chat.completion.chunk", "created": 1,
+                          "model": "deepseek-v4-flash"}
+                events = [
+                    {**common, "choices": [{"index": 0, "delta": {"role": "assistant",
+                      "content": "No modifications are needed."}, "finish_reason": None}]},
+                    {**common, "choices": [{"index": 0, "delta": {},
+                      "finish_reason": "stop"}], "usage": usage},
+                ]
+                body = b"".join(b"data: " + json.dumps(event).encode() + b"\n\n"
+                                for event in events) + b"data: [DONE]\n\n"
+                return Response(body, "text/event-stream")
+            body = {"id": "fixture", "object": "chat.completion", "created": 1,
+                    "model": "deepseek-v4-flash", "choices": [{"index": 0,
+                    "message": {"role": "assistant", "content": "No modifications are needed."},
+                    "finish_reason": "stop"}], "usage": usage}
+            return Response(json.dumps(body).encode(), "application/json")
+
+    class FixtureProxy(real_proxy):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._opener = FixtureProvider()
+
+    monkeypatch.setattr(ahe_module, "CredentialProxy", FixtureProxy)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fixture-provider-key")
+    project = tmp_path / "project"
+    project.mkdir()
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    runner = AheExternalRunner(
+        checkout, project_root=project, max_iterations=2, timeout_seconds=90,
+        input_price_per_million=Decimal("1"), cache_read_price_per_million=Decimal("0.1"),
+        output_price_per_million=Decimal("2"),
+    )
+    result = runner.run(AheRunRequest(
+        attempt_id="ATT_REAL_AHE", candidate_id="C_FIXTURE", experiment_root=staging,
+        allowed_paths=["harness/system_prompt.md"], query="Answer briefly; do not modify files.",
+    ))
+    assert result.exit_code == 0, result.stderr
+    assert len(requests) == result.model_call_count == 1
+    assert (result.input_tokens, result.cache_read_tokens, result.output_tokens) == (8, 2, 3)
+    assert result.cost_status is CostStatus.EXACT
+    assert result.cost == Decimal("0.0000142")
+    assert result.unresolved_model_call_count == 0
+    assert result.trace_path and result.trace_path.is_file()
+    assert result.usage_path and result.usage_path.is_file()
+    assert "fixture-provider-key" not in result.stdout + result.stderr

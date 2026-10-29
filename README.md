@@ -17,6 +17,27 @@ and that a paired evidence gate can prevent an unsafe release. It does **not**
 claim that the updater achieved positive self-evolution or that the result
 generalizes beyond this validation setting.
 
+## 给招聘者的快速阅读
+
+**问题：** Agent 修改后的总成功数不变，可能只是新任务成功换来了旧任务失败；只看总分难以判断能否发布。
+
+**方案：** 将候选修改、基线与同一任务集配对，检查任务得失、证据完整性、成本和延迟，并在规则不满足时停止后续评测。
+
+**结果：** Banking R15 完成 125 个预发布评测位置。基线和三个候选在 15 个 Selection 任务上的结果分别为 6、6、5、6 个成功；三个候选均失去基线成功的两个任务，按冻结规则全部 HOLD。该阶段每任务每版本运行一次，不能证明稳定回归或线上收益。
+
+**定位与边界：** 这是 Agent 评测与发布治理原型，公开 Demo 使用合成数据；尚无真实客户采用、线上收益或正向自进化的证据。无 Key 运行步骤见下方 [Quickstart](#无-key-quickstart)，完整结果见 [R15 分析](docs/research/banking-r15-results.md)。
+
+**产品决策：** 当目标用户是 Agent 发布负责人时，优先展示“哪些已成功任务变差、证据是否完整、额外成本是否可接受”，再给出是否继续评测的建议。R15 的单次运行只支持对这 15 个任务的观察；下一步需要重复试验和目标用户反馈，衡量误拦截与接入成本。
+
+**当前修复验证边界：** 本地测试覆盖证据篡改、异常中断恢复、沙箱和脱敏；完整的真实 Release 到 Promote 正向链路仍需独立验证。固定版本 AHE 已通过真实 NexAU 沙箱工具预检及模拟模型的调用、代理和用量对账测试；NexAU 官方源码地址当前不可用，本次测试从公开镜像取得与官方 v0.3.9 发布记录一致的提交，并按锁文件校验依赖摘要。真实模型服务的端到端兼容性尚未在本次修复中验证。历史实验及 CI 结果对应各自冻结版本，不代表新修改已经通过远程 CI。
+
+AHE 隔离目前依赖 macOS sandbox；模型请求经本机受限代理转发至固定的 DeepSeek 官方接口，真实密钥不传入 Updater 子进程。代理会独立核对请求数和服务端用量；缺少完整用量时停止并保留未知成本范围。这是原型的本地防护，尚未完成独立安全审计。
+
+发布前会重新检查候选补丁、冻结治理文件及成对评测证据，异常中断后恢复一致的快照。证据保存在本地，摘要用于发现不一致；拥有写权限的人若同时重写所有证据，当前原型没有独立签名或远程不可变存储来证明其真实性。
+
+合成集成测试覆盖多批次轨迹、收据和成本验真、候选选择重算、发布决策及快照切换，并验证篡改会阻止发布。测试使用合成数据和测试用批次调度，不调用模型，也不能代替真实 Release 记录。
+
+- 求职材料参考：[简历项目描述与面试要点](docs/resume-guide.md)
 - Start without an API key: [No-key quickstart](#无-key-quickstart)
 - Read the papers: [English PDF](output/pdf/agentloopgate-evidence-governed-evolution.pdf),
   [Chinese PDF](output/pdf/agentloopgate-evidence-governed-evolution-zh.pdf), and
@@ -127,18 +148,21 @@ uv run agentloopgate eval reset-check --fixture tests/fixtures/reset --json
 uv run agentloopgate demo --fixture tests/fixtures/public_demo --json
 ```
 
-重新构建完整、确定性的公开证据包：
+构建合成演示并查看两份决策卡。每次使用新的临时目录；仓库中的历史演示文件不作为当前重建目标：
 
 ```sh
+DEMO_DIR="$(mktemp -d)"
 uv run agentloopgate demo \
   --fixture tests/fixtures/public_demo \
-  --build-output artifacts/public_demo \
+  --build-output "$DEMO_DIR" \
   --project . \
   --json
+cat "$DEMO_DIR/reports/EXP_DEMO_OOD/decision.md"
+cat "$DEMO_DIR/reports/EXP_DEMO_COST/decision.md"
 ```
 
-输出包括 Host JSONL Trace、`SourceTraceRef`、`EvidenceReceipt`、标准化 `RunRecord`、两个
-应被拒绝的候选、一份 JSON/Markdown Decision 和每个 Decision 的四张 SVG 核心图。
+预期两个候选均为 `HOLD`：一个未通过 OOD 非劣化门，另一个超过成本门。输出还包括模拟 Trace、
+标准化记录、决策 JSON 和图表；这些结果仅验证软件行为，不是 Banking R15 的真实实验结果。
 
 ## DeepSeek Harness 接入
 

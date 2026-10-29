@@ -87,8 +87,13 @@ class CandidateChecker:
         manifest: HarnessAssetManifest,
         policy: MutationPolicy,
         trust_kernel: TrustKernelSnapshot,
+        *,
+        harness_source_root: Path | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
+        self.harness_source_root = (
+            harness_source_root.resolve() if harness_source_root else self.project_root
+        )
         self.manifest = manifest
         self.policy = policy
         self.trust_kernel = trust_kernel
@@ -299,7 +304,7 @@ class CandidateChecker:
         with TemporaryDirectory(prefix="agentloopgate-candidate-check-") as temporary:
             staging = Path(temporary).resolve()
             for relative in parsed.changed_files:
-                source = self.project_root / relative
+                source = self.harness_source_root / relative
                 destination = staging / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 if source.is_file():

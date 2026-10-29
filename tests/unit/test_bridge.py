@@ -28,6 +28,10 @@ def minimal_project(root: Path) -> None:
         Path("configs/objective_contract.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "configs/trace_redaction.yaml").write_text(
+        Path("configs/trace_redaction.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
 
 def test_bridge_health_and_contract_validate_are_stable_and_idempotent(tmp_path: Path) -> None:
@@ -112,6 +116,61 @@ def test_event_ingest_trace_sync_and_verify_do_not_store_raw_session_id(
     assert raw_session not in stored
     assert "secret-value" not in stored
     assert "[REDACTED]" in stored
+    policy_path = tmp_path / "runs/dsh/trace_policies" / (
+        synced.result["source_trace_id"] + ".json"
+    )
+    policy_path.write_text(json.dumps({"redaction_policy_digest": "sha256:" + "0" * 64}))
+    assert not service.handle(request("REQ_POLICY_TAMPER", "trace.verify", {
+        "source_trace_id": synced.result["source_trace_id"],
+    })).ok
+
+
+def test_mirror_uses_configured_policy_and_never_stores_free_text(tmp_path: Path) -> None:
+    minimal_project(tmp_path)
+    (tmp_path / "configs/runtime_dsh.yaml").write_text(
+        "trace:\n  redact_policy: configs/custom.yaml\n", encoding="utf-8"
+    )
+    (tmp_path / "configs/custom.yaml").write_text(
+        'schema_version: "1.0"\nreplacement: "[REDACTED]"\n'
+        'sensitive_keys: [password]\nmax_text_bytes: 8192\n', encoding="utf-8"
+    )
+    service = BridgeService(tmp_path)
+    payload = {"batch_id": "BATCH_CUSTOM", "session_id": "session",
+        "persistence_kind": "jsonl", "ingest_mode": "mirror", "events": [{
+            "seq": 0, "timestamp": "2026-08-20T00:00:00Z", "event_type": "tool.result",
+            "data": {"password": "sensitive-marker", "content": "private-marker" + "x" * 9000},
+        }]}
+    assert service.handle(request("REQ_CUSTOM", "events.ingest", payload)).ok
+    batch = next((tmp_path / "runs").rglob("BATCH_CUSTOM.json"))
+    stored = json.loads(batch.read_text())
+    assert stored["redaction_policy_digest"].startswith("sha256:")
+    assert stored["events"][0]["data"] == {"password": "[REDACTED]", "content": "[REDACTED]"}
+    (tmp_path / "configs/custom.yaml").unlink()
+    payload["batch_id"] = "BATCH_MISSING"
+    assert not service.handle(request("REQ_MISSING", "events.ingest", payload)).ok
+
+
+def test_mirror_masks_unknown_keys_numeric_values_and_custom_event_types(tmp_path: Path) -> None:
+    minimal_project(tmp_path)
+    service = BridgeService(tmp_path)
+    synthetic_number = "138" + "00138000"
+    result = service.handle(request("REQ_PRIVATE", "events.ingest", {
+        "batch_id": "BATCH_PRIVATE", "session_id": "session", "persistence_kind": "jsonl",
+        "ingest_mode": "mirror", "events": [{
+            "seq": 0, "timestamp": "2026-08-20T00:00:00Z", "event_type": "private-event-name",
+            "data": {"private-field-name": int(synthetic_number), "n": 42,
+                     "content": "private-message"},
+        }],
+    }))
+    assert result.ok
+    stored = next((tmp_path / "runs").rglob("BATCH_PRIVATE.json")).read_text(encoding="utf-8")
+    assert all(secret not in stored for secret in (
+        "private-event-name", "private-field-name", synthetic_number, "private-message",
+    ))
+    event = json.loads(stored)["events"][0]
+    assert event["event_type"] == "other"
+    assert event["data"]["content"] == "[REDACTED]"
+    assert "[REDACTED]" in event["data"].values()
 
 
 def test_decision_explain_is_redacted_and_forbidden_methods_fail_closed(tmp_path: Path) -> None:
@@ -244,3 +303,56 @@ def test_schema_and_types_are_generated_from_bridge_models(tmp_path: Path) -> No
     assert "export interface BridgeActor" in generated_types
     assert "actor?: BridgeActor" in generated_types
     assert "export type JsonValue" in generated_types
+
+
+def test_reference_verification_rejects_modified_event_content(tmp_path: Path) -> None:
+    minimal_project(tmp_path)
+    service = BridgeService(tmp_path)
+    payload = {
+        "batch_id": "BATCH_CONTENT", "session_id": "session-content",
+        "persistence_kind": "sqlite", "ingest_mode": "reference",
+        "events": [{"seq": 0, "timestamp": "2026-08-20T00:00:00Z",
+                    "event_type": "turn/start", "data": {"status": "ok"}}],
+    }
+    assert service.handle(request("REQ_CONTENT_INGEST", "events.ingest", payload)).ok
+    synced = service.handle(request("REQ_CONTENT_SYNC", "trace.sync", {
+        "session_id": payload["session_id"], "source_revision": "fixture",
+        "persistence_kind": "sqlite", "ingest_mode": "reference",
+    }))
+    assert synced.ok
+    trace_id = synced.result["source_trace_id"]
+    assert service.handle(request("REQ_CONTENT_VERIFY", "trace.verify", {
+        "source_trace_id": trace_id,
+    })).ok
+    batch_path = next((tmp_path / "runs/dsh/inbox").rglob("*.json"))
+    batch = json.loads(batch_path.read_text())
+    batch["events"][0]["event_type"] = "turn/end"
+    batch_path.write_text(json.dumps(batch))
+    assert not service.handle(request("REQ_CONTENT_TAMPER", "trace.verify", {
+        "source_trace_id": trace_id,
+    })).ok
+
+
+def test_sync_rejects_missing_or_changed_redaction_policy(tmp_path: Path) -> None:
+    minimal_project(tmp_path)
+    service = BridgeService(tmp_path)
+    payload = {
+        "batch_id": "BATCH_POLICY_1", "session_id": "session-policy",
+        "persistence_kind": "sqlite", "ingest_mode": "reference",
+        "events": [{"seq": 0, "timestamp": "2026-08-20T00:00:00Z",
+                    "event_type": "turn/start", "data": {}}],
+    }
+    assert service.handle(request("REQ_POLICY_1", "events.ingest", payload)).ok
+    path = tmp_path / "configs/trace_redaction.yaml"
+    path.write_text(path.read_text() + "\n# Changed policy\nadditional_setting: changed\n")
+    payload["batch_id"] = "BATCH_POLICY_2"
+    payload["events"][0]["seq"] = 1
+    assert service.handle(request("REQ_POLICY_2", "events.ingest", payload)).ok
+    sync_payload = {"session_id": "session-policy", "source_revision": "fixture",
+                    "persistence_kind": "sqlite", "ingest_mode": "reference"}
+    assert not service.handle(request("REQ_POLICY_SYNC", "trace.sync", sync_payload)).ok
+    batch_path = next((tmp_path / "runs/dsh/inbox").rglob("BATCH_POLICY_1.json"))
+    batch = json.loads(batch_path.read_text())
+    batch.pop("redaction_policy_digest")
+    batch_path.write_text(json.dumps(batch))
+    assert not service.handle(request("REQ_POLICY_MISSING", "trace.sync", sync_payload)).ok

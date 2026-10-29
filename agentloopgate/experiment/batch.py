@@ -40,6 +40,7 @@ from agentloopgate.schemas.models import NonEmpty, StrictModel
 from .ledger import (
     CostStatus,
     ExperimentAttemptLedger,
+    FormalCostAccounting,
     artifact_hashes,
     observed_usage_cost,
     reconcile_formal_costs,
@@ -365,6 +366,40 @@ class FormalBatchRunner:
         self.project_root = project_root.resolve()
         self.executor = executor
         self.store = BenchmarkEvidenceStore(self.project_root)
+
+    def verify_existing(self, spec: FormalBatchSpec) -> FormalBatchRunResult:
+        """Reconcile an existing batch without executing or writing artifacts."""
+        path = self._artifact_path(spec)
+        if not path.is_file():
+            raise FormalBatchError(f"formal batch is unavailable: {spec.batch_id}")
+        artifact = self._load(path)
+        cost = None
+        if spec.protocol_digest is not None:
+            raw_path = self.store.resolve_artifact_uri(f"artifact:{artifact.result_artifact}")
+            cost = reconcile_formal_costs(
+                batch_id=spec.batch_id,
+                raw_result_path=raw_path,
+                records=[self._run_record(run_id) for run_id in artifact.tau_run_ids],
+                model_usage_path=self._model_usage_path(spec),
+                user_model_usage_path=self._user_model_usage_path(spec),
+                task_attempt_path=self._task_attempt_path(spec),
+                frozen_token_prices=self._frozen_token_prices(),
+                cost_gate_scope=self._cost_gate_scope(),
+            )
+            cost_path = (
+                self.project_root / "runs/experiments" / spec.experiment_id
+                / "costs" / f"{spec.batch_id}.json"
+            )
+            try:
+                stored = FormalCostAccounting.model_validate_json(
+                    cost_path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValueError) as exc:
+                raise FormalBatchError("formal cost evidence is unavailable") from exc
+            if canonical_digest(stored) != canonical_digest(cost):
+                raise FormalBatchError("formal cost evidence does not match its source")
+        self._verify(artifact, spec, cost=cost)
+        return FormalBatchRunResult(artifact=artifact, resumed=True)
 
     def run(self, spec: FormalBatchSpec) -> FormalBatchRunResult:
         path = self._artifact_path(spec)

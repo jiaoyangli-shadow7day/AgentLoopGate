@@ -192,7 +192,9 @@ def pilot_config(project_root: Path) -> DshTau3PilotConfig:
     patch.write_text("- id: headless-runner\n  disabled: true\n", encoding="utf-8")
     redaction = project_root / "configs/trace_redaction.yaml"
     redaction.parent.mkdir(parents=True, exist_ok=True)
-    redaction.write_text("schema_version: '1.0'\n", encoding="utf-8")
+    redaction.write_text(
+        Path("configs/trace_redaction.yaml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
     harness = project_root / "harness/system_prompt.md"
     harness.parent.mkdir(parents=True, exist_ok=True)
     harness.write_text("Use verified evidence.\n", encoding="utf-8")

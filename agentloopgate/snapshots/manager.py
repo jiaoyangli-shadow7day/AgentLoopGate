@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import re
 import shutil
 import subprocess
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from agentloopgate.contracts import canonical_digest, canonical_json_bytes, file_digest
 from agentloopgate.schemas import (
@@ -16,6 +19,8 @@ from agentloopgate.schemas import (
     CandidateStatus,
     DecisionRecord,
     DecisionValue,
+    GateName,
+    GateStatus,
     RuntimeHost,
     SnapshotManifest,
 )
@@ -124,9 +129,7 @@ class SnapshotManager:
 
         self._safe_id(snapshot_id)
         active = (
-            self.active_snapshot()
-            if allow_reviewed_harness_revision
-            else self.verify_active_live()
+            self.active_snapshot() if allow_reviewed_harness_revision else self.verify_active_live()
         )
         expected = sorted(set(harness_paths))
         actual = self._live_harness_paths()
@@ -134,10 +137,7 @@ class SnapshotManager:
             raise SnapshotIntegrityError(
                 "evaluation baseline must exactly cover the reviewed live harness tree"
             )
-        if (
-            not allow_reviewed_harness_revision
-            and expected != sorted(active.harness_files)
-        ):
+        if not allow_reviewed_harness_revision and expected != sorted(active.harness_files):
             raise SnapshotIntegrityError(
                 "legacy evaluation baseline must cover the active harness tree"
             )
@@ -158,10 +158,7 @@ class SnapshotManager:
             ),
             created_at=created_at,
         )
-        if (
-            not allow_reviewed_harness_revision
-            and manifest.harness_files != active.harness_files
-        ):
+        if not allow_reviewed_harness_revision and manifest.harness_files != active.harness_files:
             raise SnapshotIntegrityError(
                 "evaluation baseline harness bytes differ from the active snapshot"
             )
@@ -218,14 +215,18 @@ class SnapshotManager:
                 raise SnapshotIntegrityError(
                     "materialized child changes do not match CandidateRecord.changed_files"
                 )
-            identity = canonical_digest(
-                {
-                    "parent_snapshot_id": parent.snapshot_id,
-                    "candidate_id": candidate.candidate_id,
-                    "patch_digest": candidate.patch_digest,
-                    "harness_files": files,
-                }
-            ).removeprefix("sha256:")[:16].upper()
+            identity = (
+                canonical_digest(
+                    {
+                        "parent_snapshot_id": parent.snapshot_id,
+                        "candidate_id": candidate.candidate_id,
+                        "patch_digest": candidate.patch_digest,
+                        "harness_files": files,
+                    }
+                )
+                .removeprefix("sha256:")[:16]
+                .upper()
+            )
             manifest = SnapshotManifest(
                 schema_version="1.0",
                 snapshot_id=f"S_{identity}",
@@ -258,13 +259,26 @@ class SnapshotManager:
             raise SnapshotAuthorizationError("human approval is required for promotion")
         self._require_approval(approval, ApprovalAction.PROMOTE, snapshot_id)
         if decision.decision is not DecisionValue.SHIP_RECOMMENDED:
+            raise SnapshotAuthorizationError("promotion requires a SHIP_RECOMMENDED DecisionRecord")
+        if (
+            len(decision.gates) != len(GateName)
+            or {gate.name for gate in decision.gates} != set(GateName)
+            or any(gate.status is not GateStatus.PASS for gate in decision.gates)
+        ):
             raise SnapshotAuthorizationError(
-                "promotion requires a SHIP_RECOMMENDED DecisionRecord"
+                "promotion requires exactly one passing result for every gate"
             )
+        for gate in decision.gates:
+            evidence = self._project_path(gate.evidence_ref)
+            if not evidence.is_file():
+                raise SnapshotAuthorizationError(
+                    f"promotion evidence is unavailable for gate {gate.name.value}"
+                )
         if target.candidate_id != decision.candidate_id:
             raise SnapshotAuthorizationError("decision candidate does not match target snapshot")
         if target.parent_snapshot_id != decision.baseline_snapshot_id:
             raise SnapshotAuthorizationError("decision baseline does not match snapshot parent")
+        self._verify_formal_promotion(target, decision)
         active = self.active_snapshot()
         if active.snapshot_id == target.snapshot_id:
             previous = self._last_activation()
@@ -281,7 +295,6 @@ class SnapshotManager:
         if active.snapshot_id != target.parent_snapshot_id:
             raise SnapshotAuthorizationError("target parent is not the active snapshot")
         self._require_live_matches(active)
-        self._materialize_live(target)
         activation = SnapshotActivation(
             schema_version="1.0",
             ordinal=len(self._activation_paths()) + 1,
@@ -293,8 +306,202 @@ class SnapshotManager:
             actor=approval.actor,
             activated_at=approval.approved_at,
         )
-        self._append_activation(activation)
+        self._activate_transaction(target, active, activation)
         return activation
+
+    def _verify_formal_promotion(
+        self,
+        target: SnapshotManifest,
+        decision: DecisionRecord,
+    ) -> None:
+        """Require an independently revalidated formal outcome for the exact candidate."""
+        from agentloopgate.experiment.batch import FormalBatchArtifact, FormalStage
+        from agentloopgate.experiment.orchestrator import (
+            FormalExperimentOrchestrator,
+            FormalLineageArtifact,
+            FormalSelectionArtifact,
+        )
+        from agentloopgate.experiment.service import load_formal_config
+        from agentloopgate.mutation.models import CandidateCheckResult, CheckDisposition
+
+        matches = []
+        for report in sorted((self.project_root / "reports").glob("*/decision.json")):
+            try:
+                recorded = DecisionRecord.model_validate_json(report.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if recorded == decision:
+                matches.append(report)
+        if len(matches) != 1:
+            raise SnapshotAuthorizationError("promotion requires one matching formal report")
+        experiment_id = matches[0].parent.name
+        configs = []
+        for path in sorted((self.project_root / "configs").glob("formal_experiment*.yaml")):
+            try:
+                config = load_formal_config(path)
+            except (OSError, ValueError):
+                continue
+            if (
+                config.experiment_id == experiment_id
+                and config.baseline_snapshot_id == target.parent_snapshot_id
+            ):
+                configs.append(path)
+        if len(configs) != 1:
+            raise SnapshotAuthorizationError("promotion requires one matching formal configuration")
+        try:
+            self.verify(target.parent_snapshot_id)
+            orchestrator = FormalExperimentOrchestrator(self.project_root, config_path=configs[0])
+            if not (orchestrator.experiment_root / "trust_kernel.json").is_file():
+                raise ValueError("frozen trust kernel is unavailable")
+            registry = orchestrator._registry()
+            registry.checker.harness_source_root = (
+                self._snapshot_dir(target.parent_snapshot_id) / "files"
+            )
+            candidate = registry.load(decision.candidate_id)
+            patch_path = self._project_path(candidate.patch_path)
+            recorded_check = CandidateCheckResult.model_validate_json(
+                (self.project_root / "candidates" / candidate.candidate_id / "check.json")
+                .read_text(encoding="utf-8")
+            )
+            checked = registry.checker.check(patch_path)
+            if (
+                checked.disposition is not CheckDisposition.PASS
+                or checked != recorded_check
+                or checked.patch_digest != candidate.patch_digest
+                or checked.changed_files != candidate.changed_files
+                or checked.asset_families != candidate.asset_families
+                or checked.risk_tier != candidate.risk_tier
+                or candidate.parent_snapshot_id != target.parent_snapshot_id
+            ):
+                raise ValueError("candidate safety check does not match frozen evidence")
+            outcome = orchestrator._load_verified_outcome(
+                orchestrator.experiment_root / "outcome.json"
+            )
+            if (
+                not outcome.p0_requirements_met
+                or outcome.final_decision is not DecisionValue.SHIP_RECOMMENDED
+                or outcome.agentloopgate_candidate_id != decision.candidate_id
+                or outcome.baseline_snapshot_id != target.parent_snapshot_id
+                or outcome.report_file_digests.get(
+                    matches[0].relative_to(self.project_root).as_posix()
+                ) != file_digest(matches[0])
+                or len(outcome.candidate_ids) != len(outcome.candidate_snapshot_ids)
+                or dict(
+                    zip(outcome.candidate_ids, outcome.candidate_snapshot_ids, strict=True)
+                ).get(decision.candidate_id)
+                != target.snapshot_id
+            ):
+                raise ValueError("formal outcome does not authorize this target")
+            candidates = [registry.load(candidate_id) for candidate_id in outcome.candidate_ids]
+            for item, snapshot_id in zip(candidates, outcome.candidate_snapshot_ids, strict=True):
+                manifest = self.verify(snapshot_id)
+                if (
+                    item.parent_snapshot_id != outcome.baseline_snapshot_id
+                    or manifest.parent_snapshot_id != outcome.baseline_snapshot_id
+                    or manifest.candidate_id != item.candidate_id
+                ):
+                    raise ValueError("candidate snapshot lineage does not match formal outcome")
+            families = {family for item in candidates for family in item.asset_families}
+            held_count = sum(
+                item.status in {CandidateStatus.HELD, CandidateStatus.REJECTED}
+                for item in candidates
+            )
+            rejection_count = len(list(
+                (self.project_root / "runs/updaters/ahe/rejected").glob("*/rejection.json")
+            ))
+            if (
+                len(candidates) < orchestrator.config.candidate_count
+                or len(families) < orchestrator.config.min_asset_families
+                or len(families) != outcome.asset_family_count
+                or outcome.held_or_rejected_candidate_count > held_count
+                or outcome.external_rejection_count > rejection_count
+                or outcome.external_rejection_count + outcome.held_or_rejected_candidate_count
+                < orchestrator.config.min_rejected_or_held_candidates
+            ):
+                raise ValueError("formal candidate diversity or rejection evidence is incomplete")
+            proposal_path = orchestrator.experiment_root / "proposal_plan.json"
+            proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+            expected_proposal = {
+                "schema_version": "1.0",
+                "signal_kind": "ahe_emission_order",
+                "candidate_ids": outcome.candidate_ids,
+                "signal_refs": [
+                    f"runs/updaters/ahe/{item.candidate_id}/run_metadata.json"
+                    for item in candidates
+                ],
+            }
+            if (
+                proposal != {
+                    **expected_proposal, "plan_digest": canonical_digest(expected_proposal)
+                }
+                or any(not self._project_path(path).is_file()
+                       for path in expected_proposal["signal_refs"])
+            ):
+                raise ValueError("updater proposal order evidence is incomplete or inconsistent")
+            formal = orchestrator._load_decision("agentloopgate")
+            if formal.outcome.record != decision:
+                raise ValueError("formal decision differs from requested decision")
+            lineage = FormalLineageArtifact.model_validate_json(
+                (orchestrator.experiment_root / "lineage.json").read_text(encoding="utf-8")
+            )
+            stages = {FormalStage.RELEASE_ID, FormalStage.RELEASE_OOD, FormalStage.REPLAY}
+            batches = {outcome.baseline_snapshot_id: {}, target.snapshot_id: {}}
+            selection_batches = {}
+            for batch_id in lineage.batch_ids:
+                batch = FormalBatchArtifact.model_validate_json(
+                    (orchestrator.experiment_root / "batches" / f"{batch_id}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                if batch.stage is FormalStage.SELECTION:
+                    if batch.spec.snapshot_id in selection_batches:
+                        raise ValueError("duplicate selection batch")
+                    selection_batches[batch.spec.snapshot_id] = batch
+                if batch.spec.snapshot_id in batches and batch.stage in stages:
+                    group = batches[batch.spec.snapshot_id]
+                    if batch.stage in group:
+                        raise ValueError("duplicate release batch")
+                    group[batch.stage] = batch
+            if any(set(group) != stages for group in batches.values()):
+                raise ValueError("incomplete paired release batches")
+            expected_selection = set(outcome.candidate_snapshot_ids)
+            if orchestrator.config.schema_version == "1.2":
+                expected_selection.add(outcome.baseline_snapshot_id)
+            if set(selection_batches) != expected_selection:
+                raise ValueError("incomplete baseline-bound selection batches")
+            recorded_selection = FormalSelectionArtifact.model_validate_json(
+                (orchestrator.experiment_root / "selection.json").read_text(encoding="utf-8")
+            )
+            recalculated_selection = orchestrator._select(
+                outcome.baseline_snapshot_id,
+                candidates,
+                outcome.candidate_snapshot_ids,
+                selection_batches,
+                persist=False,
+            )
+            if (
+                recorded_selection != recalculated_selection
+                or recorded_selection.selection.native_candidate_id != outcome.native_candidate_id
+                or recorded_selection.selection.agentloopgate_candidate_id
+                != outcome.agentloopgate_candidate_id
+                or recorded_selection.selection.agentloopgate_decision == "HOLD"
+            ):
+                raise ValueError("formal selection does not match verified batch evidence")
+            recalculated = orchestrator._decide_selected(
+                "agentloopgate",
+                decision.candidate_id,
+                target.snapshot_id,
+                outcome.baseline_snapshot_id,
+                batches,
+                lineage,
+                persist=False,
+            )
+            if recalculated != formal:
+                raise ValueError("formal decision does not match verified batch evidence")
+        except Exception as exc:
+            raise SnapshotAuthorizationError(
+                f"formal promotion evidence verification failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
     def rollback(
         self,
@@ -321,7 +528,6 @@ class SnapshotManager:
         if active.parent_snapshot_id != target.snapshot_id:
             raise SnapshotAuthorizationError("rollback target is not the active snapshot parent")
         self._require_live_matches(active)
-        self._materialize_live(target)
         activation = SnapshotActivation(
             schema_version="1.0",
             ordinal=len(self._activation_paths()) + 1,
@@ -333,17 +539,16 @@ class SnapshotManager:
             actor=approval.actor,
             activated_at=approval.approved_at,
         )
-        self._append_activation(activation)
+        self._activate_transaction(target, active, activation)
         return activation
 
     def active_snapshot(self) -> SnapshotManifest:
+        self._recover_activation()
         paths = self._activation_paths()
         if not paths:
             raise SnapshotIntegrityError("no active snapshot is registered")
         try:
-            event = SnapshotActivation.model_validate_json(
-                paths[-1].read_text(encoding="utf-8")
-            )
+            event = SnapshotActivation.model_validate_json(paths[-1].read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             raise SnapshotIntegrityError("activation registry is corrupt") from exc
         return self.verify(event.snapshot_id)
@@ -403,6 +608,88 @@ class SnapshotManager:
             target = destination / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_root / relative, target)
+
+    def _activate_transaction(
+        self,
+        target: SnapshotManifest,
+        previous: SnapshotManifest,
+        activation: SnapshotActivation,
+    ) -> None:
+        with self._activation_lock():
+            last = self._last_activation()
+            if (
+                last.snapshot_id != previous.snapshot_id
+                or activation.ordinal != len(self._activation_paths()) + 1
+            ):
+                raise SnapshotAuthorizationError("active snapshot changed during activation")
+            self._require_live_matches(previous)
+            self._activate_locked(target, previous, activation)
+
+    def _activate_locked(
+        self,
+        target: SnapshotManifest,
+        previous: SnapshotManifest,
+        activation: SnapshotActivation,
+    ) -> None:
+        journal = self.store_root / "pending_activation.json"
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "previous": previous.snapshot_id,
+            "target": target.snapshot_id,
+            "activation": activation.model_dump(mode="json"),
+        }
+        if journal.exists():
+            raise SnapshotIntegrityError("another activation is pending")
+        self._write_once(journal, payload)
+        self._materialize_live(target)
+        self._append_activation(activation)
+        journal.unlink()
+
+    def _recover_activation(self) -> None:
+        with self._activation_lock():
+            self._recover_activation_locked()
+
+    @contextmanager
+    def _activation_lock(self):
+        self.store_root.mkdir(parents=True, exist_ok=True)
+        with (self.store_root / ".activation.lock").open("a+") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise SnapshotIntegrityError("another activation is in progress") from exc
+            try:
+                yield
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    def _recover_activation_locked(self) -> None:
+        journal = self.store_root / "pending_activation.json"
+        if not journal.exists():
+            return
+        try:
+            payload = json.loads(journal.read_text(encoding="utf-8"))
+            event = SnapshotActivation.model_validate(payload["activation"])
+            previous = self.verify(payload["previous"])
+            target = self.verify(payload["target"])
+            if (
+                event.snapshot_id != target.snapshot_id
+                or event.previous_snapshot_id != previous.snapshot_id
+            ):
+                raise ValueError("activation journal identity mismatch")
+            paths = self._activation_paths()
+            if not paths:
+                raise ValueError("activation history missing")
+            last = SnapshotActivation.model_validate_json(paths[-1].read_text(encoding="utf-8"))
+            if last == event:
+                restore = target
+            elif last.snapshot_id == previous.snapshot_id and event.ordinal == len(paths) + 1:
+                restore = previous
+            else:
+                raise ValueError("activation journal conflicts with history")
+            self._materialize_live(restore)
+            journal.unlink()
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise SnapshotIntegrityError("pending activation recovery failed") from exc
 
     def _materialize_live(self, target: SnapshotManifest) -> None:
         source_root = self._snapshot_dir(target.snapshot_id) / "files"
@@ -479,9 +766,7 @@ class SnapshotManager:
         if not paths:
             raise SnapshotIntegrityError("no snapshot activation is registered")
         try:
-            return SnapshotActivation.model_validate_json(
-                paths[-1].read_text(encoding="utf-8")
-            )
+            return SnapshotActivation.model_validate_json(paths[-1].read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             raise SnapshotIntegrityError("activation registry is corrupt") from exc
 
@@ -507,9 +792,9 @@ class SnapshotManager:
         encoded = canonical_json_bytes(payload) + b"\n"
         if path.exists():
             try:
-                existing = canonical_json_bytes(
-                    json.loads(path.read_text(encoding="utf-8"))
-                ) + b"\n"
+                existing = (
+                    canonical_json_bytes(json.loads(path.read_text(encoding="utf-8"))) + b"\n"
+                )
             except (OSError, json.JSONDecodeError) as exc:
                 raise SnapshotIntegrityError(
                     f"existing snapshot artifact is corrupt: {path}"
@@ -518,4 +803,24 @@ class SnapshotManager:
                 raise SnapshotIntegrityError(f"snapshot artifact conflict: {path}")
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(encoded)
+        temporary = None
+        try:
+            with NamedTemporaryFile(
+                dir=path.parent, prefix=".snapshot-write-", delete=False
+            ) as stream:
+                temporary = Path(stream.name)
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.link(temporary, path)
+            except FileExistsError as exc:
+                raise SnapshotIntegrityError(f"snapshot artifact already exists: {path}") from exc
+            directory_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)

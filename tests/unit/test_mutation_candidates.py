@@ -448,3 +448,23 @@ def test_candidate_registry_is_append_only_and_enforces_state_machine(tmp_path: 
             predicted_direction="increase",
             created_at=datetime(2026, 8, 20, tzinfo=UTC),
         )
+
+
+def test_semantic_check_can_use_frozen_parent_after_live_tree_changes(tmp_path: Path) -> None:
+    project(tmp_path)
+    semantic = semantic_policy()
+    trust = freeze_trust_kernel(tmp_path, semantic)
+    source = tmp_path / "harness/tools/routing.yaml"
+    frozen_root = tmp_path / "snapshot/files"
+    frozen = frozen_root / "harness/tools/routing.yaml"
+    frozen.parent.mkdir(parents=True)
+    frozen.write_bytes(source.read_bytes())
+    patch = patch_file(tmp_path, routing_addition(
+        "routes:\n  - capability_ref: runtime://tool/lookup_account"
+    ))
+    source.write_text("already changed\n")
+    live_checker = CandidateChecker(tmp_path, semantic_manifest(), semantic, trust)
+    frozen_checker = CandidateChecker(tmp_path, semantic_manifest(), semantic, trust,
+                                      harness_source_root=frozen_root)
+    assert live_checker.check(patch).disposition is CheckDisposition.REJECT
+    assert frozen_checker.check(patch).disposition is CheckDisposition.PASS

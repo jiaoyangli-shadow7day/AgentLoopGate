@@ -109,6 +109,7 @@ class StoredEventBatch(StrictModel):
     session_id_hash: NonEmpty
     persistence_kind: PersistenceKind
     ingest_mode: IngestMode
+    redaction_policy_digest: Digest | None = None
     events: list[DshEvent]
 
 

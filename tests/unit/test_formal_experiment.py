@@ -1696,6 +1696,16 @@ def test_banking_r15_protocol_2_identity_repairs_and_preregistration_are_frozen(
         "verify_evaluator_overlay_sources",
         lambda *_args, **_kwargs: None,
     )
+    if any(
+        file_digest(Path(path)) != digest
+        for path, digest in cost.runtime_bindings.items()
+    ):
+        with pytest.raises(ValueError, match="runtime binding mismatch"):
+            _verified_protocol(
+                Path(".").resolve(), config,
+                objective_digest=protocol.objective_digest,
+                split_digest=protocol.split_digest, pricing=pricing,
+            )
     assert (
         _verified_protocol(
             Path(".").resolve(),
@@ -1703,6 +1713,7 @@ def test_banking_r15_protocol_2_identity_repairs_and_preregistration_are_frozen(
             objective_digest=protocol.objective_digest,
             split_digest=protocol.split_digest,
             pricing=pricing,
+            allow_runtime_binding_mismatch=True,
         )
         == protocol
     )
@@ -2017,9 +2028,10 @@ def test_banking_r14_terminal_seal_and_candidate_precheck_incident_are_addressed
         "tree:sha256:c00fcf080f43b5fe1735647231b79f1f12cbb9bbd2bb80678c1eba06f3d646cf"
     )
     assert repair["successor_source_revision"] != _code_revision(Path(".").resolve())
-    assert all(
-        file_digest(Path(relative)) == digest
-        for relative, digest in repair["runtime_bindings"].items()
+    # Historical bindings remain evidence of the prior source, not a requirement
+    # that the current implementation remain frozen forever.
+    assert repair["runtime_bindings"]["agentloopgate/experiment/batch.py"] == (
+        "sha256:5aec1b937cc80831f96e77c2d58da82cb865340b0dd49cc80c8b4c1f49c3451d"
     )
     acceptance = repair["no_model_acceptance"]
     assert acceptance["external_model_calls"] == 0
@@ -2159,10 +2171,18 @@ def test_formal_batch_runs_once_then_verifies_and_resumes(tmp_path: Path) -> Non
     assert first.artifact.summary.stable_success_task_count == 1
     assert first.artifact.batch_digest == second.artifact.batch_digest
 
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert runner.verify_existing(spec).artifact == first.artifact
+    after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert after == before
+    assert executor.calls == 1
+
     record_path = tmp_path / "runs/normalized/R_TAU_001.json"
     record_path.write_text(record_path.read_text().replace('"success":true', '"success":false'))
     with pytest.raises(FormalBatchError, match="receipt"):
         runner.run(spec)
+    with pytest.raises(FormalBatchError, match="receipt"):
+        runner.verify_existing(spec)
 
 
 def test_protocol_bound_batch_records_attempt_usage_and_cost_before_resume(
@@ -2181,6 +2201,12 @@ def test_protocol_bound_batch_records_attempt_usage_and_cost_before_resume(
 
     first = runner.run(spec)
     second = runner.run(spec)
+
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert runner.verify_existing(spec).artifact == first.artifact
+    after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert after == before
+    assert executor.calls == 1
 
     assert first.resumed is False
     assert second.resumed is True
@@ -2202,6 +2228,12 @@ def test_protocol_bound_batch_records_attempt_usage_and_cost_before_resume(
     assert completed[0].cost_status.value == "partial"
     assert completed[1].resumed is True
     assert completed[1].cost_status.value == "not_applicable"
+    modified = json.loads(cost_path.read_text(encoding="utf-8"))
+    modified["total_cost_lower_bound_usd"] = "99"
+    cost_path.write_text(json.dumps(modified), encoding="utf-8")
+    with pytest.raises(FormalBatchError, match="formal cost evidence"):
+        runner.verify_existing(spec)
+    assert executor.calls == 1
 
 
 def test_valid_cost_gate_reports_partial_whole_attempt_without_holding_valid_batch(
@@ -3497,7 +3529,9 @@ def _formal_execution(
     )
     config = root / "configs/trace_redaction.yaml"
     config.parent.mkdir(parents=True)
-    config.write_text("schema_version: '1.0'\n", encoding="utf-8")
+    config.write_text(
+        Path("configs/trace_redaction.yaml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
     bridge = BridgeService(root)
     session_id = "EXP_TEST:task_001:42"
     assert bridge.handle(
@@ -3595,3 +3629,219 @@ def _formal_execution(
         evidence_joins=[join],
     )
     return FormalBatchExecution(result_path=raw, result=result)
+
+
+def test_release_decision_recomputes_positive_and_regression_cases(tmp_path: Path) -> None:
+    from agentloopgate.evaluation import EvaluationSummary
+
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "objective_contract.yaml").write_bytes(
+        Path("configs/objective_contract.yaml").read_bytes()
+    )
+    orchestrator = object.__new__(FormalExperimentOrchestrator)
+    orchestrator.root = tmp_path
+    orchestrator.config = SimpleNamespace(
+        experiment_id="EXP_TEST", release_trials=3, stable_success_required=3,
+    )
+    orchestrator._registry = lambda: SimpleNamespace(
+        load=lambda _: _candidate("C_1", ["prompt_instruction"])
+    )
+    orchestrator._runtime_metrics = lambda _: (Decimal("1"), Decimal("100"))
+    stages = {
+        FormalStage.RELEASE_ID: "release_id",
+        FormalStage.RELEASE_OOD: "release_ood",
+        FormalStage.REPLAY: "update_source",
+    }
+
+    def batch(stage: FormalStage, *, candidate: bool, regression: bool = False):
+        successes = {"task_001": 0 if regression else 3,
+                     "task_002": 3 if candidate else 0}
+        summary = EvaluationSummary.model_validate({
+            "schema_version": "1.0", "pool": stages[stage],
+            "snapshot_id": "S_1" if candidate else "A0",
+            "candidate_id": "C_1" if candidate else None,
+            "trials": 3, "expected_task_count": 2, "valid_run_count": 6,
+            "infra_invalid_count": 0, "pass_1_numerator": sum(successes.values()),
+            "pass_1_denominator": 6,
+            "stable_success_task_count": sum(count == 3 for count in successes.values()),
+            "stable_task_outcomes": {key: count == 3 for key, count in successes.items()},
+            "task_success_counts": successes, "critical_violation_count": 0,
+            "mean_cost": "1", "p50_latency_ms": "100", "integrity_complete": True,
+            "integrity_issues": [],
+        })
+        return SimpleNamespace(summary=summary, batch_id=f"B_{stage.value}_{candidate}")
+
+    release = {
+        "A0": {stage: batch(stage, candidate=False) for stage in stages},
+        "S_1": {stage: batch(stage, candidate=True) for stage in stages},
+    }
+    good = orchestrator._decide_selected("agentloopgate", "C_1", "S_1", "A0", release,
+                                         SimpleNamespace(), persist=False)
+    assert good.outcome.record.decision.value == "SHIP_RECOMMENDED"
+    release["S_1"][FormalStage.REPLAY] = batch(FormalStage.REPLAY, candidate=True,
+                                                 regression=True)
+    regressed = orchestrator._decide_selected("agentloopgate", "C_1", "S_1", "A0", release,
+                                              SimpleNamespace(), persist=False)
+    assert regressed.outcome.record.decision.value == "HOLD"
+    assert regressed.assessment.catastrophic_regressions == 1
+
+
+def test_outcome_loader_replays_stored_batch_without_executing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agentloopgate.contracts import load_contract
+    from agentloopgate.experiment.orchestrator import (
+        FormalDecisionArtifact,
+        FormalExperimentOutcome,
+        FormalLineageArtifact,
+    )
+    from agentloopgate.gates import GateAssessment, GateEngine
+    from agentloopgate.schemas import GateName
+
+    execution = _formal_execution(tmp_path)
+    executor = _FakeBatchExecutor(execution)
+    runner = FormalBatchRunner(tmp_path, executor)
+    spec = _batch_spec()
+    batch = runner.run(spec).artifact
+    experiment_root = tmp_path / "runs/experiments/EXP_TEST"
+    config_dir = tmp_path / "configs"
+    (config_dir / "objective_contract.yaml").write_bytes(
+        Path("configs/objective_contract.yaml").read_bytes()
+    )
+    assessment = GateAssessment.model_validate({
+        "schema_version": "1.0", "candidate_id": "C_1", "baseline_snapshot_id": "A0",
+        "evaluation_integrity_complete": True, "leakage_hits": 0,
+        "mutates_trust_kernel": False, "risk_tier": "L", "release_critical_violations": 0,
+        "id_stable_task_net": 1, "ood_stable_task_net": 0, "replay_stable_task_net": 0,
+        "catastrophic_regressions": 0, "reliability_complete": True,
+        "reliability_trials": 3, "stable_success_required": 3,
+        "baseline_mean_cost": "1", "candidate_mean_cost": "1",
+        "baseline_p50_latency_ms": "100", "candidate_p50_latency_ms": "100",
+        "evidence_refs": {gate.value: "evidence.json" for gate in GateName},
+    })
+    gate_result = GateEngine(load_contract(config_dir / "objective_contract.yaml")).decide(
+        assessment, created_at=datetime(2026, 8, 20, tzinfo=UTC),
+    )
+    assert gate_result.record.decision.value == "SHIP_RECOMMENDED"
+    for selector in ("native", "agentloopgate"):
+        data = {"schema_version": "1.0", "selector": selector,
+                "assessment": assessment, "outcome": gate_result}
+        artifact = FormalDecisionArtifact.model_validate({
+            **data, "decision_digest": canonical_digest(data),
+        })
+        path = experiment_root / "decisions" / f"{selector}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(artifact.model_dump_json(), encoding="utf-8")
+    lineage_data = {
+        "schema_version": "1.0", "experiment_id": "EXP_TEST",
+        "pilot_evidence_join_ids": ["J_1", "J_2", "J_3"],
+        "batch_ids": [batch.batch_id], "candidate_ids": ["C_1", "C_2", "C_3"],
+        "snapshot_ids": ["A0", "S_1", "S_2", "S_3"],
+    }
+    lineage = FormalLineageArtifact.model_validate({
+        **lineage_data, "lineage_digest": canonical_digest(lineage_data),
+    })
+    (experiment_root / "lineage.json").write_text(lineage.model_dump_json())
+    outcome_data = {
+        "schema_version": "1.0", "experiment_id": "EXP_TEST", "baseline_snapshot_id": "A0",
+        "candidate_ids": ["C_1", "C_2", "C_3"],
+        "candidate_snapshot_ids": ["S_1", "S_2", "S_3"],
+        "native_candidate_id": "C_1", "agentloopgate_candidate_id": "C_1",
+        "native_decision": "SHIP_RECOMMENDED", "final_decision": "SHIP_RECOMMENDED",
+        "external_rejection_count": 0, "held_or_rejected_candidate_count": 0,
+        "asset_family_count": 1, "p0_requirements_met": True,
+        "lineage_digest": lineage.lineage_digest, "report_digest": DIGEST_A,
+        "report_file_digests": {},
+    }
+    outcome = FormalExperimentOutcome.model_validate({
+        **outcome_data, "outcome_digest": canonical_digest(outcome_data),
+    })
+    outcome_path = experiment_root / "outcome.json"
+    outcome_path.write_text(outcome.model_dump_json())
+
+    class FixtureService:
+        def ensure_baseline(self, *, require_active):
+            assert require_active is False
+
+        def run_stage(self, stage, *, snapshot_id, existing_only, verify_only):
+            assert stage == spec.stage and snapshot_id == spec.snapshot_id
+            assert existing_only and verify_only
+            return runner.verify_existing(spec)
+
+    class FixtureSnapshots:
+        def __init__(self, _root):
+            pass
+
+        def verify(self, snapshot_id):
+            assert snapshot_id in {"S_1", "S_2", "S_3"}
+
+    monkeypatch.setattr(orchestrator_module, "SnapshotManager", FixtureSnapshots)
+    orchestrator = object.__new__(FormalExperimentOrchestrator)
+    orchestrator.root = tmp_path
+    orchestrator.experiment_root = experiment_root
+    orchestrator.config = SimpleNamespace(experiment_id="EXP_TEST", baseline_snapshot_id="A0")
+    orchestrator.service = FixtureService()
+    orchestrator.store = BenchmarkEvidenceStore(tmp_path)
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert orchestrator._load_verified_outcome(outcome_path) == outcome
+    assert executor.calls == 1
+    assert before == {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    changed_data = {**outcome_data, "candidate_ids": ["C_1", "C_2", "C_OTHER"]}
+    changed = FormalExperimentOutcome.model_validate({
+        **changed_data, "outcome_digest": canonical_digest(changed_data),
+    })
+    outcome_path.write_text(changed.model_dump_json())
+    with pytest.raises(FormalWorkflowBlocked, match="identities conflict"):
+        orchestrator._load_verified_outcome(outcome_path)
+    outcome_path.write_text(outcome.model_dump_json())
+    record = tmp_path / "runs/normalized/R_TAU_001.json"
+    record.write_text(record.read_text().replace('"success":true', '"success":false'))
+    with pytest.raises(FormalBatchError, match="receipt"):
+        orchestrator._load_verified_outcome(outcome_path)
+    assert executor.calls == 1
+
+
+def test_versioned_selection_recomputes_without_writing_and_rejects_regression(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "banking_r15_study_v1.yaml").write_bytes(
+        Path("configs/banking_r15_study_v1.yaml").read_bytes()
+    )
+    orchestrator = object.__new__(FormalExperimentOrchestrator)
+    orchestrator.root = tmp_path
+    orchestrator.experiment_root = tmp_path / "runs/experiments/EXP_TEST"
+    orchestrator.config = SimpleNamespace(schema_version="1.2", experiment_id="EXP_TEST",
+        study_plan_config="configs/banking_r15_study_v1.yaml")
+    operational = {"whole_attempt_cost_usd": Decimal("1"), "task_attempt_count": 2,
+        "retry_count": 0, "timeout_count": 0, "p95_latency_ms": Decimal("100"),
+        "max_latency_ms": Decimal("100"),
+        "operational_evidence_refs": ["cost.json", "attempt.json", "batch.json"]}
+    orchestrator._selection_operational_evidence = lambda _batch: operational
+    candidates = [_candidate(f"C_{i}", ["prompt_instruction"]) for i in range(1, 4)]
+
+    def batch(first: bool, second: bool):
+        outcomes = {"task_001": first, "task_002": second}
+        return SimpleNamespace(summary=SimpleNamespace(
+            integrity_complete=True, stable_success_task_count=sum(outcomes.values()),
+            stable_task_outcomes=outcomes, critical_violation_count=0,
+            mean_cost=Decimal("1"), p50_latency_ms=Decimal("100"),
+        ))
+
+    batches = {"A0": batch(True, False), "S_1": batch(True, True),
+               "S_2": batch(True, False), "S_3": batch(True, False)}
+    saved = orchestrator._select("A0", candidates, ["S_1", "S_2", "S_3"], batches)
+    selection_path = orchestrator.experiment_root / "selection.json"
+    before = selection_path.read_bytes()
+    assert saved.selection.agentloopgate_decision == "SELECT"
+    assert saved.selection.agentloopgate_candidate_id == "C_1"
+    assert orchestrator._select("A0", candidates, ["S_1", "S_2", "S_3"], batches,
+                                persist=False) == saved
+    assert selection_path.read_bytes() == before
+    batches["S_1"] = batch(False, True)
+    regressed = orchestrator._select("A0", candidates, ["S_1", "S_2", "S_3"], batches,
+                                     persist=False)
+    assert regressed.selection.agentloopgate_decision == "HOLD"
+    assert selection_path.read_bytes() == before

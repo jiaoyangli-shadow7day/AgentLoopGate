@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
 from pydantic import ValidationError
 
 from agentloopgate.candidates import CandidateRegistry
@@ -53,6 +54,25 @@ _SENSITIVE_KEY = re.compile(
     r"refresh[_-]?token|session[_-]?id)$",
     re.IGNORECASE,
 )
+_SAFE_EVENT_TYPES = frozenset({
+    "agent-preset/selected", "agent/inbox/spliced", "approval/asked", "approval/decided",
+    "approval/policy", "assistant/chunk", "assistant/message", "command/done", "command/run",
+    "compaction/end", "compaction/prune", "compaction/start", "compaction/summary",
+    "feedback/record", "goal/change", "hook/invoked", "hook/result", "llm/retry",
+    "llm/retry-started", "permission/preset", "plan/mode", "request/context", "request/header",
+    "sandbox/mode", "schedule/change", "session/end-seed", "session/title",
+    "session/title-llm-request", "step/end", "step/start", "subagent/descriptor",
+    "team/member", "team/message/delivered", "team/message/queued", "team/task", "todo/write",
+    "tool-workflow/agent-end", "tool-workflow/agent-start", "tool-workflow/run-end",
+    "tool-workflow/run-start", "tool/call", "tool/code-dispatch", "tool/code-dispatch-start",
+    "tool/result", "turn/end", "turn/start", "user/message", "web/deepseek-search-llm-request",
+    "session.start", "session/start", "tool.result",
+})
+_SAFE_DATA_KEYS = frozenset({
+    "event_digest", "value_digest", "content", "model", "status", "reason", "type", "kind",
+    "name", "data", "message", "messages", "usage", "input_tokens", "output_tokens",
+    "prompt_tokens", "completion_tokens", "duration_ms", "latency_ms", "arguments", "result",
+})
 _FORBIDDEN_METHODS = {
     "final.read",
     "gate.modify",
@@ -210,15 +230,48 @@ class BridgeService:
 
     def _events_ingest(self, raw: dict[str, Any]) -> dict[str, Any]:
         payload = EventBatchPayload.model_validate(raw)
+        try:
+            runtime_path = self.project_root / "configs/runtime_dsh.yaml"
+            runtime = (
+                yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+                if runtime_path.exists() else {}
+            )
+            if not isinstance(runtime, dict) or not isinstance(runtime.get("trace", {}), dict):
+                raise ValueError("invalid runtime trace configuration")
+            policy_path = runtime.get("trace", {}).get(
+                "redact_policy", "configs/trace_redaction.yaml"
+            )
+            if not isinstance(policy_path, str):
+                raise ValueError("invalid trace redaction path")
+            config_path = (self.project_root / policy_path).resolve()
+            if not config_path.is_relative_to(self.project_root):
+                raise ValueError("trace redaction path escapes the project root")
+            policy = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            if (not isinstance(policy, dict) or policy.get("schema_version") != "1.0"
+                or policy.get("replacement") != "[REDACTED]"
+                or not isinstance(policy.get("sensitive_keys"), list)
+                or not all(isinstance(key, str) and key for key in policy["sensitive_keys"])
+                or type(policy.get("max_text_bytes")) is not int
+                or policy["max_text_bytes"] < 1):
+                raise ValueError("invalid trace redaction policy")
+        except (OSError, yaml.YAMLError) as exc:
+            raise ValueError("trace redaction policy is unavailable or invalid") from exc
         session_hash = canonical_digest({"session_id": payload.session_id})
         safe_events = [
-            event.model_copy(update={"data": _redact(event.data)}) for event in payload.events
+            event.model_copy(update={
+                "data": _redact(event.data, policy),
+                "event_type": (
+                    event.event_type if event.event_type in _SAFE_EVENT_TYPES else "other"
+                ),
+            })
+            for event in payload.events
         ]
         stored = StoredEventBatch(
             batch_id=payload.batch_id,
             session_id_hash=session_hash,
             persistence_kind=payload.persistence_kind,
             ingest_mode=payload.ingest_mode,
+            redaction_policy_digest=canonical_digest(policy),
             events=safe_events,
         )
         batch_path = self._session_dir(session_hash) / f"{payload.batch_id}.json"
@@ -241,6 +294,10 @@ class BridgeService:
             raise ValueError("persistence_kind does not match the ingested event batches")
         if any(batch.ingest_mode is not payload.ingest_mode for batch in batches):
             raise ValueError("ingest_mode does not match the ingested event batches")
+        policy_digests = {batch.redaction_policy_digest for batch in batches}
+        if None in policy_digests or len(policy_digests) != 1:
+            raise ValueError("session batches lack a consistent redaction policy")
+        policy_digest = next(iter(policy_digests))
 
         by_sequence: dict[int, dict[str, Any]] = {}
         for batch in batches:
@@ -262,7 +319,12 @@ class BridgeService:
         revision_hash = canonical_digest({"source_revision": payload.source_revision})
         cursor_hash = canonical_digest(by_sequence)
         source_trace_id = (
-            f"DSH_{session_hash[7:23]}_{revision_hash[7:15]}_{cursor_hash[7:23]}"
+            f"DSH2_{session_hash[7:23]}_{revision_hash[7:15]}_{cursor_hash[7:23]}_"
+            f"{policy_digest[7:23]}"
+        )
+        self._write_once(
+            self.project_root / "runs/dsh/trace_policies" / f"{source_trace_id}.json",
+            {"redaction_policy_digest": policy_digest},
         )
         ref_path = self.project_root / "runs/trace_refs" / f"{source_trace_id}.json"
         existing_ref = (
@@ -308,6 +370,8 @@ class BridgeService:
         payload = TraceVerifyPayload.model_validate(raw)
         path = self.project_root / "runs/trace_refs" / f"{payload.source_trace_id}.json"
         trace_ref = SourceTraceRef.model_validate_json(path.read_text(encoding="utf-8"))
+        if trace_ref.source_trace_id != payload.source_trace_id:
+            raise ValueError("source trace identity mismatch")
         if trace_ref.runtime_host is not RuntimeHost.DEEPSEEK_HARNESS:
             raise ValueError("source trace does not belong to the DeepSeek Harness bridge")
         if trace_ref.ingest_mode is IngestMode.MIRROR:
@@ -319,17 +383,50 @@ class BridgeService:
             if file_digest(mirror) != trace_ref.mirror_digest:
                 raise ValueError("source trace mirror digest mismatch")
             lines = [line for line in mirror.read_bytes().splitlines() if line]
-            sequence = [int(json.loads(line)["seq"]) for line in lines]
+            events = [json.loads(line) for line in lines]
+            sequence = [int(event["seq"]) for event in events]
+            by_sequence = dict(zip(sequence, events, strict=True))
         else:
             batches = self._load_batches(trace_ref.session_id_hash)
-            sequence = sorted(
-                {
-                    event.seq
-                    for batch in batches
-                    for event in batch.events
-                    if trace_ref.event_seq_start <= event.seq <= trace_ref.event_seq_end
-                }
+            by_sequence = {}
+            for batch in batches:
+                for event in batch.events:
+                    if trace_ref.event_seq_start <= event.seq <= trace_ref.event_seq_end:
+                        encoded = event.model_dump(mode="json")
+                        if event.seq in by_sequence and by_sequence[event.seq] != encoded:
+                            raise ValueError("conflicting events share a sequence number")
+                        by_sequence[event.seq] = encoded
+            sequence = sorted(by_sequence)
+        revision_hash = canonical_digest({"source_revision": trace_ref.source_revision})
+        cursor_hash = canonical_digest(by_sequence)
+        suffix = (
+            f"{trace_ref.session_id_hash[7:23]}_{revision_hash[7:15]}_"
+            f"{cursor_hash[7:23]}"
+        )
+        if trace_ref.source_trace_id.startswith("DSH2_"):
+            policy_path = self.project_root / "runs/dsh/trace_policies" / (
+                f"{trace_ref.source_trace_id}.json"
             )
+            policy_record = json.loads(policy_path.read_text(encoding="utf-8"))
+            if not isinstance(policy_record, dict):
+                raise ValueError("invalid trace redaction policy record")
+            policy_digest = policy_record.get("redaction_policy_digest")
+            if not isinstance(policy_digest, str) or not re.fullmatch(
+                r"sha256:[0-9a-f]{64}", policy_digest
+            ):
+                raise ValueError("invalid trace redaction policy digest")
+            if trace_ref.ingest_mode is IngestMode.REFERENCE and any(
+                batch.redaction_policy_digest != policy_digest
+                for batch in batches
+                if any(trace_ref.event_seq_start <= event.seq <= trace_ref.event_seq_end
+                       for event in batch.events)
+            ):
+                raise ValueError("source batch redaction policy mismatch")
+            expected_id = f"DSH2_{suffix}_{policy_digest[7:23]}"
+        else:
+            expected_id = f"DSH_{suffix}"
+        if expected_id != trace_ref.source_trace_id:
+            raise ValueError("source trace content or policy digest mismatch")
         complete = (
             len(sequence) == trace_ref.event_count
             and sequence == list(range(trace_ref.event_seq_start, trace_ref.event_seq_end + 1))
@@ -412,12 +509,37 @@ class BridgeService:
         path.write_bytes(encoded)
 
 
-def _redact(value: Any) -> Any:
+def _redact(value: Any, policy: dict[str, Any]) -> Any:
     if isinstance(value, dict):
-        return {
-            str(key): "[REDACTED]" if _SENSITIVE_KEY.fullmatch(str(key)) else _redact(item)
-            for key, item in value.items()
+        configured_keys = {key.casefold() for key in policy["sensitive_keys"]}
+        safe_names = {
+            str(key) for key in value
+            if str(key) in _SAFE_DATA_KEYS or str(key).casefold() in configured_keys
+            or _SENSITIVE_KEY.fullmatch(str(key))
         }
+        result = {}
+        anonymous = 0
+        for key, item in sorted(value.items(), key=lambda pair: str(pair[0])):
+            name = str(key)
+            if name in safe_names:
+                output_key = name
+            else:
+                while f"[FIELD_{anonymous}]" in safe_names:
+                    anonymous += 1
+                output_key = f"[FIELD_{anonymous}]"
+                anonymous += 1
+            result[output_key] = (
+                "[REDACTED]"
+                if _SENSITIVE_KEY.fullmatch(name) or name.casefold() in configured_keys
+                else item
+                if name in {"event_digest", "value_digest"}
+                and isinstance(item, str)
+                and re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", item)
+                else _redact(item, policy)
+            )
+        return result
     if isinstance(value, list):
-        return [_redact(item) for item in value]
+        return [_redact(item, policy) for item in value]
+    if isinstance(value, (str, int, float)):
+        return "[REDACTED]"
     return value

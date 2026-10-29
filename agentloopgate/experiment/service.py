@@ -879,7 +879,10 @@ class FormalExperimentService:
         *,
         snapshot_id: str,
         existing_only: bool = False,
+        verify_only: bool = False,
     ) -> FormalBatchRunResult:
+        if verify_only and not existing_only:
+            raise ValueError("verify_only requires existing_only")
         contract = load_contract(self.root / "configs/objective_contract.yaml")
         verify_contract_digest(contract)
         split = self.splits.verify()
@@ -1129,7 +1132,7 @@ class FormalExperimentService:
             checkout=_under(self.root, Path(self.config.tau3_checkout)),
             pilot=pilot,
         )
-        return FormalBatchRunner(
+        runner = FormalBatchRunner(
             self.root,
             DshFormalBatchExecutor(
                 self.root,
@@ -1176,7 +1179,8 @@ class FormalExperimentService:
                     else "whole_attempt"
                 ),
             ),
-        ).run(spec)
+        )
+        return runner.verify_existing(spec) if verify_only else runner.run(spec)
 
     def verify_updater_generation_authorization(
         self,

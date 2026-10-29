@@ -66,7 +66,7 @@ from agentloopgate.snapshots import SnapshotManager
 from agentloopgate.splits.models import PoolManifest
 from agentloopgate.updaters import AheAdapter, AheExternalRunner
 
-from .batch import FormalBatchArtifact, FormalBatchRunner, FormalBatchSpec, FormalStage
+from .batch import FormalBatchArtifact, FormalStage
 from .diagnosis_ablation import (
     DiagnosisDirectionAblationArtifact,
     build_diagnosis_direction_ablation,
@@ -1240,6 +1240,8 @@ class FormalExperimentOrchestrator:
         candidates: list[CandidateRecord],
         snapshot_ids: list[str],
         batches: dict[str, FormalBatchArtifact],
+        *,
+        persist: bool = True,
     ) -> FormalSelectionArtifact:
         amended = self.config.schema_version == "1.2"
         inputs = [
@@ -1327,10 +1329,11 @@ class FormalExperimentOrchestrator:
         artifact = FormalSelectionArtifact.model_validate(
             {**payload, "selection_digest": canonical_digest(payload)}
         )
-        self._write_once(
-            self.experiment_root / "selection.json",
-            artifact.model_dump(mode="json"),
-        )
+        if persist:
+            self._write_once(
+                self.experiment_root / "selection.json",
+                artifact.model_dump(mode="json"),
+            )
         return artifact
 
     def _selection_operational_evidence(
@@ -1572,6 +1575,7 @@ class FormalExperimentOrchestrator:
         baseline: dict[FormalStage, FormalBatchArtifact],
         candidate_batches: dict[FormalStage, FormalBatchArtifact],
         lineage: FormalLineageArtifact,
+        persist: bool = True,
     ) -> FormalDecisionArtifact:
         comparisons = {
             stage: EvaluationAuditor.compare(
@@ -1653,10 +1657,11 @@ class FormalExperimentOrchestrator:
         artifact = FormalDecisionArtifact.model_validate(
             {**payload, "decision_digest": canonical_digest(payload)}
         )
-        self._write_once(
-            self.experiment_root / "decisions" / f"{selector}.json",
-            artifact.model_dump(mode="json"),
-        )
+        if persist:
+            self._write_once(
+                self.experiment_root / "decisions" / f"{selector}.json",
+                artifact.model_dump(mode="json"),
+            )
         return artifact
 
     def _decide_selected(
@@ -1667,6 +1672,8 @@ class FormalExperimentOrchestrator:
         baseline_id: str,
         release: dict[str, dict[FormalStage, FormalBatchArtifact]],
         lineage: FormalLineageArtifact,
+        *,
+        persist: bool = True,
     ) -> FormalDecisionArtifact:
         return self._decide(
             selector=selector,
@@ -1674,6 +1681,7 @@ class FormalExperimentOrchestrator:
             baseline=release[baseline_id],
             candidate_batches=release[snapshot_id],
             lineage=lineage,
+            persist=persist,
         )
 
     def _report(
@@ -1971,8 +1979,15 @@ class FormalExperimentOrchestrator:
                 raise FormalWorkflowBlocked(
                     "formal Selection-HOLD lineage contains post-Selection evidence"
                 )
-            verified = FormalBatchRunner(self.root, _NoExecute()).run(batch.spec)
-            if verified.artifact.batch_id != batch_id or not verified.resumed:
+            verified = self.service.run_stage(
+                batch.stage, snapshot_id=batch.spec.snapshot_id,
+                existing_only=True, verify_only=True,
+            )
+            if (
+                verified.artifact.batch_id != batch_id
+                or not verified.resumed
+                or verified.artifact != batch
+            ):
                 raise FormalWorkflowBlocked(
                     "formal Selection-HOLD batch did not verify as immutable"
                 )
@@ -2136,6 +2151,24 @@ class FormalExperimentOrchestrator:
             or lineage.lineage_digest != outcome.lineage_digest
         ):
             raise FormalWorkflowBlocked("formal experiment lineage digest mismatch")
+        if (
+            outcome.experiment_id != self.config.experiment_id
+            or lineage.experiment_id != outcome.experiment_id
+            or outcome.baseline_snapshot_id != self.config.baseline_snapshot_id
+            or len(outcome.candidate_ids) != len(outcome.candidate_snapshot_ids)
+            or len(set(outcome.candidate_ids)) != len(outcome.candidate_ids)
+            or len(set(outcome.candidate_snapshot_ids)) != len(outcome.candidate_snapshot_ids)
+            or len(set(lineage.candidate_ids)) != len(lineage.candidate_ids)
+            or len(set(lineage.snapshot_ids)) != len(lineage.snapshot_ids)
+            or set(lineage.candidate_ids) != set(outcome.candidate_ids)
+            or set(lineage.snapshot_ids) != {
+                outcome.baseline_snapshot_id, *outcome.candidate_snapshot_ids
+            }
+            or len(set(lineage.batch_ids)) != len(lineage.batch_ids)
+            or outcome.native_candidate_id not in outcome.candidate_ids
+            or outcome.agentloopgate_candidate_id not in outcome.candidate_ids
+        ):
+            raise FormalWorkflowBlocked("formal outcome identities conflict with lineage")
         for batch_id in lineage.batch_ids:
             batch_path = self.experiment_root / "batches" / f"{batch_id}.json"
             try:
@@ -2146,8 +2179,15 @@ class FormalExperimentOrchestrator:
                 raise FormalWorkflowBlocked(
                     f"formal batch is unavailable: {batch_id}"
                 ) from exc
-            verified = FormalBatchRunner(self.root, _NoExecute()).run(batch.spec)
-            if verified.artifact.batch_id != batch_id or not verified.resumed:
+            verified = self.service.run_stage(
+                batch.stage, snapshot_id=batch.spec.snapshot_id,
+                existing_only=True, verify_only=True,
+            )
+            if (
+                verified.artifact.batch_id != batch_id
+                or not verified.resumed
+                or verified.artifact != batch
+            ):
                 raise FormalWorkflowBlocked("formal batch replay did not resume exactly")
         for snapshot_id in outcome.candidate_snapshot_ids:
             SnapshotManager(self.root).verify(snapshot_id)
@@ -2528,10 +2568,3 @@ def _diverse_subset(
         if len(families) >= min_families:
             return list(subset)
     raise FormalWorkflowBlocked("no candidate subset satisfies the frozen asset-family minimum")
-
-
-class _NoExecute:
-    def execute(self, spec: FormalBatchSpec):
-        raise FormalWorkflowBlocked(
-            f"formal batch unexpectedly attempted re-execution: {spec.batch_id}"
-        )

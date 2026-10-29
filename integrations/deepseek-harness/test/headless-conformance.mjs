@@ -106,6 +106,9 @@ async function mockCompletionServer() {
 
 let mock
 try {
+  run(environment.AGENTLOOPGATE_BRIDGE_COMMAND, [
+    'init', '--runtime', 'deepseek-harness', '--project', temporary,
+  ])
   run('pnpm', ['pack', '--pack-destination', temporary], { cwd: packageRoot })
   const tarball = readdirSync(temporary)
     .filter(name => name.endsWith('.tgz'))
@@ -175,13 +178,22 @@ try {
     throw new Error(`live banking composition made ${String(mock.requestCount())} model requests`)
   }
   const traceRefs = readdirSync(join(temporary, 'runs/trace_refs'))
-    .filter(name => name.startsWith('DSH_') && name.endsWith('.json'))
+    .filter(name => (name.startsWith('DSH_') || name.startsWith('DSH2_'))
+      && name.endsWith('.json'))
     .map(name => JSON.parse(readFileSync(join(temporary, 'runs/trace_refs', name), 'utf8')))
-  if (!traceRefs.some(ref => ref.cursor_complete === true
+  const completeRef = traceRefs.find(ref => ref.cursor_complete === true
     && ref.evidence_status === 'verified'
-    && ref.event_seq_end >= envelope.event_seq_end)) {
+    && ref.event_seq_end >= envelope.event_seq_end)
+  if (completeRef === undefined) {
     throw new Error('live banking composition did not persist a complete DSH trace ref')
   }
+  run(resolve(projectRoot, '.venv/bin/python'), [
+    '-c',
+    'import sys; from pathlib import Path; from agentloopgate.bridge import BridgeService; '
+      + 'assert BridgeService(Path(sys.argv[1])).verify_trace(sys.argv[2])["evidence_status"] == "verified"',
+    temporary,
+    completeRef.source_trace_id,
+  ])
 
   run(dsh, ['--profile', 'headless', '--help'])
   run(dsh, [

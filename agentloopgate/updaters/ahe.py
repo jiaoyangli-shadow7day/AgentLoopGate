@@ -37,6 +37,7 @@ from agentloopgate.schemas import (
 )
 from agentloopgate.schemas.models import StrictModel
 from agentloopgate.updaters.base import UpdaterError, UpdaterHealth
+from agentloopgate.updaters.credential_proxy import CredentialProxy
 
 AHE_VERSION = "0.1.0"
 AHE_COMMIT = "8b2a55d97590363fe50c3cc6b5e833b020a4bb4c"
@@ -90,21 +91,31 @@ class AheSandbox:
         *,
         protected_root: Path | None = None,
         runtime_roots: tuple[Path, ...] = (),
+        proxy_port: int | None = None,
     ) -> None:
         self.staging_root = staging_root.resolve()
         self.protected_root = protected_root.resolve() if protected_root else None
         self.runtime_roots = tuple(path.resolve() for path in runtime_roots)
+        if proxy_port is not None and not 1 <= proxy_port <= 65535:
+            raise ValueError("invalid updater proxy port")
+        self.proxy_port = proxy_port
 
     def profile(self) -> str:
         staging = _sandbox_path(self.staging_root)
         rules = [
             "(version 1)",
             "(deny default)",
-            "(allow process*)",
+            "(allow process-exec)",
+            "(allow process-fork)",
             "(allow sysctl-read)",
-            "(allow mach*)",
-            "(allow signal)",
-            "(allow file-read*)",
+            "(allow mach-lookup)",
+            "(allow signal (target same-sandbox))",
+            "(allow file-read-metadata)",
+            '(allow file-read* (literal "/"))',
+            '(allow file-read* (subpath "/usr") (subpath "/System") '
+            '(subpath "/Library/Frameworks") (subpath "/private/etc") '
+            '(subpath "/private/var/db") (subpath "/private/var/run") '
+            '(subpath "/bin") (subpath "/sbin") (subpath "/dev"))',
         ]
         if self.protected_root is not None:
             rules.append(
@@ -112,9 +123,10 @@ class AheSandbox:
             )
         for root in (*self.runtime_roots, self.staging_root):
             rules.append(f'(allow file-read* (subpath "{_sandbox_path(root)}"))')
+        if self.proxy_port is not None:
+            rules.append(f'(allow network-outbound (remote ip "localhost:{self.proxy_port}"))')
         rules.extend(
             [
-                "(allow network*)",
                 f'(allow file-write* (subpath "{staging}"))',
                 '(allow file-write* (literal "/dev/null"))',
             ]
@@ -225,7 +237,7 @@ class AheExternalRunner:
                         AheSandbox(
                             doctor_root,
                             protected_root=self.project_root,
-                            runtime_roots=(self.checkout,),
+                            runtime_roots=(self.checkout, python.resolve().parent.parent),
                         ).profile(),
                         str(python),
                         "-c",
@@ -296,8 +308,6 @@ class AheExternalRunner:
         env = self._base_environment()
         env.update(
             {
-                "LLM_API_KEY": env["DEEPSEEK_API_KEY"],
-                "LLM_BASE_URL": request.base_url,
                 "LLM_MODEL": request.model,
                 "AGENTLOOPGATE_AHE_ATTEMPT_ID": request.attempt_id,
                 "AGENTLOOPGATE_AHE_EXPERIMENT": str(request.experiment_root),
@@ -321,40 +331,52 @@ class AheExternalRunner:
                 "XDG_CACHE_HOME": str(runtime_dir / "cache"),
             }
         )
-        command = [
-            "/usr/bin/sandbox-exec",
-            "-p",
-            AheSandbox(
-                request.experiment_root,
-                protected_root=self.project_root,
-                runtime_roots=(self.checkout,),
-            ).profile(),
-            str(self.checkout / ".venv/bin/python"),
-            str(driver),
-        ]
-        attempt_root = self._begin_attempt(request, command=command)
-        try:
-            completed = subprocess.run(
-                command,
-                cwd=self.checkout,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout_seconds,
-            )
-            exit_code = completed.returncode
-            stdout = completed.stdout
-            stderr = completed.stderr
-        except subprocess.TimeoutExpired as exc:
-            exit_code = 124
-            stdout = _subprocess_text(exc.stdout)
-            stderr = _subprocess_text(exc.stderr) or (
-                f"AHE exceeded the frozen {self.timeout_seconds}s timeout"
-            )
-        except OSError as exc:
-            exit_code = 127
-            stdout = ""
-            stderr = f"AHE process launch failed: {exc}"
+        with CredentialProxy(
+            request.base_url, os.environ.get("DEEPSEEK_API_KEY", ""),
+            direct=self.network_route_policy == "direct_no_proxy",
+        ) as proxy:
+            env["LLM_API_KEY"] = proxy.token
+            env["LLM_BASE_URL"] = proxy.base_url
+            command = [
+                "/usr/bin/sandbox-exec",
+                "-p",
+                AheSandbox(
+                    request.experiment_root,
+                    protected_root=self.project_root,
+                    runtime_roots=(
+                        self.checkout,
+                        (self.checkout / ".venv/bin/python").resolve().parent.parent,
+                    ),
+                    proxy_port=proxy.port,
+                ).profile(),
+                str(self.checkout / ".venv/bin/python"),
+                str(driver),
+            ]
+            attempt_root = self._begin_attempt(request, command=command)
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=self.checkout,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout_seconds,
+                )
+                exit_code = completed.returncode
+                stdout = completed.stdout
+                stderr = completed.stderr
+            except subprocess.TimeoutExpired as exc:
+                exit_code = 124
+                stdout = _subprocess_text(exc.stdout)
+                stderr = _subprocess_text(exc.stderr) or (
+                    f"AHE exceeded the frozen {self.timeout_seconds}s timeout"
+                )
+            except OSError as exc:
+                exit_code = 127
+                stdout = ""
+                stderr = f"AHE process launch failed: {exc}"
+        proxy_started, proxy_pending = proxy.counts()
+        proxy_usage = proxy.usage_totals()
         result_path = request.experiment_root / "ahe_result.json"
         result = {}
         if result_path.is_file():
@@ -374,6 +396,28 @@ class AheExternalRunner:
             cost_status,
             cost,
         ) = self._usage_accounting(usage)
+        call_count, unresolved, cost_status, mismatch = _reconcile_proxy_counts(
+            proxy_started, proxy_pending, call_count, unresolved, cost_status, cost
+        )
+        usage_mismatch = (
+            proxy_usage is None or proxy_usage != (input_tokens, cache_read_tokens, output_tokens)
+            or cost_status is not CostStatus.EXACT
+        )
+        if usage_mismatch:
+            unresolved += 1
+            if proxy_usage is None:
+                cost, cost_status = None, CostStatus.UNAVAILABLE
+            else:
+                cost = (
+                    Decimal(proxy_usage[0]) * self.input_price_per_million
+                    + Decimal(proxy_usage[1]) * self.cache_read_price_per_million
+                    + Decimal(proxy_usage[2]) * self.output_price_per_million
+                ) / Decimal(1_000_000)
+                cost_status = CostStatus.PARTIAL
+            mismatch = True
+        if mismatch:
+            exit_code = 70
+            stderr = (stderr + "\nAHE proxy and model usage evidence did not reconcile").strip()
         duration_ms = max(0, round((time.monotonic() - started) * 1000))
         attempt_root = self._preserve_attempt(
             request,
@@ -387,6 +431,9 @@ class AheExternalRunner:
             known_cost_usd=cost,
             model_call_count=call_count,
             unresolved_model_call_count=unresolved,
+            proxy_request_count=proxy_started,
+            proxy_pending_count=proxy_pending,
+            proxy_usage=proxy_usage,
         )
         raw_attempt = attempt_root / "raw"
         retained_usage = raw_attempt / "ahe_model_usage.jsonl"
@@ -413,11 +460,13 @@ class AheExternalRunner:
     def _base_environment(self) -> dict[str, str]:
         """Build the exact checkout-import and network route environment."""
 
-        environment = os.environ.copy()
+        allowed = {
+            "PATH", "LANG", "LC_ALL", "TZ", "SSL_CERT_FILE", "SSL_CERT_DIR",
+        }
+        environment = {key: value for key, value in os.environ.items() if key in allowed}
         python_paths = [str(self.checkout)]
-        if environment.get("PYTHONPATH"):
-            python_paths.append(environment["PYTHONPATH"])
         environment["PYTHONPATH"] = os.pathsep.join(python_paths)
+        environment["NO_PROXY"] = environment["no_proxy"] = "*"
         if self.network_route_policy == "direct_no_proxy":
             for name in (
                 "HTTP_PROXY",
@@ -573,6 +622,9 @@ class AheExternalRunner:
         known_cost_usd: Decimal | None,
         model_call_count: int,
         unresolved_model_call_count: int,
+        proxy_request_count: int,
+        proxy_pending_count: int,
+        proxy_usage: tuple[int, int, int] | None,
     ) -> Path:
         raw = destination / "raw"
         shutil.copytree(
@@ -594,6 +646,9 @@ class AheExternalRunner:
             "known_cost_usd": known_cost_usd,
             "model_call_count": model_call_count,
             "unresolved_model_call_count": unresolved_model_call_count,
+            "proxy_request_count": proxy_request_count,
+            "proxy_pending_count": proxy_pending_count,
+            "proxy_usage": proxy_usage,
             "model_usage_artifact": "raw/ahe_model_usage.jsonl",
         }
         (destination / "terminal.json").write_bytes(
@@ -1045,6 +1100,19 @@ def _subprocess_text(value: str | bytes | None) -> str:
     if value is None:
         return ""
     return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+
+
+def _reconcile_proxy_counts(
+    proxy_started: int, proxy_pending: int, call_count: int, unresolved: int,
+    cost_status: CostStatus, cost: Decimal | None,
+) -> tuple[int, int, CostStatus, bool]:
+    mismatch = abs(proxy_started - (call_count + unresolved))
+    if mismatch or proxy_pending:
+        return (
+            max(call_count, proxy_started), unresolved + max(mismatch, proxy_pending, 1),
+            CostStatus.PARTIAL if cost is not None else CostStatus.UNAVAILABLE, True,
+        )
+    return call_count, unresolved, cost_status, False
 
 
 def _sandbox_path(path: Path) -> str:

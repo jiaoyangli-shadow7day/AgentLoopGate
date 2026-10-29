@@ -45,7 +45,13 @@ Session Log ──> 原生 JSONL / SQLite
 ```
 
 默认 `reference` 模式只保存事件身份、摘要和 Hash；`mirror` 模式保存经过 AgentLoopGate
-Redaction 的必要副本。两者都用 `(session.id, event.seq)` 去重。序号缺口、丢弃或 Bridge
+Redaction 的必要副本。服务端读取配置的脱敏策略，遮盖自由文本和数值，保留允许的结构字段及
+有效摘要；未知字段名和事件类型也会归一化。此处理不可逆，原始上下文仍以宿主 Session Log 为准。
+调用方提供的 batch ID 和 request ID 是标识符，不应包含用户内容或密钥。
+
+新轨迹的 `DSH2` 标识绑定事件内容及脱敏策略摘要，同一会话的批次必须使用相同策略。
+历史 `DSH` 轨迹仍可按原有内容摘要校验，但不能证明采用了新脱敏策略。
+两种模式都用 `(session.id, event.seq)` 去重。序号缺口、丢弃或 Bridge
 失败会把证据标为 `evidence_incomplete`，相关 Run 不能进入正式 Gate，但不会中断普通 Agent Turn。
 
 ## 插件提供什么

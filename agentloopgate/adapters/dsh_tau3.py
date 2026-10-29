@@ -762,7 +762,7 @@ class DshTau3EvidenceLinker:
 
     def _latest_verified_ref(self, session_hash: str) -> SourceTraceRef:
         matches: list[SourceTraceRef] = []
-        for path in (self.project_root / "runs/trace_refs").glob("DSH_*.json"):
+        for path in (self.project_root / "runs/trace_refs").glob("DSH*.json"):
             try:
                 ref = SourceTraceRef.model_validate_json(path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
