@@ -17,7 +17,7 @@ and that a paired evidence gate can prevent an unsafe release. It does **not**
 claim that the updater achieved positive self-evolution or that the result
 generalizes beyond this validation setting.
 
-## 给招聘者的快速阅读
+## 项目概览
 
 **问题：** Agent 修改后的总成功数不变，可能只是新任务成功换来了旧任务失败；只看总分难以判断能否发布。
 
@@ -29,7 +29,7 @@ generalizes beyond this validation setting.
 
 **产品决策：** 当目标用户是 Agent 发布负责人时，优先展示“哪些已成功任务变差、证据是否完整、额外成本是否可接受”，再给出是否继续评测的建议。R15 的单次运行只支持对这 15 个任务的观察；下一步需要重复试验和目标用户反馈，衡量误拦截与接入成本。
 
-**当前修复验证边界：** 本地测试覆盖证据篡改、异常中断恢复、沙箱和脱敏；完整的真实 Release 到 Promote 正向链路仍需独立验证。固定版本 AHE 已通过真实 NexAU 沙箱工具预检及模拟模型的调用、代理和用量对账测试；NexAU 官方源码地址当前不可用，本次测试从公开镜像取得与官方 v0.3.9 发布记录一致的提交，并按锁文件校验依赖摘要。真实模型服务的端到端兼容性尚未在本次修复中验证。历史实验及 CI 结果对应各自冻结版本，不代表新修改已经通过远程 CI。
+**验证范围：** 测试覆盖证据篡改、异常中断恢复、沙箱和脱敏；完整的真实 Release 到 Promote 正向链路仍需独立验证。固定版本 AHE 已通过 NexAU 沙箱工具预检及模拟模型的调用、代理和用量对账测试。真实模型服务的端到端兼容性仍需验证。历史实验及 CI 结果对应各自冻结版本。
 
 AHE 隔离目前依赖 macOS sandbox；模型请求经本机受限代理转发至固定的 DeepSeek 官方接口，真实密钥不传入 Updater 子进程。代理会独立核对请求数和服务端用量；缺少完整用量时停止并保留未知成本范围。这是原型的本地防护，尚未完成独立安全审计。
 
@@ -37,7 +37,6 @@ AHE 隔离目前依赖 macOS sandbox；模型请求经本机受限代理转发�
 
 合成集成测试覆盖多批次轨迹、收据和成本验真、候选选择重算、发布决策及快照切换，并验证篡改会阻止发布。测试使用合成数据和测试用批次调度，不调用模型，也不能代替真实 Release 记录。
 
-- 求职材料参考：[简历项目描述与面试要点](docs/resume-guide.md)
 - Start without an API key: [No-key quickstart](#无-key-quickstart)
 - Read the papers: [English PDF](output/pdf/agentloopgate-evidence-governed-evolution.pdf),
   [Chinese PDF](output/pdf/agentloopgate-evidence-governed-evolution-zh.pdf), and
